@@ -13,6 +13,24 @@ body {
   margin: 0; background: var(--bg); color: var(--text);
   font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
 }
+
+/* Top tabs (shared with timer.html) */
+.app-tabs {
+  display: flex; position: sticky; top: 0; z-index: 10;
+  background: #0a0a0f; border-bottom: 1px solid var(--border);
+}
+.app-tab {
+  flex: 1; padding: 14px 8px; text-align: center; text-decoration: none;
+  color: var(--muted); font-size: 15px; font-weight: 600; letter-spacing: 0.3px;
+  border-bottom: 3px solid transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-tab.active {
+  color: var(--text); border-bottom-color: var(--self-ded);
+  background: rgba(52, 152, 219, 0.08);
+}
+.app-tab:active { background: rgba(255,255,255,0.05); }
+
 .app { display: flex; flex-direction: column; min-height: 100vh; }
 .header {
   display: flex; justify-content: space-between; align-items: center;
