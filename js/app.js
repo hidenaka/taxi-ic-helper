@@ -33,6 +33,25 @@ const DIRECTION_ORDER = [
   'gaikan', 'shutoko_inner'
 ];
 
+const DIRECTION_EMOJI = {
+  'tomei':          '🔵',
+  'chuo':           '🟡',
+  'kanetsu':        '🟢',
+  'tohoku':         '🟣',
+  'joban':          '🟠',
+  'keiyo':          '🟤',
+  'tokan':          '🔴',
+  'aqua':           '🟦',
+  'tateyama':       '🟧',
+  'third_keihin':   '🔶',
+  'yokoyoko':       '🔷',
+  'yokohane_route': '🟥',
+  'kariba_route':   '🟨',
+  'wangan_route':   '🟩',
+  'gaikan':         '⚪',
+  'shutoko_inner':  '⚫'
+};
+
 const DIRECTION_LABELS = {
   'tomei':          '東名',
   'chuo':           '中央道',
@@ -126,11 +145,14 @@ function populateAllIcSelects() {
 
   const groups = buildIcGrouping(state.data);
   for (const grp of groups) {
-    const ogE = document.createElement('optgroup'); ogE.label = grp.label;
-    const ogX = document.createElement('optgroup'); ogX.label = grp.label;
+    const emoji = DIRECTION_EMOJI[grp.id] || '';
+    const ogLabel = `${emoji} ${grp.label}`;
+    const ogE = document.createElement('optgroup'); ogE.label = ogLabel;
+    const ogX = document.createElement('optgroup'); ogX.label = ogLabel;
     for (const { ic } of grp.ics) {
-      const e = document.createElement('option'); e.value = ic.id; e.textContent = ic.name;
-      const x = document.createElement('option'); x.value = ic.id; x.textContent = ic.name;
+      const txt = `${emoji} ${ic.name}`;
+      const e = document.createElement('option'); e.value = ic.id; e.textContent = txt;
+      const x = document.createElement('option'); x.value = ic.id; x.textContent = txt;
       ogE.appendChild(e); ogX.appendChild(x);
     }
     entrySel.appendChild(ogE); exitSel.appendChild(ogX);
