@@ -27,13 +27,27 @@
     </section>
 
     <section class="ic-select">
-      <label>入口IC
-        <select id="sel-entry-ic"></select>
-      </label>
-      <label>出口IC
-        <select id="sel-exit-ic"></select>
-      </label>
-      <label><input type="checkbox" id="chk-roundtrip" checked> 往復</label>
+      <div class="field">
+        <label for="inp-entry-ic">入口IC（検索可）</label>
+        <input type="text" id="inp-entry-ic" list="ic-list-all"
+               placeholder="IC名を入力（例: 鶴ヶ島）" autocomplete="off">
+        <div class="hint" id="entry-ic-hint"></div>
+      </div>
+
+      <div class="field">
+        <label for="sel-exit-fav">出口IC（お気に入り）</label>
+        <select id="sel-exit-fav"></select>
+        <details class="exit-other">
+          <summary>別のICを探す</summary>
+          <input type="text" id="inp-exit-ic" list="ic-list-all"
+                 placeholder="IC名を入力" autocomplete="off">
+          <div class="hint" id="exit-ic-hint"></div>
+        </details>
+      </div>
+
+      <label><input type="checkbox" id="chk-roundtrip" checked> 往復（デフォルト）</label>
+
+      <datalist id="ic-list-all"></datalist>
     </section>
 
     <section class="verdict" id="verdict">

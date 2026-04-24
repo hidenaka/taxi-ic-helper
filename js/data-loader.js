@@ -5,7 +5,8 @@ export async function loadAllData() {
     shutokoDist: './data/shutoko_distances.json',
     gaikanDist:  './data/gaikan_distances.json',
     routes:      './data/routes.json',
-    companyPay:  './data/company-pay.json'
+    companyPay:  './data/company-pay.json',
+    favorites:   './data/favorites.json'
   };
   const entries = await Promise.all(
     Object.entries(paths).map(async ([k, p]) => [k, await (await fetch(p)).json()])

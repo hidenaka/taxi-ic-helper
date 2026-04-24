@@ -15,8 +15,13 @@ const state = {
 async function init() {
   state.data = await loadAllData();
   populateOuterRouteSelect();
-  populateIcSelects();
+  icValueIndex = buildSearchIndex();
+  populateExitFavorites();
+  setEntryIc('maihama');
   wireEvents();
+  wireEntrySearch();
+  wireExitFavorites();
+  wireExitSearch();
   update();
 }
 
@@ -103,33 +108,54 @@ function buildIcGrouping(data) {
   return groups.filter(g => g.ics.length > 0);
 }
 
-function populateIcSelects() {
-  const entrySel = document.getElementById('sel-entry-ic');
-  const exitSel  = document.getElementById('sel-exit-ic');
-  entrySel.innerHTML = '';
-  exitSel.innerHTML = '';
+// ---- Search support: build datalist and a value→id map ----
+function buildSearchIndex() {
+  const datalist = document.getElementById('ic-list-all');
+  datalist.innerHTML = '';
+  const valueToIcId = new Map();
 
   const groups = buildIcGrouping(state.data);
   for (const grp of groups) {
-    const ogE = document.createElement('optgroup'); ogE.label = grp.label;
-    const ogX = document.createElement('optgroup'); ogX.label = grp.label;
     for (const { ic } of grp.ics) {
-      const e = document.createElement('option'); e.value = ic.id; e.textContent = ic.name;
-      const x = document.createElement('option'); x.value = ic.id; x.textContent = ic.name;
-      ogE.appendChild(e); ogX.appendChild(x);
+      const value = `${ic.name}（${grp.label}）`;
+      valueToIcId.set(value, ic.id);
+      const opt = document.createElement('option');
+      opt.value = value;
+      datalist.appendChild(opt);
     }
-    entrySel.appendChild(ogE); exitSel.appendChild(ogX);
   }
+  return valueToIcId;
+}
 
-  entrySel.value = 'maihama';
-  exitSel.value = 'kasumigaseki';
-  state.selected.entryIcId = 'maihama';
+let icValueIndex = new Map();
+
+// ---- Favorites pulldown ----
+function populateExitFavorites() {
+  const sel = document.getElementById('sel-exit-fav');
+  sel.innerHTML = '';
+  const favorites = state.data.favorites.exit_favorites;
+  for (const f of favorites) {
+    const ic = state.data.ics.find(x => x.id === f.ic_id);
+    if (!ic) continue;
+    const opt = document.createElement('option');
+    opt.value = f.ic_id;
+    const noteStr = f.note ? `（${f.note}）` : '';
+    opt.textContent = `${ic.name}${noteStr}`;
+    sel.appendChild(opt);
+  }
+  sel.value = 'kasumigaseki';
   state.selected.exitIcId = 'kasumigaseki';
+}
 
-  const defaultEntry = state.data.ics.find(x => x.id === 'maihama');
-  state.selected.outerRoute = inferOuterRoute(defaultEntry);
+function setEntryIc(icId) {
+  const ic = state.data.ics.find(x => x.id === icId);
+  if (!ic) return;
+  state.selected.entryIcId = icId;
+  state.selected.outerRoute = inferOuterRoute(ic);
   document.getElementById('sel-outer-route').value = state.selected.outerRoute;
   toggleGaikanCheckbox();
+  const val = [...icValueIndex.entries()].find(([_, id]) => id === icId)?.[0];
+  if (val) document.getElementById('inp-entry-ic').value = val;
 }
 
 function inferOuterRoute(ic) {
@@ -155,23 +181,79 @@ function inferOuterRoute(ic) {
   return 'none';  // 都心IC / 首都高内
 }
 
+// ---- Entry IC search handler ----
+function wireEntrySearch() {
+  const input = document.getElementById('inp-entry-ic');
+  const hint  = document.getElementById('entry-ic-hint');
+
+  function resolve() {
+    const val = input.value;
+    const icId = icValueIndex.get(val);
+    if (!icId) {
+      hint.textContent = val ? '候補から選択してください' : '';
+      hint.className = val ? 'hint error' : 'hint';
+      return;
+    }
+    const ic = state.data.ics.find(x => x.id === icId);
+    state.selected.entryIcId = icId;
+    state.selected.outerRoute = inferOuterRoute(ic);
+    document.getElementById('sel-outer-route').value = state.selected.outerRoute;
+    toggleGaikanCheckbox();
+    hint.textContent = `${ic.route_name || ''}`;
+    hint.className = 'hint';
+    update();
+  }
+  input.addEventListener('change', resolve);
+  input.addEventListener('input', resolve);
+}
+
+// ---- Exit IC handlers: favorite select + "その他" search ----
+function wireExitFavorites() {
+  document.getElementById('sel-exit-fav').addEventListener('change', (e) => {
+    state.selected.exitIcId = e.target.value;
+    const ic = state.data.ics.find(x => x.id === e.target.value);
+    if (ic) {
+      const input = document.getElementById('inp-exit-ic');
+      const val = [...icValueIndex.entries()].find(([_, id]) => id === ic.id)?.[0];
+      if (input && val) input.value = val;
+    }
+    update();
+  });
+}
+
+function wireExitSearch() {
+  const input = document.getElementById('inp-exit-ic');
+  const hint  = document.getElementById('exit-ic-hint');
+  function resolve() {
+    const val = input.value;
+    const icId = icValueIndex.get(val);
+    if (!icId) {
+      hint.textContent = val ? '候補から選択してください' : '';
+      hint.className = val ? 'hint error' : 'hint';
+      return;
+    }
+    state.selected.exitIcId = icId;
+    const sel = document.getElementById('sel-exit-fav');
+    const favIds = state.data.favorites.exit_favorites.map(f => f.ic_id);
+    if (favIds.includes(icId)) {
+      sel.value = icId;
+    } else {
+      sel.value = '';
+    }
+    const ic = state.data.ics.find(x => x.id === icId);
+    hint.textContent = `${ic.route_name || ''}`;
+    hint.className = 'hint';
+    update();
+  }
+  input.addEventListener('change', resolve);
+  input.addEventListener('input', resolve);
+}
+
 function wireEvents() {
   document.getElementById('sel-outer-route').addEventListener('change', (e) => {
     state.selected.outerRoute = e.target.value;
     toggleGaikanCheckbox();
     update();
-  });
-  document.getElementById('sel-entry-ic').addEventListener('change', (e) => {
-    state.selected.entryIcId = e.target.value;
-    const ic = state.data.ics.find(x => x.id === e.target.value);
-    const inferred = inferOuterRoute(ic);
-    state.selected.outerRoute = inferred;
-    document.getElementById('sel-outer-route').value = inferred;
-    toggleGaikanCheckbox();
-    update();
-  });
-  document.getElementById('sel-exit-ic').addEventListener('change', (e) => {
-    state.selected.exitIcId = e.target.value; update();
   });
   document.getElementById('chk-roundtrip').addEventListener('change', (e) => {
     state.selected.roundTrip = e.target.checked; update();
