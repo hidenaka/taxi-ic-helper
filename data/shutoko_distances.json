@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source": "首都高 主要入口 → 代表都心出口の距離（暫定値）",
-  "note": "片道実走距離。往復時は ×2。Google Maps 等で後日精度確認。",
+  "note": "片道実走距離。往復時は ×2。Google Maps 等で後日精度確認。approx:true の行は概算値。",
   "entries": [
     { "from": "nakadai",          "to": "kasumigaseki", "km": 14.2 },
     { "from": "shingo",           "to": "kasumigaseki", "km": 16.8 },
@@ -13,6 +13,102 @@
     { "from": "shioiri",          "to": "kasumigaseki", "km": 22.3 },
     { "from": "wangan_kanpachi",  "to": "kasumigaseki", "km": 22.1 },
     { "from": "kukou_chuou",      "to": "kasumigaseki", "km": 18.0 },
-    { "from": "tokyo_ic",         "to": "kasumigaseki", "km": 10.4 }
+    { "from": "tokyo_ic",         "to": "kasumigaseki", "km": 10.4 },
+
+    { "from": "takaido",          "to": "kasumigaseki",   "km": 11.0, "approx": true },
+    { "from": "takaido",          "to": "kukou_chuou",    "km": 26.0, "approx": true },
+    { "from": "takaido",          "to": "wangan_kanpachi","km": 19.0, "approx": true },
+    { "from": "takaido",          "to": "tokyo_ic",       "km": 14.0, "approx": true },
+    { "from": "takaido",          "to": "gaien",          "km": 9.0,  "approx": true },
+    { "from": "takaido",          "to": "iikura",         "km": 10.0, "approx": true },
+    { "from": "takaido",          "to": "shibaura",       "km": 15.0, "approx": true },
+    { "from": "takaido",          "to": "meguro",         "km": 9.5,  "approx": true },
+    { "from": "takaido",          "to": "ebara",          "km": 11.0, "approx": true },
+    { "from": "takaido",          "to": "togoshi",        "km": 12.0, "approx": true },
+    { "from": "takaido",          "to": "sangenjaya",     "km": 8.5,  "approx": true },
+    { "from": "takaido",          "to": "tamagawa_ic",    "km": 7.0,  "approx": true },
+
+    { "from": "nerima",           "to": "kasumigaseki",   "km": 16.0, "approx": true },
+    { "from": "nerima",           "to": "kukou_chuou",    "km": 32.0, "approx": true },
+    { "from": "nerima",           "to": "wangan_kanpachi","km": 28.0, "approx": true },
+    { "from": "nerima",           "to": "tokyo_ic",       "km": 19.0, "approx": true },
+    { "from": "nerima",           "to": "gaien",          "km": 13.0, "approx": true },
+
+    { "from": "kawaguchi_jct",    "to": "kasumigaseki",   "km": 15.0, "approx": true },
+    { "from": "kawaguchi_jct",    "to": "kukou_chuou",    "km": 32.0, "approx": true },
+    { "from": "kawaguchi_jct",    "to": "wangan_kanpachi","km": 28.0, "approx": true },
+    { "from": "kawaguchi_jct",    "to": "tokyo_ic",       "km": 18.0, "approx": true },
+    { "from": "kawaguchi_jct",    "to": "kanda_bashi",    "km": 12.0, "approx": true },
+    { "from": "kawaguchi_jct",    "to": "hakozaki",       "km": 11.0, "approx": true },
+
+    { "from": "misato_jct",       "to": "kasumigaseki",   "km": 18.0, "approx": true },
+    { "from": "misato_jct",       "to": "kukou_chuou",    "km": 34.0, "approx": true },
+    { "from": "misato_jct",       "to": "wangan_kanpachi","km": 30.0, "approx": true },
+    { "from": "misato_jct",       "to": "tokyo_ic",       "km": 21.0, "approx": true },
+    { "from": "misato_jct",       "to": "hakozaki",       "km": 14.0, "approx": true },
+
+    { "from": "shinozaki",        "to": "kasumigaseki",   "km": 13.0, "approx": true },
+    { "from": "shinozaki",        "to": "kukou_chuou",    "km": 27.0, "approx": true },
+    { "from": "shinozaki",        "to": "wangan_kanpachi","km": 23.0, "approx": true },
+    { "from": "shinozaki",        "to": "hakozaki",       "km": 9.0,  "approx": true },
+    { "from": "shinozaki",        "to": "kyobashi",       "km": 11.0, "approx": true },
+
+    { "from": "wangan_ichikawa",  "to": "kasumigaseki",   "km": 20.0, "approx": true },
+    { "from": "wangan_ichikawa",  "to": "kukou_chuou",    "km": 12.0, "approx": true },
+    { "from": "wangan_ichikawa",  "to": "wangan_kanpachi","km": 16.0, "approx": true },
+    { "from": "wangan_ichikawa",  "to": "ginza",          "km": 16.0, "approx": true },
+    { "from": "wangan_ichikawa",  "to": "hakozaki",       "km": 17.0, "approx": true },
+
+    { "from": "ukishima_jct",     "to": "kasumigaseki",   "km": 26.0, "approx": true },
+    { "from": "ukishima_jct",     "to": "kukou_chuou",    "km": 9.0,  "approx": true },
+    { "from": "ukishima_jct",     "to": "wangan_kanpachi","km": 6.0,  "approx": true },
+    { "from": "ukishima_jct",     "to": "shibaura",       "km": 20.0, "approx": true },
+
+    { "from": "kisarazu_jct",     "to": "kasumigaseki",   "km": 35.0, "approx": true },
+    { "from": "kisarazu_jct",     "to": "kukou_chuou",    "km": 15.0, "approx": true },
+    { "from": "kisarazu_jct",     "to": "wangan_kanpachi","km": 20.0, "approx": true },
+    { "from": "kisarazu_jct",     "to": "shibaura",       "km": 28.0, "approx": true },
+
+    { "from": "tamagawa_ic",      "to": "kasumigaseki",   "km": 13.0, "approx": true },
+    { "from": "tamagawa_ic",      "to": "kukou_chuou",    "km": 23.0, "approx": true },
+    { "from": "tamagawa_ic",      "to": "wangan_kanpachi","km": 19.0, "approx": true },
+    { "from": "tamagawa_ic",      "to": "shibaura",       "km": 10.0, "approx": true },
+    { "from": "tamagawa_ic",      "to": "meguro",         "km": 6.0,  "approx": true },
+
+    { "from": "tokyo_ic",         "to": "kukou_chuou",    "km": 27.0, "approx": true },
+    { "from": "tokyo_ic",         "to": "wangan_kanpachi","km": 21.0, "approx": true },
+    { "from": "tokyo_ic",         "to": "hakozaki",       "km": 5.0,  "approx": true },
+    { "from": "tokyo_ic",         "to": "ginza",          "km": 7.0,  "approx": true },
+    { "from": "tokyo_ic",         "to": "kyobashi",       "km": 7.5,  "approx": true },
+
+    { "from": "maihama",          "to": "kukou_chuou",    "km": 8.0,  "approx": true },
+    { "from": "maihama",          "to": "wangan_kanpachi","km": 12.0, "approx": true },
+    { "from": "maihama",          "to": "hakozaki",       "km": 12.0, "approx": true },
+
+    { "from": "wangan_kanpachi",  "to": "kukou_chuou",    "km": 5.0,  "approx": true },
+
+    { "from": "nakadai",          "to": "kukou_chuou",    "km": 30.0, "approx": true },
+    { "from": "nakadai",          "to": "wangan_kanpachi","km": 26.0, "approx": true },
+    { "from": "nakadai",          "to": "kanda_bashi",    "km": 11.0, "approx": true },
+
+    { "from": "shingo",           "to": "kukou_chuou",    "km": 32.0, "approx": true },
+    { "from": "shingo",           "to": "kanda_bashi",    "km": 13.0, "approx": true },
+
+    { "from": "kahei",            "to": "kukou_chuou",    "km": 28.0, "approx": true },
+    { "from": "kahei",            "to": "hakozaki",       "km": 9.0,  "approx": true },
+
+    { "from": "yotsugi",          "to": "kukou_chuou",    "km": 25.0, "approx": true },
+    { "from": "yotsugi",          "to": "hakozaki",       "km": 6.0,  "approx": true },
+    { "from": "yotsugi",          "to": "kyobashi",       "km": 8.0,  "approx": true },
+
+    { "from": "kinshicho",        "to": "kukou_chuou",    "km": 24.0, "approx": true },
+    { "from": "kinshicho",        "to": "hakozaki",       "km": 5.0,  "approx": true },
+
+    { "from": "eifuku",           "to": "kukou_chuou",    "km": 25.0, "approx": true },
+    { "from": "eifuku",           "to": "wangan_kanpachi","km": 21.0, "approx": true },
+    { "from": "eifuku",           "to": "sangenjaya",     "km": 6.0,  "approx": true },
+
+    { "from": "shioiri",          "to": "kukou_chuou",    "km": 10.0, "approx": true },
+    { "from": "shioiri",          "to": "wangan_kanpachi","km": 6.0,  "approx": true }
   ]
 }
