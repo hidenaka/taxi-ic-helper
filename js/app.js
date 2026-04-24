@@ -8,7 +8,8 @@ const state = {
     entryIcId: null,
     exitIcId: null,
     roundTrip: true,
-    viaGaikan: false
+    viaGaikan: false,
+    shutokoRouteId: null
   }
 };
 
@@ -19,6 +20,7 @@ async function init() {
   populateAllIcSelects();
   setEntryIc('maihama');     // calls updateOuterRouteOptions internally
   setExitIc('kukou_chuou');
+  updateShutokoRouteOptions();
   wireEvents();
   update();
 }
@@ -176,6 +178,7 @@ function setEntryIc(icId) {
   hint.className = 'hint';
 
   toggleGaikanCheckbox();
+  updateShutokoRouteOptions();
 }
 
 function setExitIc(icId) {
@@ -195,6 +198,8 @@ function setExitIc(icId) {
   const hint = document.getElementById('exit-ic-hint');
   hint.textContent = ic.route_name || '';
   hint.className = 'hint';
+
+  updateShutokoRouteOptions();
 }
 
 function getOuterRouteOptions(ic) {
@@ -249,11 +254,45 @@ function updateOuterRouteOptions() {
   }
 }
 
+function updateShutokoRouteOptions() {
+  const { ics, deduction, shutokoRoutes } = state.data;
+  const entryIc = ics.find(x => x.id === state.selected.entryIcId);
+  const exitIc  = ics.find(x => x.id === state.selected.exitIcId);
+  if (!entryIc || !exitIc) return;
+
+  // Compute shutoko start IC (same logic as judge.js resolveShutokoStartIcId)
+  const dir = deduction.directions.find(d => d.id === state.selected.outerRoute);
+  const startIcId = dir ? dir.baseline.ic_id : entryIc.id;
+
+  const pair = shutokoRoutes.pairs.find(p => p.from === startIcId && p.to === exitIc.id);
+  const label = document.getElementById('label-shutoko-route');
+  const sel   = document.getElementById('sel-shutoko-route');
+  sel.innerHTML = '';
+
+  if (!pair || pair.options.length <= 1) {
+    label.hidden = true;
+    state.selected.shutokoRouteId = null;
+    return;
+  }
+
+  label.hidden = false;
+  for (const opt of pair.options) {
+    const o = document.createElement('option');
+    o.value = opt.id;
+    o.textContent = `${opt.label}（${opt.km}km）`;
+    sel.appendChild(o);
+  }
+  const def = pair.options.find(o => o.default) || pair.options[0];
+  sel.value = def.id;
+  state.selected.shutokoRouteId = def.id;
+}
+
 function wireEvents() {
   // outerRoute / gaikan checkbox / roundtrip
   document.getElementById('sel-outer-route').addEventListener('change', (e) => {
     state.selected.outerRoute = e.target.value;
     toggleGaikanCheckbox();
+    updateShutokoRouteOptions();
     update();
   });
   document.getElementById('chk-roundtrip').addEventListener('change', (e) => {
@@ -264,6 +303,10 @@ function wireEvents() {
   });
   document.getElementById('btn-geo-refresh').addEventListener('click', () => {
     document.getElementById('geo-location').textContent = 'GPS はv0.2で実装予定';
+  });
+  document.getElementById('sel-shutoko-route').addEventListener('change', (e) => {
+    state.selected.shutokoRouteId = e.target.value;
+    update();
   });
 
   // ---- Entry IC: search input + pulldown ----
@@ -361,7 +404,8 @@ function update() {
   const result = judgeRoute({
     outerRoute: state.selected.outerRoute,
     entryIc, exitIc,
-    roundTrip: state.selected.roundTrip
+    roundTrip: state.selected.roundTrip,
+    shutokoRouteId: state.selected.shutokoRouteId
   }, state.data);
 
   renderVerdict(result);
