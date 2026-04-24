@@ -28,9 +28,10 @@
 
     <section class="ic-select">
       <div class="field">
-        <label for="inp-entry-ic">入口IC（検索可）</label>
+        <label for="inp-entry-ic">入口IC</label>
         <input type="text" id="inp-entry-ic" list="ic-list-all"
-               placeholder="IC名を入力（例: 鶴ヶ島）" autocomplete="off">
+               placeholder="IC名で検索（例: 鶴ヶ島）" autocomplete="off">
+        <select id="sel-entry-ic"></select>
         <div class="hint" id="entry-ic-hint"></div>
       </div>
 
@@ -40,7 +41,8 @@
         <details class="exit-other">
           <summary>別のICを探す</summary>
           <input type="text" id="inp-exit-ic" list="ic-list-all"
-                 placeholder="IC名を入力" autocomplete="off">
+                 placeholder="IC名で検索" autocomplete="off">
+          <select id="sel-exit-all"></select>
           <div class="hint" id="exit-ic-hint"></div>
         </details>
       </div>

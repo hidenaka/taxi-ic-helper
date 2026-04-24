@@ -17,11 +17,10 @@ async function init() {
   populateOuterRouteSelect();
   icValueIndex = buildSearchIndex();
   populateExitFavorites();
+  populateAllIcSelects();
   setEntryIc('maihama');
+  setExitIc('kukou_chuou');
   wireEvents();
-  wireEntrySearch();
-  wireExitFavorites();
-  wireExitSearch();
   update();
 }
 
@@ -129,6 +128,26 @@ function buildSearchIndex() {
 
 let icValueIndex = new Map();
 
+// ---- Populate both grouped pulldowns (entry + exit-all) ----
+function populateAllIcSelects() {
+  const entrySel = document.getElementById('sel-entry-ic');
+  const exitSel  = document.getElementById('sel-exit-all');
+  entrySel.innerHTML = '';
+  exitSel.innerHTML = '';
+
+  const groups = buildIcGrouping(state.data);
+  for (const grp of groups) {
+    const ogE = document.createElement('optgroup'); ogE.label = grp.label;
+    const ogX = document.createElement('optgroup'); ogX.label = grp.label;
+    for (const { ic } of grp.ics) {
+      const e = document.createElement('option'); e.value = ic.id; e.textContent = ic.name;
+      const x = document.createElement('option'); x.value = ic.id; x.textContent = ic.name;
+      ogE.appendChild(e); ogX.appendChild(x);
+    }
+    entrySel.appendChild(ogE); exitSel.appendChild(ogX);
+  }
+}
+
 // ---- Favorites pulldown ----
 function populateExitFavorites() {
   const sel = document.getElementById('sel-exit-fav');
@@ -143,8 +162,15 @@ function populateExitFavorites() {
     opt.textContent = `${ic.name}${noteStr}`;
     sel.appendChild(opt);
   }
-  sel.value = 'kasumigaseki';
-  state.selected.exitIcId = 'kasumigaseki';
+  sel.value = 'kukou_chuou';
+}
+
+// ---- State-sync helpers ----
+function findSearchValueForId(icId) {
+  for (const [val, id] of icValueIndex.entries()) {
+    if (id === icId) return val;
+  }
+  return '';
 }
 
 function setEntryIc(icId) {
@@ -152,10 +178,35 @@ function setEntryIc(icId) {
   if (!ic) return;
   state.selected.entryIcId = icId;
   state.selected.outerRoute = inferOuterRoute(ic);
+
   document.getElementById('sel-outer-route').value = state.selected.outerRoute;
+  document.getElementById('sel-entry-ic').value = icId;
+  document.getElementById('inp-entry-ic').value = findSearchValueForId(icId);
+
+  const hint = document.getElementById('entry-ic-hint');
+  hint.textContent = ic.route_name || '';
+  hint.className = 'hint';
+
   toggleGaikanCheckbox();
-  const val = [...icValueIndex.entries()].find(([_, id]) => id === icId)?.[0];
-  if (val) document.getElementById('inp-entry-ic').value = val;
+}
+
+function setExitIc(icId) {
+  const ic = state.data.ics.find(x => x.id === icId);
+  if (!ic) return;
+  state.selected.exitIcId = icId;
+
+  const favSel = document.getElementById('sel-exit-fav');
+  const allSel = document.getElementById('sel-exit-all');
+  const inp    = document.getElementById('inp-exit-ic');
+
+  const favIds = state.data.favorites.exit_favorites.map(f => f.ic_id);
+  favSel.value = favIds.includes(icId) ? icId : '';
+  allSel.value = icId;
+  inp.value = findSearchValueForId(icId);
+
+  const hint = document.getElementById('exit-ic-hint');
+  hint.textContent = ic.route_name || '';
+  hint.className = 'hint';
 }
 
 function inferOuterRoute(ic) {
@@ -181,75 +232,8 @@ function inferOuterRoute(ic) {
   return 'none';  // 都心IC / 首都高内
 }
 
-// ---- Entry IC search handler ----
-function wireEntrySearch() {
-  const input = document.getElementById('inp-entry-ic');
-  const hint  = document.getElementById('entry-ic-hint');
-
-  function resolve() {
-    const val = input.value;
-    const icId = icValueIndex.get(val);
-    if (!icId) {
-      hint.textContent = val ? '候補から選択してください' : '';
-      hint.className = val ? 'hint error' : 'hint';
-      return;
-    }
-    const ic = state.data.ics.find(x => x.id === icId);
-    state.selected.entryIcId = icId;
-    state.selected.outerRoute = inferOuterRoute(ic);
-    document.getElementById('sel-outer-route').value = state.selected.outerRoute;
-    toggleGaikanCheckbox();
-    hint.textContent = `${ic.route_name || ''}`;
-    hint.className = 'hint';
-    update();
-  }
-  input.addEventListener('change', resolve);
-  input.addEventListener('input', resolve);
-}
-
-// ---- Exit IC handlers: favorite select + "その他" search ----
-function wireExitFavorites() {
-  document.getElementById('sel-exit-fav').addEventListener('change', (e) => {
-    state.selected.exitIcId = e.target.value;
-    const ic = state.data.ics.find(x => x.id === e.target.value);
-    if (ic) {
-      const input = document.getElementById('inp-exit-ic');
-      const val = [...icValueIndex.entries()].find(([_, id]) => id === ic.id)?.[0];
-      if (input && val) input.value = val;
-    }
-    update();
-  });
-}
-
-function wireExitSearch() {
-  const input = document.getElementById('inp-exit-ic');
-  const hint  = document.getElementById('exit-ic-hint');
-  function resolve() {
-    const val = input.value;
-    const icId = icValueIndex.get(val);
-    if (!icId) {
-      hint.textContent = val ? '候補から選択してください' : '';
-      hint.className = val ? 'hint error' : 'hint';
-      return;
-    }
-    state.selected.exitIcId = icId;
-    const sel = document.getElementById('sel-exit-fav');
-    const favIds = state.data.favorites.exit_favorites.map(f => f.ic_id);
-    if (favIds.includes(icId)) {
-      sel.value = icId;
-    } else {
-      sel.value = '';
-    }
-    const ic = state.data.ics.find(x => x.id === icId);
-    hint.textContent = `${ic.route_name || ''}`;
-    hint.className = 'hint';
-    update();
-  }
-  input.addEventListener('change', resolve);
-  input.addEventListener('input', resolve);
-}
-
 function wireEvents() {
+  // outerRoute / gaikan checkbox / roundtrip
   document.getElementById('sel-outer-route').addEventListener('change', (e) => {
     state.selected.outerRoute = e.target.value;
     toggleGaikanCheckbox();
@@ -262,10 +246,47 @@ function wireEvents() {
     state.selected.viaGaikan = e.target.checked; update();
   });
   document.getElementById('btn-geo-refresh').addEventListener('click', () => {
-    // v0.2 で GPS 取得。v0.1 では空のハンドラ
-    const span = document.getElementById('geo-location');
-    span.textContent = 'GPS はv0.2で実装予定';
+    document.getElementById('geo-location').textContent = 'GPS はv0.2で実装予定';
   });
+
+  // ---- Entry IC: search input + pulldown ----
+  const entryInput = document.getElementById('inp-entry-ic');
+  const entrySel   = document.getElementById('sel-entry-ic');
+
+  function resolveEntryFromSearch() {
+    const icId = icValueIndex.get(entryInput.value);
+    if (!icId) {
+      const hint = document.getElementById('entry-ic-hint');
+      hint.textContent = entryInput.value ? '候補から選択してください' : '';
+      hint.className = entryInput.value ? 'hint error' : 'hint';
+      return;
+    }
+    setEntryIc(icId); update();
+  }
+  entryInput.addEventListener('change', resolveEntryFromSearch);
+  entryInput.addEventListener('input',  resolveEntryFromSearch);
+  entrySel.addEventListener('change', (e) => { setEntryIc(e.target.value); update(); });
+
+  // ---- Exit IC: favorites + "別のIC" search + "別のIC" pulldown ----
+  document.getElementById('sel-exit-fav').addEventListener('change', (e) => {
+    setExitIc(e.target.value); update();
+  });
+  document.getElementById('sel-exit-all').addEventListener('change', (e) => {
+    setExitIc(e.target.value); update();
+  });
+  const exitInput = document.getElementById('inp-exit-ic');
+  function resolveExitFromSearch() {
+    const icId = icValueIndex.get(exitInput.value);
+    if (!icId) {
+      const hint = document.getElementById('exit-ic-hint');
+      hint.textContent = exitInput.value ? '候補から選択してください' : '';
+      hint.className = exitInput.value ? 'hint error' : 'hint';
+      return;
+    }
+    setExitIc(icId); update();
+  }
+  exitInput.addEventListener('change', resolveExitFromSearch);
+  exitInput.addEventListener('input',  resolveExitFromSearch);
 }
 
 function toggleGaikanCheckbox() {
