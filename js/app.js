@@ -427,9 +427,8 @@ function renderVerdict(result) {
   else if (paySummary === 'all_self') { main.classList.add('self'); main.textContent = '⚫ 全区間 自己負担'; }
   else { main.classList.add('mixed'); main.textContent = '🔵 区間混在（内訳で確認）'; }
 
-  const rt = state.selected.roundTrip;
-  ded.textContent  = `🛣 控除: ${rt ? '往復' : '片道'} ${(rt ? deductionKmRoundtrip : deductionKmOneway).toFixed(1)}km`;
-  dist.textContent = `📏 総距離: ${rt ? '往復' : '片道'} ${(rt ? distanceKmRoundtrip : distanceKmOneway).toFixed(1)}km`;
+  ded.textContent  = `🛣 控除: 片道 ${deductionKmOneway.toFixed(1)}km / 往復 ${deductionKmRoundtrip.toFixed(1)}km`;
+  dist.textContent = `📏 総距離: 片道 ${distanceKmOneway.toFixed(1)}km / 往復 ${distanceKmRoundtrip.toFixed(1)}km`;
 }
 
 function renderBreakdown(result) {
