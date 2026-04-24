@@ -311,6 +311,14 @@ function buildSearchIndex() {
       const opt = document.createElement('option');
       opt.value = value;
       datalist.appendChild(opt);
+
+      for (const alias of (ic.aliases || [])) {
+        const aliasValue = `${alias} → ${ic.name}（${grp.label}）`;
+        valueToIcId.set(aliasValue, ic.id);
+        const aliasOpt = document.createElement('option');
+        aliasOpt.value = aliasValue;
+        datalist.appendChild(aliasOpt);
+      }
     }
   }
   return valueToIcId;
