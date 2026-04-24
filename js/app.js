@@ -1,6 +1,5 @@
 import { loadAllData } from './data-loader.js';
 import { judgeRoute } from './judge.js';
-import { clearHighlights, highlightIc } from './map-svg.js';
 
 const state = {
   data: null,
@@ -15,16 +14,10 @@ const state = {
 
 async function init() {
   state.data = await loadAllData();
-  await loadSvg();
   populateOuterRouteSelect();
   populateIcSelects();
   wireEvents();
   update();
-}
-
-async function loadSvg() {
-  const svgText = await (await fetch('./svg/map.svg')).text();
-  document.getElementById('svg-mount').innerHTML = svgText;
 }
 
 function populateOuterRouteSelect() {
@@ -118,7 +111,6 @@ function update() {
 
   renderVerdict(result);
   renderBreakdown(result);
-  renderSvgHighlights(result);
 }
 
 function renderVerdict(result) {
@@ -149,15 +141,6 @@ function renderBreakdown(result) {
     li.textContent = `${emoji} ${seg.name} — ${pay} / 距離 ${seg.distanceKm.toFixed(1)}km / 控除 ${seg.deductionKm.toFixed(1)}km`;
     ul.appendChild(li);
   }
-}
-
-function renderSvgHighlights(result) {
-  clearHighlights();
-  const allCompany = result.totals.paySummary === 'all_company';
-  const hasDeduction = result.totals.deductionKmOneway > 0;
-  const entryVariant = allCompany ? 'company' : (hasDeduction ? 'self-ded' : 'self-none');
-  highlightIc(state.selected.entryIcId, entryVariant);
-  highlightIc(state.selected.exitIcId, 'self-none');
 }
 
 init().catch(err => {
