@@ -18,7 +18,20 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Skip if token not configured
+        id: token-check
+        env:
+          ODPT_TOKEN: ${{ secrets.ODPT_TOKEN }}
+        run: |
+          if [ -z "$ODPT_TOKEN" ]; then
+            echo "ODPT_TOKEN secret not set. Skipping fetch (mock data will remain)."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Fetch arrivals
+        if: steps.token-check.outputs.skip == 'false'
         env:
           ODPT_TOKEN: ${{ secrets.ODPT_TOKEN }}
         run: node scripts/fetch-arrivals.mjs
