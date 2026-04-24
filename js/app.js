@@ -416,12 +416,22 @@ function getOuterRouteOptions(ic) {
   if (baselineMap[ic.id]) return baselineMap[ic.id];
 
   // Data-driven: check which directions contain this IC as an entry.
-  // If found in >=1 direction, return all of them (enables 同じICが両経路 を使う pattern).
+  // 複数方面に登録されている場合、湾岸線経由 (tokan/wangan_route/aqua) を
+  // 優先デフォルトにする。それ以外は km 昇順で残す（候補は全部表示）。
+  const WANGAN_FIRST = new Set(['tokan', 'wangan_route', 'aqua']);
   const matched = [];
   for (const dir of state.data.deduction.directions) {
-    if (dir.entries.some(e => e.ic_id === ic.id)) matched.push(dir.id);
+    const entry = dir.entries.find(e => e.ic_id === ic.id);
+    if (entry) matched.push({ id: dir.id, km: entry.km });
   }
-  if (matched.length > 0) return matched;
+  if (matched.length > 0) {
+    matched.sort((a, b) => {
+      const aw = WANGAN_FIRST.has(a.id), bw = WANGAN_FIRST.has(b.id);
+      if (aw !== bw) return aw ? -1 : 1;
+      return a.km - b.km;
+    });
+    return matched.map(m => m.id);
+  }
 
   // Gaikan direct-entry IC
   if (ic.boundary_tag === 'gaikan') return ['gaikan_direct'];
