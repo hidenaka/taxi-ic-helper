@@ -1,0 +1,547 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" id="map-svg" role="img" aria-label="首都高 + 周辺高速 簡略路線図">
+  <style>
+  .route-bg { fill: #0f1723; }
+  .route-c1 { fill: none; stroke: #546478; stroke-width: 4; }
+  .route-c2 { fill: none; stroke: #3e4e65; stroke-width: 4; }
+  .route-gaikan { fill: none; stroke: #8e44ad; stroke-width: 3; stroke-dasharray: 8 4; opacity: 0.6; }
+  .route-radial { fill: none; stroke: #34495e; stroke-width: 3; opacity: 0.7; }
+  .ic-node { fill: #ecf0f1; stroke: #2c3e50; stroke-width: 1.5; cursor: pointer; }
+  .ic-node.company-pay { fill: #95a5a6; }
+  .ic-node.gaikan-ic { fill: #bdbbc8; }
+  .ic-node.baseline-ic { fill: #7f8c8d; }
+  .ic-node.highlight-company { fill: #27ae60; stroke: #fff; stroke-width: 2; }
+  .ic-node.highlight-self-ded { fill: #3498db; stroke: #fff; stroke-width: 2; }
+  .ic-node.highlight-self-none { fill: #95a5a6; stroke: #fff; stroke-width: 2; }
+  .ic-label { font: 10px -apple-system, "Hiragino Sans", sans-serif; fill: #bdc3c7; text-anchor: middle; pointer-events: none; user-select: none; }
+</style>
+  <rect class="route-bg" width="1200" height="1200" />
+  <circle cx="600" cy="600" r="80" class="route-c1" />
+  <circle cx="600" cy="600" r="220" class="route-c2" />
+  <path d="M 260 380 A 340 340 0 0 1 940 380" class="route-gaikan" />
+  <line x1="600" y1="600" x2="90" y2="900" class="route-radial" />
+  <line x1="600" y1="600" x2="100" y2="300" class="route-radial" />
+  <line x1="600" y1="600" x2="50" y2="600" class="route-radial" />
+  <line x1="600" y1="600" x2="600" y2="50" class="route-radial" />
+  <line x1="600" y1="600" x2="1050" y2="250" class="route-radial" />
+  <line x1="600" y1="600" x2="1100" y2="600" class="route-radial" />
+  <line x1="600" y1="600" x2="1050" y2="900" class="route-radial" />
+  <line x1="600" y1="600" x2="900" y2="1100" class="route-radial" />
+  <line x1="600" y1="600" x2="450" y2="1100" class="route-radial" />
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="600" cy="600" r="5" id="ic-kasumigaseki" data-ic-id="kasumigaseki"><title>霞ヶ関</title></circle>
+    <text class="ic-label" x="608" y="603">霞ヶ関</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="500" cy="700" r="5" id="ic-tokyo_ic" data-ic-id="tokyo_ic"><title>東京IC</title></circle>
+    <text class="ic-label" x="508" y="703">東京IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="500" cy="380" r="5" id="ic-nakadai" data-ic-id="nakadai"><title>中台</title></circle>
+    <text class="ic-label" x="508" y="383">中台</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="620" cy="340" r="5" id="ic-shingo" data-ic-id="shingo"><title>新郷</title></circle>
+    <text class="ic-label" x="628" y="343">新郷</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="690" cy="430" r="5" id="ic-kahei" data-ic-id="kahei"><title>加平</title></circle>
+    <text class="ic-label" x="698" y="433">加平</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="700" cy="500" r="5" id="ic-yotsugi" data-ic-id="yotsugi"><title>四ツ木</title></circle>
+    <text class="ic-label" x="708" y="503">四ツ木</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="760" cy="650" r="5" id="ic-maihama" data-ic-id="maihama"><title>舞浜</title></circle>
+    <text class="ic-label" x="768" y="653">舞浜</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="680" cy="560" r="5" id="ic-kinshicho" data-ic-id="kinshicho"><title>錦糸町</title></circle>
+    <text class="ic-label" x="688" y="563">錦糸町</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="490" cy="610" r="5" id="ic-eifuku" data-ic-id="eifuku"><title>永福</title></circle>
+    <text class="ic-label" x="498" y="613">永福</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="530" cy="900" r="5" id="ic-shioiri" data-ic-id="shioiri"><title>汐入</title></circle>
+    <text class="ic-label" x="538" y="903">汐入</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node" cx="570" cy="800" r="5" id="ic-wangan_kanpachi" data-ic-id="wangan_kanpachi"><title>湾岸環八</title></circle>
+    <text class="ic-label" x="578" y="803">湾岸環八</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="630" cy="870" r="5" id="ic-kukou_chuou" data-ic-id="kukou_chuou"><title>空港中央</title></circle>
+    <text class="ic-label" x="638" y="873">空港中央</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="480" cy="770" r="5" id="ic-tomei_kawasaki" data-ic-id="tomei_kawasaki"><title>東名川崎</title></circle>
+    <text class="ic-label" x="488" y="773">東名川崎</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="360" cy="820" r="5" id="ic-yokohama_aoba" data-ic-id="yokohama_aoba"><title>横浜青葉</title></circle>
+    <text class="ic-label" x="368" y="823">横浜青葉</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="310" cy="840" r="5" id="ic-yokohama_machida" data-ic-id="yokohama_machida"><title>横浜町田</title></circle>
+    <text class="ic-label" x="318" y="843">横浜町田</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="260" cy="880" r="5" id="ic-ebina" data-ic-id="ebina"><title>海老名</title></circle>
+    <text class="ic-label" x="268" y="883">海老名</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="200" cy="900" r="5" id="ic-atsugi" data-ic-id="atsugi"><title>厚木</title></circle>
+    <text class="ic-label" x="208" y="903">厚木</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="130" cy="930" r="5" id="ic-hadano_nakai" data-ic-id="hadano_nakai"><title>秦野中井</title></circle>
+    <text class="ic-label" x="138" y="933">秦野中井</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="100" cy="950" r="5" id="ic-oi_matsuda" data-ic-id="oi_matsuda"><title>大井松田</title></circle>
+    <text class="ic-label" x="108" y="953">大井松田</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="30" cy="980" r="5" id="ic-gotemba" data-ic-id="gotemba"><title>御殿場</title></circle>
+    <text class="ic-label" x="38" y="983">御殿場</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="460" cy="610" r="5" id="ic-takaido" data-ic-id="takaido"><title>高井戸IC</title></circle>
+    <text class="ic-label" x="468" y="613">高井戸IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="410" cy="630" r="5" id="ic-chofu" data-ic-id="chofu"><title>調布IC</title></circle>
+    <text class="ic-label" x="418" y="633">調布IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="380" cy="650" r="5" id="ic-inagi" data-ic-id="inagi"><title>稲城IC</title></circle>
+    <text class="ic-label" x="388" y="653">稲城IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="340" cy="620" r="5" id="ic-kunitachi_fuchu" data-ic-id="kunitachi_fuchu"><title>国立府中IC</title></circle>
+    <text class="ic-label" x="348" y="623">国立府中IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="280" cy="630" r="5" id="ic-hachioji" data-ic-id="hachioji"><title>八王子IC</title></circle>
+    <text class="ic-label" x="288" y="633">八王子IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="170" cy="660" r="5" id="ic-sagamiko" data-ic-id="sagamiko"><title>相模湖IC</title></circle>
+    <text class="ic-label" x="178" y="663">相模湖IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="140" cy="640" r="5" id="ic-uenohara" data-ic-id="uenohara"><title>上野原IC</title></circle>
+    <text class="ic-label" x="148" y="643">上野原IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="80" cy="660" r="5" id="ic-otsuki" data-ic-id="otsuki"><title>大月IC</title></circle>
+    <text class="ic-label" x="88" y="663">大月IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="30" cy="610" r="5" id="ic-katsunuma" data-ic-id="katsunuma"><title>勝沼IC</title></circle>
+    <text class="ic-label" x="38" y="613">勝沼IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="20" cy="630" r="5" id="ic-ichinomiya_misaka" data-ic-id="ichinomiya_misaka"><title>一宮御坂IC</title></circle>
+    <text class="ic-label" x="28" y="633">一宮御坂IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="15" cy="660" r="5" id="ic-kofu_minami" data-ic-id="kofu_minami"><title>甲府南IC</title></circle>
+    <text class="ic-label" x="23" y="663">甲府南IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="10" cy="640" r="5" id="ic-kofu_showa" data-ic-id="kofu_showa"><title>甲府昭和IC</title></circle>
+    <text class="ic-label" x="18" y="643">甲府昭和IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="10" cy="590" r="5" id="ic-nirasaki" data-ic-id="nirasaki"><title>韮崎IC</title></circle>
+    <text class="ic-label" x="18" y="593">韮崎IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="10" cy="560" r="5" id="ic-sutama" data-ic-id="sutama"><title>須玉IC</title></circle>
+    <text class="ic-label" x="18" y="563">須玉IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="10" cy="510" r="5" id="ic-kobuchizawa" data-ic-id="kobuchizawa"><title>小淵沢IC</title></circle>
+    <text class="ic-label" x="18" y="513">小淵沢IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="10" cy="470" r="5" id="ic-suwa_minami" data-ic-id="suwa_minami"><title>諏訪南IC</title></circle>
+    <text class="ic-label" x="18" y="473">諏訪南IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="10" cy="440" r="5" id="ic-suwa" data-ic-id="suwa"><title>諏訪IC</title></circle>
+    <text class="ic-label" x="18" y="443">諏訪IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="490" cy="490" r="5" id="ic-nerima" data-ic-id="nerima"><title>練馬IC</title></circle>
+    <text class="ic-label" x="498" y="493">練馬IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="380" cy="460" r="5" id="ic-tokorozawa" data-ic-id="tokorozawa"><title>所沢IC</title></circle>
+    <text class="ic-label" x="388" y="463">所沢IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="380" cy="390" r="5" id="ic-kawagoe" data-ic-id="kawagoe"><title>川越IC</title></circle>
+    <text class="ic-label" x="388" y="393">川越IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="340" cy="370" r="5" id="ic-tsurugashima" data-ic-id="tsurugashima"><title>鶴ヶ島IC</title></circle>
+    <text class="ic-label" x="348" y="373">鶴ヶ島IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="340" cy="330" r="5" id="ic-higashimatsuyama" data-ic-id="higashimatsuyama"><title>東松山IC</title></circle>
+    <text class="ic-label" x="348" y="333">東松山IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="310" cy="300" r="5" id="ic-ranzan_ogawa" data-ic-id="ranzan_ogawa"><title>嵐山小川IC</title></circle>
+    <text class="ic-label" x="318" y="303">嵐山小川IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="280" cy="270" r="5" id="ic-hanazono" data-ic-id="hanazono"><title>花園IC</title></circle>
+    <text class="ic-label" x="288" y="273">花園IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="250" cy="240" r="5" id="ic-honjo_kodama" data-ic-id="honjo_kodama"><title>本庄児玉IC</title></circle>
+    <text class="ic-label" x="258" y="243">本庄児玉IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="590" cy="350" r="5" id="ic-kawaguchi_jct" data-ic-id="kawaguchi_jct"><title>川口JCT</title></circle>
+    <text class="ic-label" x="598" y="353">川口JCT</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="540" cy="340" r="5" id="ic-urawa" data-ic-id="urawa"><title>浦和IC</title></circle>
+    <text class="ic-label" x="548" y="343">浦和IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="570" cy="290" r="5" id="ic-iwatsuki" data-ic-id="iwatsuki"><title>岩槻IC</title></circle>
+    <text class="ic-label" x="578" y="293">岩槻IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="560" cy="250" r="5" id="ic-kuki" data-ic-id="kuki"><title>久喜IC</title></circle>
+    <text class="ic-label" x="568" y="253">久喜IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="540" cy="220" r="5" id="ic-kazo" data-ic-id="kazo"><title>加須IC</title></circle>
+    <text class="ic-label" x="548" y="223">加須IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="520" cy="200" r="5" id="ic-hanyu" data-ic-id="hanyu"><title>羽生IC</title></circle>
+    <text class="ic-label" x="528" y="203">羽生IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="510" cy="175" r="5" id="ic-tatebayashi" data-ic-id="tatebayashi"><title>館林IC</title></circle>
+    <text class="ic-label" x="518" y="178">館林IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="490" cy="145" r="5" id="ic-sano_fujioka" data-ic-id="sano_fujioka"><title>佐野藤岡IC</title></circle>
+    <text class="ic-label" x="498" y="148">佐野藤岡IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="570" cy="120" r="5" id="ic-tochigi" data-ic-id="tochigi"><title>栃木IC</title></circle>
+    <text class="ic-label" x="578" y="123">栃木IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="570" cy="70" r="5" id="ic-kanuma" data-ic-id="kanuma"><title>鹿沼IC</title></circle>
+    <text class="ic-label" x="578" y="73">鹿沼IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="610" cy="50" r="5" id="ic-utsunomiya" data-ic-id="utsunomiya"><title>宇都宮IC</title></circle>
+    <text class="ic-label" x="618" y="53">宇都宮IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="630" cy="30" r="5" id="ic-yaita" data-ic-id="yaita"><title>矢板IC</title></circle>
+    <text class="ic-label" x="638" y="33">矢板IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="650" cy="15" r="5" id="ic-nishi_nasunoshiobara" data-ic-id="nishi_nasunoshiobara"><title>西那須野塩原IC</title></circle>
+    <text class="ic-label" x="658" y="18">西那須野塩原IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="720" cy="340" r="5" id="ic-misato_jct" data-ic-id="misato_jct"><title>三郷JCT</title></circle>
+    <text class="ic-label" x="728" y="343">三郷JCT</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="750" cy="330" r="5" id="ic-nagareyama" data-ic-id="nagareyama"><title>流山IC</title></circle>
+    <text class="ic-label" x="758" y="333">流山IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="770" cy="320" r="5" id="ic-kashiwa" data-ic-id="kashiwa"><title>柏IC</title></circle>
+    <text class="ic-label" x="778" y="323">柏IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="790" cy="290" r="5" id="ic-yanaka_wara" data-ic-id="yanaka_wara"><title>谷和原IC</title></circle>
+    <text class="ic-label" x="798" y="293">谷和原IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="820" cy="275" r="5" id="ic-yatabe" data-ic-id="yatabe"><title>谷田部IC</title></circle>
+    <text class="ic-label" x="828" y="278">谷田部IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="840" cy="255" r="5" id="ic-sakura_tsuchiura" data-ic-id="sakura_tsuchiura"><title>桜土浦IC</title></circle>
+    <text class="ic-label" x="848" y="258">桜土浦IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="850" cy="245" r="5" id="ic-tsuchiura_kita" data-ic-id="tsuchiura_kita"><title>土浦北IC</title></circle>
+    <text class="ic-label" x="858" y="248">土浦北IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="910" cy="175" r="5" id="ic-mito" data-ic-id="mito"><title>水戸IC</title></circle>
+    <text class="ic-label" x="918" y="178">水戸IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="920" cy="140" r="5" id="ic-naka" data-ic-id="naka"><title>那珂IC</title></circle>
+    <text class="ic-label" x="928" y="143">那珂IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="940" cy="120" r="5" id="ic-hitachi_minami_ota" data-ic-id="hitachi_minami_ota"><title>日立南太田IC</title></circle>
+    <text class="ic-label" x="948" y="123">日立南太田IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="960" cy="90" r="5" id="ic-hitachi_chuo" data-ic-id="hitachi_chuo"><title>日立中央IC</title></circle>
+    <text class="ic-label" x="968" y="93">日立中央IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="970" cy="70" r="5" id="ic-hitachi_kita" data-ic-id="hitachi_kita"><title>日立北IC</title></circle>
+    <text class="ic-label" x="978" y="73">日立北IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="975" cy="65" r="5" id="ic-takahagi" data-ic-id="takahagi"><title>高萩IC</title></circle>
+    <text class="ic-label" x="983" y="68">高萩IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="980" cy="45" r="5" id="ic-kitaibaraki" data-ic-id="kitaibaraki"><title>北茨城IC</title></circle>
+    <text class="ic-label" x="988" y="48">北茨城IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="760" cy="570" r="5" id="ic-shinozaki" data-ic-id="shinozaki"><title>篠崎IC</title></circle>
+    <text class="ic-label" x="768" y="573">篠崎IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="770" cy="560" r="5" id="ic-keiyo_ichikawa" data-ic-id="keiyo_ichikawa"><title>京葉市川IC</title></circle>
+    <text class="ic-label" x="778" y="563">京葉市川IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="790" cy="565" r="5" id="ic-habara" data-ic-id="habara"><title>原木IC</title></circle>
+    <text class="ic-label" x="798" y="568">原木IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="800" cy="570" r="5" id="ic-funabashi" data-ic-id="funabashi"><title>船橋IC</title></circle>
+    <text class="ic-label" x="808" y="573">船橋IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="820" cy="565" r="5" id="ic-hanawa" data-ic-id="hanawa"><title>花輪IC</title></circle>
+    <text class="ic-label" x="828" y="568">花輪IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="830" cy="590" r="5" id="ic-makuhari" data-ic-id="makuhari"><title>幕張IC</title></circle>
+    <text class="ic-label" x="838" y="593">幕張IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="840" cy="595" r="5" id="ic-takeishi" data-ic-id="takeishi"><title>武石IC</title></circle>
+    <text class="ic-label" x="848" y="598">武石IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="860" cy="600" r="5" id="ic-anagawa" data-ic-id="anagawa"><title>穴川IC</title></circle>
+    <text class="ic-label" x="868" y="603">穴川IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="870" cy="610" r="5" id="ic-kaizuka" data-ic-id="kaizuka"><title>貝塚IC</title></circle>
+    <text class="ic-label" x="878" y="613">貝塚IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="880" cy="620" r="5" id="ic-matsugaoka" data-ic-id="matsugaoka"><title>松ヶ丘IC</title></circle>
+    <text class="ic-label" x="888" y="623">松ヶ丘IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="875" cy="635" r="5" id="ic-soga" data-ic-id="soga"><title>蘇我IC</title></circle>
+    <text class="ic-label" x="883" y="638">蘇我IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="800" cy="590" r="5" id="ic-wangan_ichikawa" data-ic-id="wangan_ichikawa"><title>湾岸市川IC</title></circle>
+    <text class="ic-label" x="808" y="593">湾岸市川IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="810" cy="585" r="5" id="ic-yatsu_funabashi" data-ic-id="yatsu_funabashi"><title>谷津船橋IC</title></circle>
+    <text class="ic-label" x="818" y="588">谷津船橋IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="820" cy="585" r="5" id="ic-wangan_narashino" data-ic-id="wangan_narashino"><title>湾岸習志野IC</title></circle>
+    <text class="ic-label" x="828" y="588">湾岸習志野IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="835" cy="590" r="5" id="ic-wangan_chiba" data-ic-id="wangan_chiba"><title>湾岸千葉IC</title></circle>
+    <text class="ic-label" x="843" y="593">湾岸千葉IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="855" cy="575" r="5" id="ic-chiba_kita" data-ic-id="chiba_kita"><title>千葉北IC</title></circle>
+    <text class="ic-label" x="863" y="578">千葉北IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="870" cy="580" r="5" id="ic-yotsukaido" data-ic-id="yotsukaido"><title>四街道IC</title></circle>
+    <text class="ic-label" x="878" y="583">四街道IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="885" cy="565" r="5" id="ic-sakura_tokan" data-ic-id="sakura_tokan"><title>佐倉IC</title></circle>
+    <text class="ic-label" x="893" y="568">佐倉IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="895" cy="555" r="5" id="ic-shisui" data-ic-id="shisui"><title>酒々井IC</title></circle>
+    <text class="ic-label" x="903" y="558">酒々井IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="900" cy="555" r="5" id="ic-tomisato" data-ic-id="tomisato"><title>富里IC</title></circle>
+    <text class="ic-label" x="908" y="558">富里IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="915" cy="548" r="5" id="ic-narita" data-ic-id="narita"><title>成田IC</title></circle>
+    <text class="ic-label" x="923" y="551">成田IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="620" cy="870" r="5" id="ic-ukishima_jct" data-ic-id="ukishima_jct"><title>浮島JCT</title></circle>
+    <text class="ic-label" x="628" y="873">浮島JCT</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="760" cy="900" r="5" id="ic-kisarazu_kaneda" data-ic-id="kisarazu_kaneda"><title>木更津金田IC</title></circle>
+    <text class="ic-label" x="768" y="903">木更津金田IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="790" cy="920" r="5" id="ic-sodegaura" data-ic-id="sodegaura"><title>袖ケ浦IC</title></circle>
+    <text class="ic-label" x="798" y="923">袖ケ浦IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="800" cy="930" r="5" id="ic-kisarazu_jct" data-ic-id="kisarazu_jct"><title>木更津JCT</title></circle>
+    <text class="ic-label" x="808" y="933">木更津JCT</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="800" cy="960" r="5" id="ic-kimitsu" data-ic-id="kimitsu"><title>君津IC</title></circle>
+    <text class="ic-label" x="808" y="963">君津IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="780" cy="990" r="5" id="ic-futtsu_chuo" data-ic-id="futtsu_chuo"><title>富津中央IC</title></circle>
+    <text class="ic-label" x="788" y="993">富津中央IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="760" cy="1010" r="5" id="ic-futtsu_takeyama" data-ic-id="futtsu_takeyama"><title>富津竹岡IC</title></circle>
+    <text class="ic-label" x="768" y="1013">富津竹岡IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="745" cy="1025" r="5" id="ic-futtsu_kanaya" data-ic-id="futtsu_kanaya"><title>富津金谷IC</title></circle>
+    <text class="ic-label" x="753" y="1028">富津金谷IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="730" cy="1045" r="5" id="ic-kyonan_hota" data-ic-id="kyonan_hota"><title>鋸南保田IC</title></circle>
+    <text class="ic-label" x="738" y="1048">鋸南保田IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="720" cy="1055" r="5" id="ic-kyonan_tomiyama" data-ic-id="kyonan_tomiyama"><title>鋸南富山IC</title></circle>
+    <text class="ic-label" x="728" y="1058">鋸南富山IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="700" cy="1080" r="5" id="ic-tomiura" data-ic-id="tomiura"><title>富浦IC</title></circle>
+    <text class="ic-label" x="708" y="1083">富浦IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="475" cy="760" r="5" id="ic-tamagawa_ic" data-ic-id="tamagawa_ic"><title>玉川IC</title></circle>
+    <text class="ic-label" x="483" y="763">玉川IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="465" cy="775" r="5" id="ic-keihin_kawasaki" data-ic-id="keihin_kawasaki"><title>京浜川崎IC</title></circle>
+    <text class="ic-label" x="473" y="778">京浜川崎IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="440" cy="800" r="5" id="ic-tsuzuki" data-ic-id="tsuzuki"><title>都筑IC</title></circle>
+    <text class="ic-label" x="448" y="803">都筑IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="425" cy="810" r="5" id="ic-kohoku" data-ic-id="kohoku"><title>港北IC</title></circle>
+    <text class="ic-label" x="433" y="813">港北IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="435" cy="837" r="5" id="ic-hodogaya" data-ic-id="hodogaya"><title>保土ヶ谷IC</title></circle>
+    <text class="ic-label" x="443" y="840">保土ヶ谷IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="434" cy="841" r="5" id="ic-shin_hodogaya_jct" data-ic-id="shin_hodogaya_jct"><title>新保土ヶ谷JCT</title></circle>
+    <text class="ic-label" x="442" y="844">新保土ヶ谷JCT</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="432" cy="845" r="5" id="ic-imai" data-ic-id="imai"><title>今井IC</title></circle>
+    <text class="ic-label" x="440" y="848">今井IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="431" cy="850" r="5" id="ic-kawakami" data-ic-id="kawakami"><title>川上IC</title></circle>
+    <text class="ic-label" x="439" y="853">川上IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="405" cy="875" r="5" id="ic-totsuka" data-ic-id="totsuka"><title>戸塚IC</title></circle>
+    <text class="ic-label" x="413" y="878">戸塚IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="430" cy="855" r="5" id="ic-kariba" data-ic-id="kariba"><title>狩場IC</title></circle>
+    <text class="ic-label" x="438" y="858">狩場IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="432" cy="870" r="5" id="ic-bessho" data-ic-id="bessho"><title>別所IC</title></circle>
+    <text class="ic-label" x="440" y="873">別所IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="425" cy="890" r="5" id="ic-hino" data-ic-id="hino"><title>日野IC</title></circle>
+    <text class="ic-label" x="433" y="893">日野IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="435" cy="890" r="5" id="ic-konan_dai" data-ic-id="konan_dai"><title>港南台IC</title></circle>
+    <text class="ic-label" x="443" y="893">港南台IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="440" cy="898" r="5" id="ic-asahina" data-ic-id="asahina"><title>朝比奈IC</title></circle>
+    <text class="ic-label" x="448" y="901">朝比奈IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="430" cy="930" r="5" id="ic-zushi" data-ic-id="zushi"><title>逗子IC</title></circle>
+    <text class="ic-label" x="438" y="933">逗子IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="450" cy="940" r="5" id="ic-yokosuka" data-ic-id="yokosuka"><title>横須賀IC</title></circle>
+    <text class="ic-label" x="458" y="943">横須賀IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="460" cy="950" r="5" id="ic-kinugasa" data-ic-id="kinugasa"><title>衣笠IC</title></circle>
+    <text class="ic-label" x="468" y="953">衣笠IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="465" cy="958" r="5" id="ic-sabara" data-ic-id="sabara"><title>佐原IC</title></circle>
+    <text class="ic-label" x="473" y="961">佐原IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node company-pay" cx="480" cy="965" r="5" id="ic-uraga" data-ic-id="uraga"><title>浦賀IC</title></circle>
+    <text class="ic-label" x="488" y="968">浦賀IC</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="428" cy="857" r="5" id="ic-kariba_shutoko" data-ic-id="kariba_shutoko"><title>首都高狩場線（基準）</title></circle>
+    <text class="ic-label" x="436" y="860">首都高狩場線（基準）</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="455" cy="885" r="5" id="ic-wangan_shutoko" data-ic-id="wangan_shutoko"><title>首都高湾岸線（基準）</title></circle>
+    <text class="ic-label" x="463" y="888">首都高湾岸線（基準）</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node gaikan-ic" cx="0" cy="0" r="5" id="ic-bijogi_jct" data-ic-id="bijogi_jct"><title>美女木JCT</title></circle>
+    <text class="ic-label" x="8" y="3">美女木JCT</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node gaikan-ic" cx="0" cy="0" r="5" id="ic-oizumi_jct" data-ic-id="oizumi_jct"><title>大泉JCT</title></circle>
+    <text class="ic-label" x="8" y="3">大泉JCT</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node gaikan-ic" cx="0" cy="0" r="5" id="ic-oizumi" data-ic-id="oizumi"><title>大泉IC（外環）</title></circle>
+    <text class="ic-label" x="8" y="3">大泉IC（外環）</text>
+  </g>
+  <g class="ic-group">
+    <circle class="ic-node baseline-ic" cx="740" cy="640" r="5" id="ic-kasai" data-ic-id="kasai"><title>葛西IC</title></circle>
+    <text class="ic-label" x="748" y="643">葛西IC</text>
+  </g>
+</svg>

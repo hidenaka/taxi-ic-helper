@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { loadJson } from './helpers.js';
 
 test('ics.json: すべてのICに id / name / gps が揃っている', () => {
@@ -53,5 +56,15 @@ test('gaikan_distances.json: 全 from/to が ics.json に存在', () => {
     assert.ok(icIds.has(e.from), `from not in ics.json: ${e.from}`);
     assert.ok(icIds.has(e.to), `to not in ics.json: ${e.to}`);
     assert.ok(typeof e.km === 'number' && e.km > 0, `invalid km: ${e.from}→${e.to}`);
+  }
+});
+
+test('map.svg: data-ic-id 属性が ics.json の全 id をカバー', () => {
+  const { ics } = loadJson('data/ics.json');
+  const svgPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'svg/map.svg');
+  const svgText = readFileSync(svgPath, 'utf8');
+  for (const ic of ics) {
+    assert.ok(svgText.includes(`data-ic-id="${ic.id}"`),
+      `svg missing node for: ${ic.id}`);
   }
 });
