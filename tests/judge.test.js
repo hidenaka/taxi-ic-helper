@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { loadJson } from './helpers.js';
-import { lookupDeduction } from '../js/judge.js';
+import { lookupDeduction, calcOneWayDeduction } from '../js/judge.js';
 
 test('lookupDeduction: 東名川崎 は 7.7km', () => {
   const deduction = loadJson('data/deduction.json');
@@ -173,4 +173,46 @@ test('routes.json: needs_gaikan_transit に全 outerRoute キーがある', () =
   for (const key of expected) {
     assert.ok(key in r.needs_gaikan_transit, `missing: ${key}`);
   }
+});
+
+// ── Task 12: calcOneWayDeduction ──────────────────────────────────────────────
+
+test('calcOneWayDeduction: A=外, B=内 → 表[A]', () => {
+  const ded = loadJson('data/deduction.json');
+  const ics = loadJson('data/ics.json').ics;
+  const A = ics.find(x => x.id === 'tomei_kawasaki');
+  const B = ics.find(x => x.id === 'kasumigaseki');
+  assert.strictEqual(calcOneWayDeduction(A, B, ded), 7.7);
+});
+
+test('calcOneWayDeduction: A=内, B=外 → 表[B]（対称）', () => {
+  const ded = loadJson('data/deduction.json');
+  const ics = loadJson('data/ics.json').ics;
+  const A = ics.find(x => x.id === 'kasumigaseki');
+  const B = ics.find(x => x.id === 'tomei_kawasaki');
+  assert.strictEqual(calcOneWayDeduction(A, B, ded), 7.7);
+});
+
+test('calcOneWayDeduction: A=外/B=外 同方面 → |表[A]-表[B]|', () => {
+  const ded = loadJson('data/deduction.json');
+  const ics = loadJson('data/ics.json').ics;
+  const A = ics.find(x => x.id === 'atsugi');         // tomei 35.0
+  const B = ics.find(x => x.id === 'tomei_kawasaki'); // tomei 7.7
+  assert.strictEqual(calcOneWayDeduction(A, B, ded), 27.3);
+});
+
+test('calcOneWayDeduction: A=内/B=内 → 0', () => {
+  const ded = loadJson('data/deduction.json');
+  const ics = loadJson('data/ics.json').ics;
+  const A = ics.find(x => x.id === 'kasumigaseki');
+  const B = ics.find(x => x.id === 'tokyo_ic');
+  assert.strictEqual(calcOneWayDeduction(A, B, ded), 0);
+});
+
+test('calcOneWayDeduction: 異方面 → 0', () => {
+  const ded = loadJson('data/deduction.json');
+  const ics = loadJson('data/ics.json').ics;
+  const A = ics.find(x => x.id === 'tomei_kawasaki');
+  const B = ics.find(x => x.id === 'tokorozawa');
+  assert.strictEqual(calcOneWayDeduction(A, B, ded), 0);
 });

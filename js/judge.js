@@ -12,3 +12,13 @@ export function lookupDeduction(deductionData, icId, directionId = null) {
   }
   return null;
 }
+
+export function calcOneWayDeduction(icA, icB, deductionData) {
+  const eA = lookupDeduction(deductionData, icA.id);
+  const eB = lookupDeduction(deductionData, icB.id);
+  if (!eA && !eB) return 0;
+  if (eA && !eB) return eA.km;
+  if (!eA && eB) return eB.km;
+  if (eA.direction !== eB.direction) return 0;
+  return Math.abs(eA.km - eB.km);
+}
