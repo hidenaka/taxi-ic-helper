@@ -1,3 +1,5 @@
+import { haversineKm } from './util.js';
+
 export function lookupDeduction(deductionData, icId, directionId = null) {
   const directions = directionId
     ? deductionData.directions.filter(d => d.id === directionId)
@@ -64,7 +66,9 @@ function resolveShutokoStartIcId({ outerRoute, entryIc, deduction }) {
   return entryIc.id;
 }
 
-function resolveShutokoDistance({ shutokoRoutes, shutokoDist, startIcId, exitIcId, shutokoRouteId }) {
+const SHUTOKO_DETOUR_FACTOR = 1.3;
+
+function resolveShutokoDistance({ shutokoRoutes, shutokoDist, ics, startIcId, exitIcId, shutokoRouteId }) {
   // 1. Try shutoko_routes.json pairs matching start→exit
   const pair = shutokoRoutes?.pairs.find(p => p.from === startIcId && p.to === exitIcId);
   if (pair) {
@@ -75,7 +79,15 @@ function resolveShutokoDistance({ shutokoRoutes, shutokoDist, startIcId, exitIcI
   }
   // 2. Fall back to shutoko_distances
   const km = lookupDistance(shutokoDist, startIcId, exitIcId);
-  return { km, routeId: null, routeLabel: null };
+  if (km > 0) return { km, routeId: null, routeLabel: null };
+  // 3. Fallback: haversine approximation with road-detour factor
+  const startIc = ics?.find(x => x.id === startIcId);
+  const exitIc  = ics?.find(x => x.id === exitIcId);
+  if (startIc?.gps && exitIc?.gps) {
+    const approx = haversineKm(startIc.gps, exitIc.gps) * SHUTOKO_DETOUR_FACTOR;
+    return { km: approx, routeId: null, routeLabel: '概算', approx: true };
+  }
+  return { km: 0, routeId: null, routeLabel: null };
 }
 
 function aggregate(segments, roundTrip) {
@@ -124,7 +136,8 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
 
   const startIcId = resolveShutokoStartIcId({ outerRoute, entryIc, deduction });
   const shutokoInfo = resolveShutokoDistance({
-    shutokoRoutes, shutokoDist, startIcId, exitIcId: exitIc.id, shutokoRouteId
+    shutokoRoutes, shutokoDist, ics: deps.ics,
+    startIcId, exitIcId: exitIc.id, shutokoRouteId
   });
 
   segs.push({
