@@ -19,6 +19,15 @@ export function filterByTimeWindow(flights, nowDate, pastMinutes = 30, futureMin
   });
 }
 
+const DENSITY_HIGH = 600;
+const DENSITY_MID = 300;
+
+function classifyDensity(totalPax) {
+  if (totalPax >= DENSITY_HIGH) return 'high';
+  if (totalPax >= DENSITY_MID) return 'mid';
+  return 'low';
+}
+
 export function aggregateHeatmapClient(flights) {
   const bins = new Map();
   for (const f of flights) {
@@ -27,15 +36,26 @@ export function aggregateHeatmapClient(flights) {
     const [h, m] = t.split(':').map(Number);
     const binMin = m < 30 ? '00' : '30';
     const key = `${String(h).padStart(2, '0')}:${binMin}`;
-    if (!bins.has(key)) bins.set(key, { bin: key, totalPax: 0, flightCount: 0, unknownCount: 0 });
+    if (!bins.has(key)) {
+      bins.set(key, { bin: key, totalPax: 0, flightCount: 0, unknownCount: 0, delayedCount: 0 });
+    }
     const b = bins.get(key);
     b.flightCount += 1;
     if (f.estimatedPax === null) b.unknownCount += 1;
     else b.totalPax += f.estimatedPax;
+    if (f.status === '遅延') b.delayedCount += 1;
   }
   const arr = Array.from(bins.values()).sort((a, b) => a.bin.localeCompare(b.bin));
-  const max = Math.max(0, ...arr.map(b => b.totalPax));
-  return arr.map(b => ({ ...b, isPeak: max > 0 && b.totalPax >= max * 0.8 }));
+  return arr.map(b => ({ ...b, densityTier: classifyDensity(b.totalPax) }));
+}
+
+export function summarizeFlights(flights, windowHours = 3.5) {
+  const totalPax = flights.reduce((s, f) => s + (f.estimatedPax ?? 0), 0);
+  const totalFlights = flights.length;
+  const delayedCount = flights.filter(f => f.status === '遅延').length;
+  const unknownCount = flights.filter(f => f.estimatedPax === null).length;
+  const hourlyAvg = totalFlights > 0 ? Math.round(totalPax / windowHours) : 0;
+  return { totalPax, totalFlights, delayedCount, unknownCount, hourlyAvg };
 }
 
 export function minutesSince(isoString) {

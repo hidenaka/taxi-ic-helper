@@ -1,5 +1,5 @@
-import { loadArrivals, filterByTerminal, filterByTimeWindow, aggregateHeatmapClient } from './arrivals-data.js';
-import { renderHeatmap, renderFlightList, renderUpdatedAt } from './arrivals-render.js';
+import { loadArrivals, filterByTerminal, filterByTimeWindow, aggregateHeatmapClient, summarizeFlights } from './arrivals-data.js';
+import { renderHeatmap, renderFlightList, renderUpdatedAt, renderSummary } from './arrivals-render.js';
 
 const state = { arrivals: null, terminal: 'T1' };
 
@@ -17,6 +17,8 @@ function render() {
   const all = filterByTerminal(state.arrivals, state.terminal);
   const visible = filterByTimeWindow(all, new Date(), 30, 180);
   const bins = aggregateHeatmapClient(visible);
+  const summary = summarizeFlights(visible);
+  renderSummary(document.getElementById('summary'), summary);
   renderHeatmap(document.getElementById('heatmap'), bins);
   renderFlightList(document.getElementById('flight-list'), visible);
   renderUpdatedAt(

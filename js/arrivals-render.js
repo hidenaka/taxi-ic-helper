@@ -1,3 +1,9 @@
+const TIER_INFO = {
+  high: { label: '多い', emoji: '🟥' },
+  mid:  { label: '普通', emoji: '🟧' },
+  low:  { label: '少ない', emoji: '🟦' }
+};
+
 export function renderHeatmap(container, bins) {
   container.innerHTML = '';
   if (bins.length === 0) {
@@ -7,16 +13,40 @@ export function renderHeatmap(container, bins) {
   const maxPax = Math.max(1, ...bins.map(b => b.totalPax));
   for (const b of bins) {
     const row = document.createElement('div');
-    row.className = 'heatmap-row' + (b.isPeak ? ' is-peak' : '');
+    row.className = `heatmap-row tier-${b.densityTier}`;
     const widthPct = (b.totalPax / maxPax) * 100;
-    const unknownNote = b.unknownCount > 0 ? ` (機材不明${b.unknownCount})` : '';
+    const unknownNote = b.unknownCount > 0 ? ` <span class="unknown-note">機材不明${b.unknownCount}</span>` : '';
+    const delayBadge = b.delayedCount > 0 ? ` <span class="delay-badge">⚠${b.delayedCount}遅延</span>` : '';
+    const tier = TIER_INFO[b.densityTier];
+    const tierBadge = b.totalPax > 0
+      ? ` <span class="tier-badge">${tier.emoji}${tier.label}</span>`
+      : '';
     row.innerHTML = `
       <span class="heatmap-time">${b.bin}</span>
       <span class="heatmap-bar" style="width:${widthPct}%"></span>
-      <span class="heatmap-label">${b.totalPax}人 (${b.flightCount}便)${unknownNote}</span>
+      <span class="heatmap-label">${b.totalPax}人 (${b.flightCount}便)${unknownNote}${delayBadge}${tierBadge}</span>
     `;
     container.appendChild(row);
   }
+}
+
+export function renderSummary(container, summary) {
+  if (!container) return;
+  if (summary.totalFlights === 0) {
+    container.innerHTML = '';
+    container.hidden = true;
+    return;
+  }
+  container.hidden = false;
+  const delayPart = summary.delayedCount > 0
+    ? `<span class="summary-delay">⚠ ${summary.delayedCount}便遅延</span>`
+    : `<span class="summary-ok">全便定刻</span>`;
+  container.innerHTML = `
+    <span class="summary-item">直近3時間 <strong>${summary.totalPax.toLocaleString()}人</strong></span>
+    <span class="summary-item">時間あたり <strong>${summary.hourlyAvg.toLocaleString()}人</strong></span>
+    <span class="summary-item">${summary.totalFlights}便</span>
+    ${delayPart}
+  `;
 }
 
 export function renderFlightList(container, flights) {
