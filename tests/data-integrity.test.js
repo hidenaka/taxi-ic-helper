@@ -80,3 +80,14 @@ test('shutoko_routes.json: 全 from/to が ics.json に存在', () => {
   }
 });
 
+test('shutoko_graph.json: 全 edge の from/to が ics.json に存在', () => {
+  const { ics } = loadJson('data/ics.json');
+  const graph = loadJson('data/shutoko_graph.json');
+  const icIds = new Set(ics.map(x => x.id));
+  for (const e of graph.edges) {
+    assert.ok(icIds.has(e.from), `edge from not in ics.json: ${e.from}`);
+    assert.ok(icIds.has(e.to),   `edge to not in ics.json: ${e.to}`);
+    assert.ok(typeof e.km === 'number' && e.km > 0, `invalid edge km: ${e.from}→${e.to}`);
+  }
+});
+

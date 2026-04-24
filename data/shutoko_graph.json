@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "generated_at": "2026-04-25",
+  "source": "首都高速道路公式サイト・NEXCO・Wikipedia「首都高速各号線」記載のIC間距離",
+  "notes": "approx:true の辺は公式値未確認・推計値。undirected グラフとして使用。",
+  "nodes": [
+    { "id": "kasumigaseki",    "routes": ["C1"] },
+    { "id": "gaien",           "routes": ["C1"] },
+    { "id": "iikura",          "routes": ["C1"] },
+    { "id": "kanda_bashi",     "routes": ["C1"] },
+    { "id": "hakozaki",        "routes": ["C1"] },
+    { "id": "ginza",           "routes": ["C1"] },
+    { "id": "kyobashi",        "routes": ["C1"] },
+    { "id": "shibaura",        "routes": ["C1", "1"] },
+    { "id": "meguro",          "routes": ["2"] },
+    { "id": "ebara",           "routes": ["2"] },
+    { "id": "togoshi",         "routes": ["2"] },
+    { "id": "sangenjaya",      "routes": ["3"] },
+    { "id": "tokyo_ic",        "routes": ["3"] },
+    { "id": "tamagawa_ic",     "routes": ["3"] },
+    { "id": "takaido",         "routes": ["4"] },
+    { "id": "eifuku",          "routes": ["4"] },
+    { "id": "nakadai",         "routes": ["5"] },
+    { "id": "bijogi_jct",      "routes": ["5", "C2"] },
+    { "id": "shingo",          "routes": ["S1"] },
+    { "id": "kawaguchi_jct",   "routes": ["S1", "C2"] },
+    { "id": "kahei",           "routes": ["6_misato"] },
+    { "id": "misato_jct",      "routes": ["6_misato", "C2"] },
+    { "id": "yotsugi",         "routes": ["6_mukojima"] },
+    { "id": "kinshicho",       "routes": ["7"] },
+    { "id": "kasai",           "routes": ["B", "9"] },
+    { "id": "maihama",         "routes": ["B"] },
+    { "id": "wangan_kanpachi", "routes": ["B"] },
+    { "id": "kukou_chuou",     "routes": ["B", "1"] },
+    { "id": "ukishima_jct",    "routes": ["B"] },
+    { "id": "wangan_ichikawa", "routes": ["B"] },
+    { "id": "shioiri",         "routes": ["K1"] }
+  ],
+  "edges": [
+
+    { "from": "kasumigaseki", "to": "gaien",          "km": 1.7,  "route": "C1" },
+    { "from": "gaien",        "to": "iikura",          "km": 1.2,  "route": "C1" },
+    { "from": "iikura",       "to": "shibaura",        "km": 2.3,  "route": "C1" },
+    { "from": "kasumigaseki", "to": "kanda_bashi",     "km": 3.2,  "route": "C1" },
+    { "from": "kanda_bashi",  "to": "hakozaki",        "km": 1.5,  "route": "C1" },
+    { "from": "hakozaki",     "to": "kyobashi",        "km": 2.5,  "route": "C1" },
+    { "from": "kyobashi",     "to": "ginza",           "km": 0.8,  "route": "C1" },
+    { "from": "ginza",        "to": "shibaura",        "km": 2.5,  "route": "C1" },
+
+    { "from": "shibaura",     "to": "kukou_chuou",     "km": 11.4, "route": "1",  "approx": true },
+
+    { "from": "shibaura",     "to": "togoshi",         "km": 3.5,  "route": "2",  "approx": true },
+    { "from": "togoshi",      "to": "ebara",           "km": 1.2,  "route": "2",  "approx": true },
+    { "from": "ebara",        "to": "meguro",          "km": 1.5,  "route": "2",  "approx": true },
+
+    { "from": "kasumigaseki", "to": "sangenjaya",      "km": 5.5,  "route": "3",  "approx": true },
+    { "from": "sangenjaya",   "to": "tamagawa_ic",     "km": 4.5,  "route": "3",  "approx": true },
+    { "from": "tamagawa_ic",  "to": "tokyo_ic",        "km": 3.0,  "route": "3",  "approx": true },
+
+    { "from": "kasumigaseki", "to": "eifuku",          "km": 8.5,  "route": "4",  "approx": true },
+    { "from": "eifuku",       "to": "takaido",         "km": 2.0,  "route": "4",  "approx": true },
+
+    { "from": "kanda_bashi",  "to": "nakadai",         "km": 11.1, "route": "5",  "approx": true },
+    { "from": "nakadai",      "to": "bijogi_jct",      "km": 2.8,  "route": "5",  "approx": true },
+
+    { "from": "kawaguchi_jct","to": "shingo",          "km": 4.8,  "route": "S1", "approx": true },
+
+    { "from": "hakozaki",     "to": "yotsugi",         "km": 5.5,  "route": "6_mukojima", "approx": true },
+    { "from": "yotsugi",      "to": "kahei",           "km": 4.2,  "route": "6_misato",   "approx": true },
+    { "from": "kahei",        "to": "misato_jct",      "km": 5.5,  "route": "6_misato",   "approx": true },
+
+    { "from": "hakozaki",     "to": "kinshicho",       "km": 4.2,  "route": "7",  "approx": true },
+    { "from": "kinshicho",    "to": "kyobashi",        "km": 4.5,  "route": "7",  "approx": true },
+
+    { "from": "hakozaki",     "to": "kasai",           "km": 8.5,  "route": "9",  "approx": true },
+    { "from": "kasai",        "to": "wangan_ichikawa", "km": 4.2,  "route": "B",  "approx": true },
+    { "from": "kasai",        "to": "maihama",         "km": 4.8,  "route": "B" },
+    { "from": "maihama",      "to": "wangan_kanpachi", "km": 11.5, "route": "B",  "approx": true },
+    { "from": "wangan_kanpachi","to": "kukou_chuou",   "km": 4.8,  "route": "B" },
+    { "from": "kukou_chuou",  "to": "ukishima_jct",    "km": 4.2,  "route": "B" },
+    { "from": "ukishima_jct", "to": "wangan_kanpachi", "km": 6.0,  "route": "B" },
+
+    { "from": "bijogi_jct",   "to": "kawaguchi_jct",   "km": 8.5,  "route": "C2", "approx": true },
+    { "from": "bijogi_jct",   "to": "misato_jct",      "km": 14.5, "route": "C2", "approx": true },
+    { "from": "kawaguchi_jct","to": "kanda_bashi",     "km": 11.5, "route": "C2", "approx": true },
+    { "from": "misato_jct",   "to": "hakozaki",        "km": 12.5, "route": "C2", "approx": true },
+    { "from": "bijogi_jct",   "to": "kasumigaseki",    "km": 13.5, "route": "C2", "approx": true },
+
+    { "from": "shioiri",      "to": "kukou_chuou",     "km": 8.5,  "route": "K1", "approx": true }
+  ]
+}
