@@ -11,10 +11,21 @@
     :root { --bg: #0e0e10; --fg: #e8e8e8; --sub: #888; --accent: #4ea1ff; --peak: #ff5252; --warn: #ffb84d; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, system-ui, sans-serif; font-size: 15px; }
-    header { padding: 8px 12px; border-bottom: 1px solid #222; }
-    .app-tabs { display: flex; gap: 8px; }
-    .app-tabs a { color: var(--sub); text-decoration: none; padding: 6px 10px; border-radius: 6px; }
-    .app-tabs a.active { color: var(--fg); background: #1a1a1d; }
+    .app-tabs {
+      display: flex; position: sticky; top: 0; z-index: 10;
+      background: #0a0a0f; border-bottom: 1px solid #222;
+    }
+    .app-tab {
+      flex: 1; padding: 14px 8px; text-align: center; text-decoration: none;
+      color: var(--sub); font-size: 15px; font-weight: 600; letter-spacing: 0.3px;
+      border-bottom: 3px solid transparent;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .app-tab.active {
+      color: var(--fg); border-bottom-color: var(--accent);
+      background: rgba(78, 161, 255, 0.08);
+    }
+    .app-tab:active { background: rgba(255,255,255,0.05); }
     .terminal-tabs { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid #222; }
     .terminal-tab { background: #1a1a1d; color: var(--sub); padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; }
     .terminal-tab.is-active { background: var(--accent); color: #000; }
@@ -42,13 +53,11 @@
   </style>
 </head>
 <body>
-  <header>
-    <nav class="app-tabs">
-      <a href="./">タイマー</a>
-      <a href="./ic.html">IC判定</a>
-      <a href="./arrivals.html" class="active">到着便</a>
-    </nav>
-  </header>
+  <nav class="app-tabs" role="tablist" aria-label="アプリ切替">
+    <a href="./" class="app-tab">⏱ 乗務タイマー</a>
+    <a href="ic.html" class="app-tab">🛣 IC判定</a>
+    <a href="arrivals.html" class="app-tab active" aria-current="page">✈ 到着便</a>
+  </nav>
 
   <div class="terminal-tabs">
     <button class="terminal-tab is-active" data-terminal="T1">T1 (JAL系)</button>
