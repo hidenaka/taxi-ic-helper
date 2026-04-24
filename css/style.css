@@ -167,6 +167,26 @@ button:active { background: var(--muted); }
 .route-seg { padding: 2px 8px; background: var(--border); border-radius: 10px; font-size: 13px; color: var(--text); }
 .route-seg.company { background: var(--company); color: #fff; }
 .route-seg.self { background: var(--self-none); color: #fff; }
+.route-jct-details { margin-top: 10px; }
+.route-jct-details summary {
+  cursor: pointer; font-size: 13px; color: var(--muted);
+  padding: 6px 0; user-select: none;
+}
+.route-jct-details summary:hover { color: var(--text); }
+.route-jct-list {
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+  margin-top: 6px; font-size: 13px; line-height: 1.7;
+}
+.jct-node {
+  padding: 3px 8px; border-radius: 4px;
+  background: var(--bg); border: 1px solid var(--border);
+}
+.jct-node.jct-is-jct {
+  background: rgba(52, 152, 219, 0.15);
+  border-color: rgba(52, 152, 219, 0.5);
+  font-weight: 600;
+}
+.jct-arrow { color: var(--muted); }
 
 /* Session log (一時保存) */
 .session-log {

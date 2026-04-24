@@ -58,8 +58,6 @@
         </details>
       </div>
 
-      <label><input type="checkbox" id="chk-roundtrip" checked> 往復（デフォルト）</label>
-
       <datalist id="ic-list-all"></datalist>
     </section>
 
@@ -80,6 +78,10 @@
     <section class="route-path" id="route-path-section" hidden>
       <h3 class="route-path-label">🚗 通るルート</h3>
       <div id="route-path" class="route-path-display"></div>
+      <details id="route-jct-details" class="route-jct-details" hidden>
+        <summary>通過 IC / JCT を表示</summary>
+        <div id="route-jct-list" class="route-jct-list"></div>
+      </details>
     </section>
 
     <section class="verdict" id="verdict">

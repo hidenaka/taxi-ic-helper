@@ -85,7 +85,7 @@ function resolveShutokoDistance({ shutokoRoutes, shutokoDist, shutokoGraph, ics,
   if (shutokoGraph) {
     if (!_cachedAdj) _cachedAdj = buildAdjacency(shutokoGraph);
     const sp = shortestPath(_cachedAdj, startIcId, exitIcId);
-    if (sp.km !== null) return { km: sp.km, routeId: null, routeLabel: null };
+    if (sp.km !== null) return { km: sp.km, routeId: null, routeLabel: null, path: sp.path };
   }
 
   // 3. shutoko_distances legacy fallback
@@ -158,7 +158,8 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     route: 'shutoko',
     pay: computeShutokoPay({ outerRoute, entryIc, isOuter }),
     deductionKm: 0,
-    distanceKm: shutokoInfo.km
+    distanceKm: shutokoInfo.km,
+    path: shutokoInfo.path ?? null
   });
 
   if (exitIc.id === 'wangan_kanpachi' &&

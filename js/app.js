@@ -8,7 +8,6 @@ const state = {
     outerRoute: 'none',
     entryIcId: null,
     exitIcId: null,
-    roundTrip: true,
     viaGaikan: false,
     shutokoRouteId: null
   },
@@ -489,9 +488,6 @@ function wireEvents() {
     updateShutokoRouteOptions();
     update();
   });
-  document.getElementById('chk-roundtrip').addEventListener('change', (e) => {
-    state.selected.roundTrip = e.target.checked; update();
-  });
   document.getElementById('chk-via-gaikan').addEventListener('change', (e) => {
     state.selected.viaGaikan = e.target.checked; update();
   });
@@ -603,6 +599,38 @@ function renderRoutePath(result) {
     }
     container.appendChild(el);
   }
+
+  renderJctDetails(result, entryIc, exitIc);
+}
+
+function renderJctDetails(result, entryIc, exitIc) {
+  const wrap = document.getElementById('route-jct-details');
+  const list = document.getElementById('route-jct-list');
+  list.innerHTML = '';
+  const shutokoSeg = result.segments.find(s => s.route === 'shutoko');
+  const path = shutokoSeg?.path;
+  if (!path || path.length < 2) { wrap.hidden = true; return; }
+
+  const ics = state.data.ics;
+  const fullPath = path[0] === entryIc.id ? path.slice() : [entryIc.id, ...path];
+  if (fullPath[fullPath.length - 1] !== exitIc.id) fullPath.push(exitIc.id);
+
+  for (let i = 0; i < fullPath.length; i++) {
+    const id = fullPath[i];
+    const ic = ics.find(x => x.id === id);
+    const span = document.createElement('span');
+    const isJct = id.includes('jct') || (ic?.name || '').includes('JCT');
+    span.className = isJct ? 'jct-node jct-is-jct' : 'jct-node jct-is-ic';
+    span.textContent = ic ? ic.name : id;
+    list.appendChild(span);
+    if (i < fullPath.length - 1) {
+      const arrow = document.createElement('span');
+      arrow.className = 'jct-arrow';
+      arrow.textContent = '→';
+      list.appendChild(arrow);
+    }
+  }
+  wrap.hidden = false;
 }
 
 function update() {
@@ -616,7 +644,7 @@ function update() {
   const result = judgeRoute({
     outerRoute: state.selected.outerRoute,
     entryIc, exitIc,
-    roundTrip: state.selected.roundTrip,
+    roundTrip: true,
     shutokoRouteId: state.selected.shutokoRouteId
   }, state.data);
 
