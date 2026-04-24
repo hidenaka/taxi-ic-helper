@@ -17,20 +17,6 @@
       <button id="btn-geo-refresh" type="button">再取得</button>
     </header>
 
-    <section class="route-select">
-      <label>
-        <span class="label-text">経路（入口ICから自動選択）</span>
-        <select id="sel-outer-route"></select>
-      </label>
-      <label id="label-via-gaikan" hidden>
-        <input type="checkbox" id="chk-via-gaikan"> 外環経由
-      </label>
-      <label id="label-shutoko-route" hidden>
-        <span class="label-text">首都高内ルート（複数候補あり）</span>
-        <select id="sel-shutoko-route" class="input-pulldown"></select>
-      </label>
-    </section>
-
     <section class="ic-select">
       <div class="field">
         <div class="input-kind-label"><span class="kind-icon">🔍</span> 自由入力（検索）</div>
@@ -58,6 +44,20 @@
       <label><input type="checkbox" id="chk-roundtrip" checked> 往復（デフォルト）</label>
 
       <datalist id="ic-list-all"></datalist>
+    </section>
+
+    <section class="route-select">
+      <label>
+        <span class="label-text">経路（入口ICから自動選択）</span>
+        <select id="sel-outer-route"></select>
+      </label>
+      <label id="label-via-gaikan" hidden>
+        <input type="checkbox" id="chk-via-gaikan"> 外環経由
+      </label>
+      <label id="label-shutoko-route" hidden>
+        <span class="label-text">首都高内ルート（複数候補あり）</span>
+        <select id="sel-shutoko-route" class="input-pulldown"></select>
+      </label>
     </section>
 
     <section class="route-path" id="route-path-section" hidden>
