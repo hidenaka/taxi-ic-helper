@@ -77,11 +77,46 @@ test('lookupDeduction: 君津 は tateyama / 7.9km', () => {
   assert.strictEqual(e?.km, 7.9);
 });
 
-test('lookupDeduction: 都筑 は yokohama / 7.6km', () => {
+test('lookupDeduction: 原木 は keiyo / 4.4km (corrected)', () => {
+  const deduction = loadJson('data/deduction.json');
+  const e = lookupDeduction(deduction, 'habara');
+  assert.strictEqual(e?.direction, 'keiyo');
+  assert.strictEqual(e?.km, 4.4);
+});
+
+test('lookupDeduction: 京浜川崎 は third_keihin / 2.5km (corrected)', () => {
+  const deduction = loadJson('data/deduction.json');
+  const e = lookupDeduction(deduction, 'keihin_kawasaki');
+  assert.strictEqual(e?.direction, 'third_keihin');
+  assert.strictEqual(e?.km, 2.5);
+});
+
+test('lookupDeduction: 都筑 は third_keihin / 8.1km', () => {
   const deduction = loadJson('data/deduction.json');
   const e = lookupDeduction(deduction, 'tsuzuki');
-  assert.strictEqual(e?.direction, 'yokohama');
-  assert.strictEqual(e?.km, 7.6);
+  assert.strictEqual(e?.direction, 'third_keihin');
+  assert.strictEqual(e?.km, 8.1);
+});
+
+test('lookupDeduction: 狩場 は yokoyoko / 22.4km', () => {
+  const deduction = loadJson('data/deduction.json');
+  const e = lookupDeduction(deduction, 'kariba');
+  assert.strictEqual(e?.direction, 'yokoyoko');
+  assert.strictEqual(e?.km, 22.4);
+});
+
+test('lookupDeduction: 逗子 は yokoyoko / 41.5km (玉川基準)', () => {
+  const deduction = loadJson('data/deduction.json');
+  const e = lookupDeduction(deduction, 'zushi');
+  assert.strictEqual(e?.direction, 'yokoyoko');
+  assert.strictEqual(e?.km, 41.5);
+});
+
+test('lookupDeduction: 浦賀 は yokoyoko / 54.0km', () => {
+  const deduction = loadJson('data/deduction.json');
+  const e = lookupDeduction(deduction, 'uraga');
+  assert.strictEqual(e?.direction, 'yokoyoko');
+  assert.strictEqual(e?.km, 54.0);
 });
 
 test('lookupDeduction: 基準点 高井戸IC は null', () => {

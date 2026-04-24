@@ -99,7 +99,7 @@
       "baseline": { "ic_id": "shinozaki", "ic_name": "篠崎IC" },
       "entries": [
         { "ic_id": "keiyo_ichikawa", "name": "京葉市川", "km": 1.4 },
-        { "ic_id": "habara", "name": "原木", "km": 3.9 },
+        { "ic_id": "habara", "name": "原木", "km": 4.4 },
         { "ic_id": "funabashi", "name": "船橋", "km": 5.2 },
         { "ic_id": "hanawa", "name": "花輪", "km": 8.8 },
         { "ic_id": "makuhari", "name": "幕張", "km": 12.5 },
@@ -151,21 +151,66 @@
       ]
     },
     {
-      "id": "yokohama",
-      "name": "横浜方面",
+      "id": "third_keihin",
+      "name": "神奈川方面（第三京浜・横浜新道）",
       "baseline": { "ic_id": "tamagawa_ic", "ic_name": "玉川IC" },
-      "_note": "第三京浜 (baseline 玉川IC) + 横浜横須賀道路 (baseline 新保土ヶ谷IC, ~15.3km from 玉川). 横横道路の距離は玉川からの累積. 神奈川方面の詳細サブシステム分割はユーザー確認待ち。",
       "entries": [
-        { "ic_id": "keihinkawasaki", "name": "京浜川崎", "km": 2.2 },
-        { "ic_id": "tsuzuki", "name": "都筑", "km": 7.6 },
-        { "ic_id": "kohoku", "name": "港北", "km": 10.7 },
-        { "ic_id": "hodogaya_jct", "name": "保土ヶ谷JCT", "km": 15.3 },
-        { "ic_id": "kariba", "name": "狩場", "km": 16.5 },
-        { "ic_id": "bessho", "name": "別所", "km": 19.7 },
-        { "ic_id": "hino", "name": "日野", "km": 24.2 },
-        { "ic_id": "konan_dai", "name": "港南台", "km": 25.8 },
-        { "ic_id": "asahina", "name": "朝比奈", "km": 30.0 },
-        { "ic_id": "zushi", "name": "逗子", "km": 35.6 }
+        { "ic_id": "keihin_kawasaki", "name": "京浜川崎", "km": 2.5 },
+        { "ic_id": "tsuzuki", "name": "都筑", "km": 8.1 },
+        { "ic_id": "kohoku", "name": "港北", "km": 11.1 },
+        { "ic_id": "hodogaya", "name": "保土ヶ谷", "km": 16.6 },
+        { "ic_id": "shin_hodogaya_jct", "name": "新保土ヶ谷JCT", "km": 21.2 },
+        { "ic_id": "imai", "name": "今井", "km": 22.5 },
+        { "ic_id": "kawakami", "name": "川上", "km": 23.9 },
+        { "ic_id": "totsuka", "name": "戸塚", "km": 26.6 }
+      ]
+    },
+    {
+      "id": "yokoyoko",
+      "name": "神奈川方面（横浜横須賀道路・玉川経由）",
+      "baseline": { "ic_id": "tamagawa_ic", "ic_name": "玉川IC" },
+      "entries": [
+        { "ic_id": "kariba", "name": "狩場", "km": 22.4 },
+        { "ic_id": "bessho", "name": "別所", "km": 25.6 },
+        { "ic_id": "hino", "name": "日野", "km": 30.1 },
+        { "ic_id": "konan_dai", "name": "港南台", "km": 31.7 },
+        { "ic_id": "asahina", "name": "朝比奈", "km": 35.9 },
+        { "ic_id": "zushi", "name": "逗子", "km": 41.5 },
+        { "ic_id": "yokosuka", "name": "横須賀", "km": 43.7 },
+        { "ic_id": "kinugasa", "name": "衣笠", "km": 49.0 },
+        { "ic_id": "sabara", "name": "佐原", "km": 50.8 },
+        { "ic_id": "uraga", "name": "浦賀", "km": 54.0 }
+      ]
+    },
+    {
+      "id": "yokohane_route",
+      "name": "神奈川方面（横羽線経由）",
+      "baseline": { "ic_id": "kariba_shutoko", "ic_name": "首都高狩場線から" },
+      "entries": [
+        { "ic_id": "bessho", "name": "別所", "km": 2.2 },
+        { "ic_id": "hino", "name": "日野", "km": 6.7 },
+        { "ic_id": "konan_dai", "name": "港南台", "km": 8.5 },
+        { "ic_id": "asahina", "name": "朝比奈", "km": 12.7 },
+        { "ic_id": "zushi", "name": "逗子", "km": 18.5 },
+        { "ic_id": "yokosuka", "name": "横須賀", "km": 20.7 },
+        { "ic_id": "kinugasa", "name": "衣笠", "km": 26.0 },
+        { "ic_id": "sabara", "name": "佐原", "km": 27.8 },
+        { "ic_id": "uraga", "name": "浦賀", "km": 31.0 }
+      ]
+    },
+    {
+      "id": "wangan_route",
+      "name": "神奈川方面（湾岸線経由）",
+      "baseline": { "ic_id": "wangan_shutoko", "ic_name": "首都高湾岸線から" },
+      "entries": [
+        { "ic_id": "bessho", "name": "別所", "km": 8.5 },
+        { "ic_id": "hino", "name": "日野", "km": 6.7 },
+        { "ic_id": "konan_dai", "name": "港南台", "km": 7.3 },
+        { "ic_id": "asahina", "name": "朝比奈", "km": 13.1 },
+        { "ic_id": "zushi", "name": "逗子", "km": 15.3 },
+        { "ic_id": "yokosuka", "name": "横須賀", "km": 20.6 },
+        { "ic_id": "kinugasa", "name": "衣笠", "km": 22.4 },
+        { "ic_id": "sabara", "name": "佐原", "km": 25.6 }
       ]
     }
   ]
