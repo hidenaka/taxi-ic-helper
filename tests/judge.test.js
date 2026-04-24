@@ -377,3 +377,17 @@ test('ゴールデン #12: tomei 東名川崎→三郷JCT (異方面出口) → 
     exitIc: findIc(d.ics,'misato_jct'), roundTrip: true }, d);
   assert.ok(r.totals.deductionKmRoundtrip >= 15 && r.totals.deductionKmRoundtrip <= 16);
 });
+
+test('lookupDeduction: 新空港IC tokan ヒントで 48.8km', () => {
+  const deduction = loadJson('data/deduction.json');
+  const e = lookupDeduction(deduction, 'shin_kukou', 'tokan');
+  assert.strictEqual(e?.direction, 'tokan');
+  assert.strictEqual(e?.km, 48.8);
+});
+
+test('lookupDeduction: 新空港IC keiyo ヒントで 51.3km', () => {
+  const deduction = loadJson('data/deduction.json');
+  const e = lookupDeduction(deduction, 'shin_kukou', 'keiyo');
+  assert.strictEqual(e?.direction, 'keiyo');
+  assert.strictEqual(e?.km, 51.3);
+});

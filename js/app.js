@@ -220,17 +220,18 @@ function getOuterRouteOptions(ic) {
   };
   if (baselineMap[ic.id]) return baselineMap[ic.id];
 
-  // External trunk IC: ic.route determines options
-  const KANAGAWA_SUBS = ['third_keihin', 'yokoyoko', 'yokohane_route', 'kariba_route', 'wangan_route'];
-  if (KANAGAWA_SUBS.includes(ic.route)) return KANAGAWA_SUBS;
-  if (ic.route === 'keiyo' || ic.route === 'tokan') return ['keiyo', 'tokan'];
-  if (ic.route === 'aqua' || ic.route === 'tateyama') return ['aqua', 'tateyama'];
-  if (['tomei', 'chuo', 'kanetsu', 'tohoku', 'joban'].includes(ic.route)) return [ic.route];
+  // Data-driven: check which directions contain this IC as an entry.
+  // If found in >=1 direction, return all of them (enables 同じICが両経路 を使う pattern).
+  const matched = [];
+  for (const dir of state.data.deduction.directions) {
+    if (dir.entries.some(e => e.ic_id === ic.id)) matched.push(dir.id);
+  }
+  if (matched.length > 0) return matched;
 
   // Gaikan direct-entry IC
   if (ic.boundary_tag === 'gaikan') return ['gaikan_direct'];
 
-  // 首都高内 IC (都心側 / 8入口)
+  // 首都高内 IC (都心側 / 8入口) — no external trunk
   return ['none'];
 }
 
