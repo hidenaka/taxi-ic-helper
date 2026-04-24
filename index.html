@@ -75,6 +75,20 @@
       </details>
     </section>
 
+    <section class="session-log" id="session-log">
+      <h3 class="session-log-title">📝 今日の控除距離 一時保存</h3>
+      <div class="save-buttons">
+        <button id="btn-save-oneway" type="button" class="btn-save-oneway">片道だけ保存</button>
+        <button id="btn-save-roundtrip" type="button" class="btn-save-roundtrip">往復保存</button>
+      </div>
+      <ul id="session-log-list" class="session-log-list"></ul>
+      <div class="session-totals">
+        <div class="total-line" id="total-deduction">今日の控除合計: <strong>0.0</strong>km</div>
+        <div class="total-line drivable" id="total-drivable">走行可能距離: <strong>365.0</strong>km <span class="formula">(365 + 控除合計)</span></div>
+      </div>
+      <button id="btn-clear-log" type="button" class="btn-clear-log">今日のログを消去</button>
+    </section>
+
   </main>
 
   <script type="module" src="js/app.js"></script>

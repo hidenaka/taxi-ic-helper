@@ -119,3 +119,56 @@ button:active { background: var(--muted); }
 .route-seg { padding: 2px 8px; background: var(--border); border-radius: 10px; font-size: 13px; color: var(--text); }
 .route-seg.company { background: var(--company); color: #fff; }
 .route-seg.self { background: var(--self-none); color: #fff; }
+
+/* Session log (一時保存) */
+.session-log {
+  padding: 16px; background: var(--surface); border-top: 1px solid var(--border);
+  display: grid; gap: 12px;
+}
+.session-log-title { margin: 0; font-size: 16px; font-weight: 600; }
+.save-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.save-buttons button {
+  flex: 1 1 auto; min-width: 140px; min-height: 48px;
+  font-size: 16px; font-weight: 600; border-radius: 6px;
+}
+.btn-save-oneway { background: var(--self-ded); color: #fff; }
+.btn-save-oneway:active { filter: brightness(0.85); }
+.btn-save-roundtrip { background: var(--company); color: #fff; }
+.btn-save-roundtrip:active { filter: brightness(0.85); }
+
+.session-log-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.session-log-list:empty { display: none; }
+.session-log-list li {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  gap: 8px; align-items: center;
+  padding: 6px 10px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  font-size: 14px;
+}
+.log-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.log-type {
+  padding: 1px 6px; border-radius: 8px; font-size: 12px; font-weight: 600;
+}
+.log-type-oneway { background: var(--self-ded); color: #fff; }
+.log-type-roundtrip { background: var(--company); color: #fff; }
+.log-route { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-km { font-weight: 600; font-variant-numeric: tabular-nums; }
+.log-remove {
+  min-height: 24px; min-width: 24px; padding: 0 6px;
+  background: transparent; color: var(--muted); font-size: 18px; line-height: 1;
+  border: 1px solid var(--border); border-radius: 4px;
+}
+.log-remove:active { background: var(--border); color: var(--text); }
+
+.session-totals { display: grid; gap: 4px; padding: 8px 0; border-top: 1px dashed var(--border); }
+.total-line { font-size: 16px; }
+.total-line strong { font-size: 22px; color: var(--text); font-variant-numeric: tabular-nums; }
+.total-line.drivable strong { color: var(--company); }
+.total-line .formula { color: var(--muted); font-size: 12px; margin-left: 4px; }
+
+.btn-clear-log {
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--border); min-height: 36px; font-size: 13px;
+}
+.btn-clear-log:active { background: var(--border); color: var(--text); }

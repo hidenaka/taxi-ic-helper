@@ -10,8 +10,12 @@ const state = {
     roundTrip: true,
     viaGaikan: false,
     shutokoRouteId: null
-  }
+  },
+  lastResult: null
 };
+
+const DAILY_BASE_KM = 365;
+const LOG_KEY_PREFIX = 'taxi_ic_helper:deduction_log:';
 
 async function init() {
   state.data = await loadAllData();
@@ -23,6 +27,84 @@ async function init() {
   updateShutokoRouteOptions();
   wireEvents();
   update();
+  renderSessionLog();
+}
+
+// ---- Session deduction log (localStorage, per-day) ----
+function getTodayKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function loadTodayLog() {
+  const raw = localStorage.getItem(LOG_KEY_PREFIX + getTodayKey());
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
+function saveTodayLog(entries) {
+  localStorage.setItem(LOG_KEY_PREFIX + getTodayKey(), JSON.stringify(entries));
+}
+
+function addLogEntry(type) {
+  const r = state.lastResult;
+  if (!r) return;
+  const km = type === 'roundtrip' ? r.totals.deductionKmRoundtrip : r.totals.deductionKmOneway;
+  if (!(km > 0)) return;
+  const entryIc = state.data.ics.find(x => x.id === state.selected.entryIcId);
+  const exitIc  = state.data.ics.find(x => x.id === state.selected.exitIcId);
+  const log = loadTodayLog();
+  log.push({
+    ts: Date.now(),
+    type,
+    km,
+    from: entryIc?.name ?? '',
+    to:   exitIc?.name  ?? ''
+  });
+  saveTodayLog(log);
+  renderSessionLog();
+}
+
+function removeLogEntry(ts) {
+  const log = loadTodayLog().filter(e => e.ts !== ts);
+  saveTodayLog(log);
+  renderSessionLog();
+}
+
+function clearTodayLog() {
+  if (!confirm('今日の控除距離ログを全て消去しますか？')) return;
+  localStorage.removeItem(LOG_KEY_PREFIX + getTodayKey());
+  renderSessionLog();
+}
+
+function renderSessionLog() {
+  const log = loadTodayLog();
+  const listEl = document.getElementById('session-log-list');
+  listEl.innerHTML = '';
+
+  for (const e of log) {
+    const li = document.createElement('li');
+    const time = new Date(e.ts).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    const typeLabel = e.type === 'roundtrip' ? '往復' : '片道';
+    li.innerHTML = `
+      <span class="log-time">${time}</span>
+      <span class="log-type log-type-${e.type}">${typeLabel}</span>
+      <span class="log-route">${e.from}→${e.to}</span>
+      <span class="log-km">${e.km.toFixed(1)}km</span>
+      <button type="button" class="log-remove" aria-label="削除">×</button>`;
+    li.querySelector('.log-remove').addEventListener('click', () => removeLogEntry(e.ts));
+    listEl.appendChild(li);
+  }
+
+  const total = log.reduce((s, e) => s + e.km, 0);
+  document.getElementById('total-deduction').innerHTML =
+    `今日の控除合計: <strong>${total.toFixed(1)}</strong>km`;
+  document.getElementById('total-drivable').innerHTML =
+    `走行可能距離: <strong>${(DAILY_BASE_KM + total).toFixed(1)}</strong>km ` +
+    `<span class="formula">(365 + 控除合計)</span>`;
 }
 
 
@@ -369,6 +451,11 @@ function wireEvents() {
   }
   exitInput.addEventListener('change', resolveExitFromSearch);
   exitInput.addEventListener('input',  resolveExitFromSearch);
+
+  // ---- Session log buttons ----
+  document.getElementById('btn-save-oneway').addEventListener('click', () => addLogEntry('oneway'));
+  document.getElementById('btn-save-roundtrip').addEventListener('click', () => addLogEntry('roundtrip'));
+  document.getElementById('btn-clear-log').addEventListener('click', clearTodayLog);
 }
 
 function toggleGaikanCheckbox() {
@@ -430,6 +517,7 @@ function update() {
     shutokoRouteId: state.selected.shutokoRouteId
   }, state.data);
 
+  state.lastResult = result;
   renderVerdict(result);
   renderBreakdown(result);
   renderRoutePath(result);
