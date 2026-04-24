@@ -54,6 +54,16 @@ function lookupDistance(distData, fromId, toId) {
   return hit?.km ?? 0;
 }
 
+function resolveShutokoStartIcId({ outerRoute, entryIc, deduction }) {
+  // Outer-trunk routes: shutoko segment starts at the direction's baseline IC
+  // (that is where the driver physically enters the shutoko network)
+  const dir = deduction.directions.find(d => d.id === outerRoute);
+  if (dir) return dir.baseline.ic_id;
+  // gaikan_direct: v0.1 simplification — use entryIc.id (will produce 0 for unknown pairs)
+  // none (首都高内のみ): entryIc IS already the shutoko entry point
+  return entryIc.id;
+}
+
 function aggregate(segments, roundTrip) {
   const totalDed = segments.reduce((a, s) => a + s.deductionKm, 0);
   const totalDist = segments.reduce((a, s) => a + s.distanceKm, 0);
@@ -103,7 +113,9 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip }, deps) {
     route: 'shutoko',
     pay: computeShutokoPay({ outerRoute, entryIc, isOuter }),
     deductionKm: 0,
-    distanceKm: lookupDistance(shutokoDist, entryIc.id, exitIc.id)
+    distanceKm: lookupDistance(shutokoDist,
+      resolveShutokoStartIcId({ outerRoute, entryIc, deduction }),
+      exitIc.id)
   });
 
   if (exitIc.id === 'wangan_kanpachi' &&
