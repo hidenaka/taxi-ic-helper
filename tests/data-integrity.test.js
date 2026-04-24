@@ -65,3 +65,18 @@ test('favorites.json: 全 ic_id が ics.json に存在', () => {
   }
 });
 
+test('shutoko_routes.json: 全 from/to が ics.json に存在', () => {
+  const { ics } = loadJson('data/ics.json');
+  const { pairs } = loadJson('data/shutoko_routes.json');
+  const icIds = new Set(ics.map(x => x.id));
+  for (const p of pairs) {
+    assert.ok(icIds.has(p.from), `shutoko_routes from not in ics.json: ${p.from}`);
+    assert.ok(icIds.has(p.to),   `shutoko_routes to not in ics.json: ${p.to}`);
+    assert.ok(Array.isArray(p.options) && p.options.length > 0, `no options: ${p.from}→${p.to}`);
+    for (const opt of p.options) {
+      assert.ok(opt.id && opt.label && typeof opt.km === 'number',
+        `invalid option: ${p.from}→${p.to}/${opt.id}`);
+    }
+  }
+});
+
