@@ -1,5 +1,9 @@
-export function lookupDeduction(deductionData, icId) {
-  for (const dir of deductionData.directions) {
+export function lookupDeduction(deductionData, icId, directionId = null) {
+  const directions = directionId
+    ? deductionData.directions.filter(d => d.id === directionId)
+    : deductionData.directions;
+
+  for (const dir of directions) {
     if (dir.baseline.ic_id === icId) return null;
     const entry = dir.entries.find(e => e.ic_id === icId);
     if (entry) {
