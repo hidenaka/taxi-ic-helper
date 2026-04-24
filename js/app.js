@@ -14,28 +14,15 @@ const state = {
 
 async function init() {
   state.data = await loadAllData();
-  populateOuterRouteSelect();
   icValueIndex = buildSearchIndex();
   populateExitFavorites();
   populateAllIcSelects();
-  setEntryIc('maihama');
+  setEntryIc('maihama');     // calls updateOuterRouteOptions internally
   setExitIc('kukou_chuou');
   wireEvents();
   update();
 }
 
-function populateOuterRouteSelect() {
-  const sel = document.getElementById('sel-outer-route');
-  const labels = state.data.routes.labels;
-  sel.innerHTML = '';
-  for (const [value, label] of Object.entries(labels)) {
-    const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = label;
-    if (value === 'none') opt.selected = true;
-    sel.appendChild(opt);
-  }
-}
 
 const DIRECTION_ORDER = [
   'tomei', 'chuo', 'kanetsu', 'tohoku', 'joban',
@@ -177,9 +164,10 @@ function setEntryIc(icId) {
   const ic = state.data.ics.find(x => x.id === icId);
   if (!ic) return;
   state.selected.entryIcId = icId;
-  state.selected.outerRoute = inferOuterRoute(ic);
 
-  document.getElementById('sel-outer-route').value = state.selected.outerRoute;
+  // Determine valid outerRoute options for this entry IC
+  updateOuterRouteOptions();  // also sets state.selected.outerRoute if current is invalid
+
   document.getElementById('sel-entry-ic').value = icId;
   document.getElementById('inp-entry-ic').value = findSearchValueForId(icId);
 
@@ -209,27 +197,56 @@ function setExitIc(icId) {
   hint.className = 'hint';
 }
 
-function inferOuterRoute(ic) {
-  if (!ic) return 'none';
-  const ROUTE_MAP = {
-    'tomei':    'tomei',
-    'chuo':     'chuo',
-    'kanetsu':  'kanetsu',
-    'tohoku':   'tohoku',
-    'joban':    'joban',
-    'keiyo':    'keiyo',
-    'tokan':    'tokan',
-    'aqua':     'aqua',
-    'tateyama': 'tateyama',
-    'third_keihin':   'third_keihin',
-    'yokoyoko':       'yokoyoko',
-    'yokohane_route': 'yokohane_route',
-    'kariba_route':   'kariba_route',
-    'wangan_route':   'wangan_route'
+function getOuterRouteOptions(ic) {
+  if (!ic) return ['none'];
+
+  // Baseline ICs (首都高と外側本線の境界) → fix their direction
+  const baselineMap = {
+    'tokyo_ic':         ['tomei'],
+    'takaido':          ['chuo'],
+    'nerima':           ['kanetsu'],
+    'kawaguchi_jct':    ['tohoku'],
+    'misato_jct':       ['joban'],
+    'shinozaki':        ['keiyo'],
+    'wangan_ichikawa':  ['tokan'],
+    'ukishima_jct':     ['aqua'],
+    'kisarazu_jct':     ['tateyama'],
+    'tamagawa_ic':      ['third_keihin', 'yokoyoko']
   };
-  if (ROUTE_MAP[ic.route]) return ROUTE_MAP[ic.route];
-  if (ic.boundary_tag === 'gaikan') return 'gaikan_direct';
-  return 'none';  // 都心IC / 首都高内
+  if (baselineMap[ic.id]) return baselineMap[ic.id];
+
+  // External trunk IC: ic.route determines options
+  const KANAGAWA_SUBS = ['third_keihin', 'yokoyoko', 'yokohane_route', 'kariba_route', 'wangan_route'];
+  if (KANAGAWA_SUBS.includes(ic.route)) return KANAGAWA_SUBS;
+  if (ic.route === 'keiyo' || ic.route === 'tokan') return ['keiyo', 'tokan'];
+  if (ic.route === 'aqua' || ic.route === 'tateyama') return ['aqua', 'tateyama'];
+  if (['tomei', 'chuo', 'kanetsu', 'tohoku', 'joban'].includes(ic.route)) return [ic.route];
+
+  // Gaikan direct-entry IC
+  if (ic.boundary_tag === 'gaikan') return ['gaikan_direct'];
+
+  // 首都高内 IC (都心側 / 8入口)
+  return ['none'];
+}
+
+function updateOuterRouteOptions() {
+  const entryIc = state.data.ics.find(x => x.id === state.selected.entryIcId);
+  const options = getOuterRouteOptions(entryIc);
+  const sel = document.getElementById('sel-outer-route');
+  const labels = state.data.routes.labels;
+  sel.innerHTML = '';
+  for (const optValue of options) {
+    const opt = document.createElement('option');
+    opt.value = optValue;
+    opt.textContent = labels[optValue] || optValue;
+    sel.appendChild(opt);
+  }
+  if (options.includes(state.selected.outerRoute)) {
+    sel.value = state.selected.outerRoute;
+  } else {
+    sel.value = options[0];
+    state.selected.outerRoute = options[0];
+  }
 }
 
 function wireEvents() {
