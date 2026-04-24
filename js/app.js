@@ -33,23 +33,94 @@ function populateOuterRouteSelect() {
   }
 }
 
+const DIRECTION_ORDER = [
+  'tomei', 'chuo', 'kanetsu', 'tohoku', 'joban',
+  'keiyo', 'tokan', 'aqua', 'tateyama',
+  'third_keihin', 'yokoyoko', 'yokohane_route', 'kariba_route', 'wangan_route',
+  'gaikan', 'shutoko_inner'
+];
+
+const DIRECTION_LABELS = {
+  'tomei':          '東名',
+  'chuo':           '中央道',
+  'kanetsu':        '関越道',
+  'tohoku':         '東北道',
+  'joban':          '常磐道',
+  'keiyo':          '京葉道',
+  'tokan':          '東関東道',
+  'aqua':           'アクアライン',
+  'tateyama':       '館山道',
+  'third_keihin':   '第三京浜',
+  'yokoyoko':       '横横道路',
+  'yokohane_route': '横羽線経由',
+  'kariba_route':   '狩場線経由',
+  'wangan_route':   '湾岸線経由',
+  'gaikan':         '外環道',
+  'shutoko_inner':  '首都高都心側'
+};
+
+function buildIcGrouping(data) {
+  const { ics, deduction } = data;
+  const assignment = new Map();
+
+  for (const dir of deduction.directions) {
+    if (!assignment.has(dir.baseline.ic_id)) {
+      assignment.set(dir.baseline.ic_id, { groupId: dir.id, sortKey: 0 });
+    }
+    for (const e of dir.entries) {
+      if (!assignment.has(e.ic_id)) {
+        assignment.set(e.ic_id, { groupId: dir.id, sortKey: e.km });
+      }
+    }
+  }
+
+  for (const ic of ics) {
+    if (assignment.has(ic.id)) continue;
+    if (ic.boundary_tag === 'gaikan') {
+      assignment.set(ic.id, { groupId: 'gaikan', sortKey: 0 });
+    } else {
+      assignment.set(ic.id, { groupId: 'shutoko_inner', sortKey: 0 });
+    }
+  }
+
+  const groups = DIRECTION_ORDER.map(gid => ({
+    id: gid,
+    label: DIRECTION_LABELS[gid] || gid,
+    ics: []
+  }));
+  const groupMap = new Map(groups.map(g => [g.id, g]));
+
+  for (const ic of ics) {
+    const a = assignment.get(ic.id);
+    const grp = groupMap.get(a.groupId);
+    if (grp) grp.ics.push({ ic, sortKey: a.sortKey });
+  }
+
+  for (const grp of groups) {
+    grp.ics.sort((a, b) => a.sortKey - b.sortKey);
+  }
+
+  return groups.filter(g => g.ics.length > 0);
+}
+
 function populateIcSelects() {
   const entrySel = document.getElementById('sel-entry-ic');
-  const exitSel = document.getElementById('sel-exit-ic');
+  const exitSel  = document.getElementById('sel-exit-ic');
   entrySel.innerHTML = '';
   exitSel.innerHTML = '';
 
-  const grouped = groupIcsByRoute(state.data.ics);
-  for (const [routeName, list] of Object.entries(grouped)) {
-    const ogE = document.createElement('optgroup'); ogE.label = routeName;
-    const ogX = document.createElement('optgroup'); ogX.label = routeName;
-    for (const ic of list) {
+  const groups = buildIcGrouping(state.data);
+  for (const grp of groups) {
+    const ogE = document.createElement('optgroup'); ogE.label = grp.label;
+    const ogX = document.createElement('optgroup'); ogX.label = grp.label;
+    for (const { ic } of grp.ics) {
       const e = document.createElement('option'); e.value = ic.id; e.textContent = ic.name;
       const x = document.createElement('option'); x.value = ic.id; x.textContent = ic.name;
       ogE.appendChild(e); ogX.appendChild(x);
     }
     entrySel.appendChild(ogE); exitSel.appendChild(ogX);
   }
+
   entrySel.value = 'maihama';
   exitSel.value = 'kasumigaseki';
   state.selected.entryIcId = 'maihama';
@@ -82,15 +153,6 @@ function inferOuterRoute(ic) {
   if (ROUTE_MAP[ic.route]) return ROUTE_MAP[ic.route];
   if (ic.boundary_tag === 'gaikan') return 'gaikan_direct';
   return 'none';  // 都心IC / 首都高内
-}
-
-function groupIcsByRoute(ics) {
-  const map = {};
-  for (const ic of ics) {
-    const key = ic.route_name || 'その他';
-    (map[key] ||= []).push(ic);
-  }
-  return map;
 }
 
 function wireEvents() {
