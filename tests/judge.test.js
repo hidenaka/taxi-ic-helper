@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { loadJson } from './helpers.js';
-import { lookupDeduction, calcOneWayDeduction, judgeDeduction, computeShutokoPay } from '../js/judge.js';
+import { lookupDeduction, calcOneWayDeduction, judgeDeduction, computeShutokoPay, judgeRoute } from '../js/judge.js';
 
 test('lookupDeduction: 東名川崎 は 7.7km', () => {
   const deduction = loadJson('data/deduction.json');
@@ -264,4 +264,116 @@ test('computeShutokoPay: 都心側IC → self', () => {
   const entry = ics.find(x => x.id === 'kasumigaseki');
   const r = computeShutokoPay({ outerRoute: 'none', entryIc: entry, isOuter: false });
   assert.strictEqual(r, 'self');
+});
+
+// ── Task 15: judgeRoute golden cases ─────────────────────────────────────────
+
+function buildInputs() {
+  return {
+    ics: loadJson('data/ics.json').ics,
+    deduction: loadJson('data/deduction.json'),
+    shutokoDist: loadJson('data/shutoko_distances.json'),
+    gaikanDist: loadJson('data/gaikan_distances.json'),
+    routes: loadJson('data/routes.json')
+  };
+}
+function findIc(ics, id) {
+  const r = ics.find(x => x.id === id);
+  if (!r) throw new Error('IC not found: ' + id);
+  return r;
+}
+
+test('ゴールデン #1: tomei 東名川崎→霞ヶ関 往復', () => {
+  const d = buildInputs();
+  const r = judgeRoute({ outerRoute: 'tomei', entryIc: findIc(d.ics,'tomei_kawasaki'),
+    exitIc: findIc(d.ics,'kasumigaseki'), roundTrip: true }, d);
+  assert.strictEqual(r.totals.paySummary, 'all_company');
+  assert.strictEqual(r.totals.deductionKmRoundtrip, 15.4);
+});
+
+test('ゴールデン #2: kanetsu 所沢→霞ヶ関 往復', () => {
+  const d = buildInputs();
+  const r = judgeRoute({ outerRoute: 'kanetsu', entryIc: findIc(d.ics,'tokorozawa'),
+    exitIc: findIc(d.ics,'kasumigaseki'), roundTrip: true }, d);
+  assert.strictEqual(r.totals.paySummary, 'all_company');
+  assert.ok(r.totals.deductionKmRoundtrip > 18 && r.totals.deductionKmRoundtrip < 22,
+    `got ${r.totals.deductionKmRoundtrip}`);
+});
+
+test('ゴールデン #3: joban 柏→霞ヶ関 外環なし 往復', () => {
+  const d = buildInputs();
+  const entry = findIc(d.ics,'kashiwa'); entry._viaGaikan = false;
+  const r = judgeRoute({ outerRoute: 'joban', entryIc: entry,
+    exitIc: findIc(d.ics,'kasumigaseki'), roundTrip: true }, d);
+  assert.strictEqual(r.totals.paySummary, 'all_company');
+});
+
+test('ゴールデン #4: joban 柏→霞ヶ関 外環経由 往復', () => {
+  const d = buildInputs();
+  const entry = findIc(d.ics,'kashiwa'); entry._viaGaikan = true;
+  const r = judgeRoute({ outerRoute: 'joban', entryIc: entry,
+    exitIc: findIc(d.ics,'kasumigaseki'), roundTrip: true }, d);
+  assert.strictEqual(r.totals.paySummary, 'all_company');
+});
+
+test('ゴールデン #5: tohoku 浦和→霞ヶ関 外環経由 往復', () => {
+  const d = buildInputs();
+  const entry = findIc(d.ics,'urawa'); entry._viaGaikan = true;
+  const r = judgeRoute({ outerRoute: 'tohoku', entryIc: entry,
+    exitIc: findIc(d.ics,'kasumigaseki'), roundTrip: true }, d);
+  assert.strictEqual(r.totals.paySummary, 'all_company');
+});
+
+test('ゴールデン #6: kanetsu 所沢→霞ヶ関 外環経由 往復', () => {
+  const d = buildInputs();
+  const entry = findIc(d.ics,'tokorozawa'); entry._viaGaikan = true;
+  const r = judgeRoute({ outerRoute: 'kanetsu', entryIc: entry,
+    exitIc: findIc(d.ics,'kasumigaseki'), roundTrip: true }, d);
+  assert.strictEqual(r.totals.paySummary, 'all_company');
+});
+
+test('ゴールデン #7: gaikan_direct 大泉→霞ヶ関 → 全区間 self', () => {
+  const d = buildInputs();
+  const r = judgeRoute({ outerRoute: 'gaikan_direct', entryIc: findIc(d.ics,'oizumi'),
+    exitIc: findIc(d.ics,'kasumigaseki'), roundTrip: true }, d);
+  assert.strictEqual(r.totals.paySummary, 'all_self');
+  assert.strictEqual(r.totals.deductionKmRoundtrip, 0);
+});
+
+test('ゴールデン #8: none 舞浜→霞ヶ関 → company, 控除0', () => {
+  const d = buildInputs();
+  const r = judgeRoute({ outerRoute: 'none', entryIc: findIc(d.ics,'maihama'),
+    exitIc: findIc(d.ics,'kasumigaseki'), roundTrip: true }, d);
+  assert.strictEqual(r.totals.paySummary, 'all_company');
+  assert.strictEqual(r.totals.deductionKmRoundtrip, 0);
+});
+
+test('ゴールデン #9: none 葛西→霞ヶ関 → self, 控除0', () => {
+  const d = buildInputs();
+  const r = judgeRoute({ outerRoute: 'none', entryIc: findIc(d.ics,'kasai'),
+    exitIc: findIc(d.ics,'kasumigaseki'), roundTrip: true }, d);
+  assert.strictEqual(r.totals.paySummary, 'all_self');
+  assert.strictEqual(r.totals.deductionKmRoundtrip, 0);
+});
+
+test('ゴールデン #10: aqua 木更津金田→湾岸環八 往復', () => {
+  const d = buildInputs();
+  const r = judgeRoute({ outerRoute: 'aqua', entryIc: findIc(d.ics,'kisarazu_kaneda'),
+    exitIc: findIc(d.ics,'wangan_kanpachi'), roundTrip: true }, d);
+  assert.strictEqual(r.totals.paySummary, 'all_company');
+  assert.ok(r.totals.deductionKmRoundtrip > 0);
+});
+
+test('ゴールデン #11: yokohane_route 日野→湾岸環八 往復', () => {
+  const d = buildInputs();
+  const r = judgeRoute({ outerRoute: 'yokohane_route', entryIc: findIc(d.ics,'hino'),
+    exitIc: findIc(d.ics,'wangan_kanpachi'), roundTrip: true }, d);
+  assert.strictEqual(r.totals.paySummary, 'all_company');
+});
+
+test('ゴールデン #12: tomei 東名川崎→三郷JCT (異方面出口) → 外側本線company, 控除15.4', () => {
+  const d = buildInputs();
+  const r = judgeRoute({ outerRoute: 'tomei', entryIc: findIc(d.ics,'tomei_kawasaki'),
+    exitIc: findIc(d.ics,'misato_jct'), roundTrip: true }, d);
+  assert.ok(r.totals.deductionKmRoundtrip >= 15 && r.totals.deductionKmRoundtrip <= 16);
 });
