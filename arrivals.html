@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>羽田到着便</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <style>
+    :root { --bg: #0e0e10; --fg: #e8e8e8; --sub: #888; --accent: #4ea1ff; --peak: #ff5252; --warn: #ffb84d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, system-ui, sans-serif; font-size: 15px; }
+    header { padding: 8px 12px; border-bottom: 1px solid #222; }
+    .app-tabs { display: flex; gap: 8px; }
+    .app-tabs a { color: var(--sub); text-decoration: none; padding: 6px 10px; border-radius: 6px; }
+    .app-tabs a.active { color: var(--fg); background: #1a1a1d; }
+    .terminal-tabs { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid #222; }
+    .terminal-tab { background: #1a1a1d; color: var(--sub); padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; }
+    .terminal-tab.is-active { background: var(--accent); color: #000; }
+    section { padding: 8px 12px; }
+    h2 { font-size: 13px; color: var(--sub); margin: 8px 0; font-weight: normal; }
+    #heatmap .heatmap-row { display: grid; grid-template-columns: 50px 1fr 140px; align-items: center; gap: 8px; padding: 4px 0; }
+    .heatmap-time { color: var(--sub); font-variant-numeric: tabular-nums; }
+    .heatmap-bar { background: var(--accent); height: 10px; border-radius: 2px; min-width: 2px; }
+    .heatmap-row.is-peak .heatmap-bar { background: var(--peak); }
+    .heatmap-label { color: var(--fg); font-size: 12px; text-align: right; }
+    #flight-list .flight-row { padding: 8px 0; border-bottom: 1px solid #1a1a1d; }
+    .flight-line1 { display: flex; gap: 8px; align-items: baseline; }
+    .flight-line1 .time { font-weight: bold; min-width: 50px; }
+    .flight-line1 .flight-no { color: var(--accent); min-width: 60px; }
+    .flight-line1 .from { flex: 1; }
+    .flight-line1 .aircraft { color: var(--sub); font-size: 12px; }
+    .flight-line2 { display: flex; gap: 8px; color: var(--sub); font-size: 12px; padding-left: 50px; }
+    .flight-row.is-delayed { background: rgba(255, 184, 77, 0.08); }
+    .flight-row.is-delayed .status { color: var(--warn); }
+    .flight-row.is-unknown { opacity: 0.6; }
+    footer { padding: 8px 12px; color: var(--sub); font-size: 11px; border-top: 1px solid #222; display: flex; flex-direction: column; gap: 2px; }
+    footer.is-stale .updated { color: var(--warn); }
+    .empty { color: var(--sub); padding: 12px 0; text-align: center; }
+    #arrivals-error { background: #4a1a1a; color: #ffb; padding: 8px; border-radius: 4px; margin: 8px 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="app-tabs">
+      <a href="./">タイマー</a>
+      <a href="./ic.html">IC判定</a>
+      <a href="./arrivals.html" class="active">到着便</a>
+    </nav>
+  </header>
+
+  <div class="terminal-tabs">
+    <button class="terminal-tab is-active" data-terminal="T1">T1 (JAL系)</button>
+    <button class="terminal-tab" data-terminal="T2">T2 (ANA系)</button>
+    <button class="terminal-tab" data-terminal="T3">T3 (国際)</button>
+    <button id="arrivals-reload" style="margin-left:auto; background:transparent; color:var(--sub); border:none; cursor:pointer;">↻</button>
+  </div>
+
+  <div id="arrivals-error" hidden></div>
+
+  <section>
+    <h2>時間帯別 推定降客（30分単位）</h2>
+    <div id="heatmap"></div>
+  </section>
+
+  <section>
+    <h2>便リスト（過去30分〜未来3時間）</h2>
+    <div id="flight-list"></div>
+  </section>
+
+  <footer id="arrivals-footer"></footer>
+
+  <script type="module" src="./js/arrivals-app.js"></script>
+</body>
+</html>
