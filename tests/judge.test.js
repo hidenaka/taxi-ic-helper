@@ -273,6 +273,8 @@ function buildInputs() {
     ics: loadJson('data/ics.json').ics,
     deduction: loadJson('data/deduction.json'),
     shutokoDist: loadJson('data/shutoko_distances.json'),
+    shutokoRoutes: loadJson('data/shutoko_routes.json'),
+    shutokoGraph: loadJson('data/shutoko_graph.json'),
     gaikanDist: loadJson('data/gaikan_distances.json'),
     routes: loadJson('data/routes.json')
   };

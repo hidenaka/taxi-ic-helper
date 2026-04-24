@@ -1,4 +1,7 @@
 import { haversineKm } from './util.js';
+import { buildAdjacency, shortestPath } from './shutoko-graph.js';
+
+let _cachedAdj = null;
 
 export function lookupDeduction(deductionData, icId, directionId = null) {
   const directions = directionId
@@ -68,8 +71,8 @@ function resolveShutokoStartIcId({ outerRoute, entryIc, deduction }) {
 
 const SHUTOKO_DETOUR_FACTOR = 1.3;
 
-function resolveShutokoDistance({ shutokoRoutes, shutokoDist, ics, startIcId, exitIcId, shutokoRouteId }) {
-  // 1. Try shutoko_routes.json pairs matching start→exit
+function resolveShutokoDistance({ shutokoRoutes, shutokoDist, shutokoGraph, ics, startIcId, exitIcId, shutokoRouteId }) {
+  // 1. explicit pair from shutoko_routes.json (user-curated accurate values)
   const pair = shutokoRoutes?.pairs.find(p => p.from === startIcId && p.to === exitIcId);
   if (pair) {
     const opt = shutokoRouteId
@@ -77,16 +80,26 @@ function resolveShutokoDistance({ shutokoRoutes, shutokoDist, ics, startIcId, ex
       : (pair.options.find(o => o.default) || pair.options[0]);
     if (opt) return { km: opt.km, routeId: opt.id, routeLabel: opt.label };
   }
-  // 2. Fall back to shutoko_distances
+
+  // 2. graph-based Dijkstra (preferred accurate source)
+  if (shutokoGraph) {
+    if (!_cachedAdj) _cachedAdj = buildAdjacency(shutokoGraph);
+    const sp = shortestPath(_cachedAdj, startIcId, exitIcId);
+    if (sp.km !== null) return { km: sp.km, routeId: null, routeLabel: null };
+  }
+
+  // 3. shutoko_distances legacy fallback
   const km = lookupDistance(shutokoDist, startIcId, exitIcId);
   if (km > 0) return { km, routeId: null, routeLabel: null };
-  // 3. Fallback: haversine approximation with road-detour factor
+
+  // 4. haversine fallback (last resort)
   const startIc = ics?.find(x => x.id === startIcId);
   const exitIc  = ics?.find(x => x.id === exitIcId);
   if (startIc?.gps && exitIc?.gps) {
     const approx = haversineKm(startIc.gps, exitIc.gps) * SHUTOKO_DETOUR_FACTOR;
     return { km: approx, routeId: null, routeLabel: '概算', approx: true };
   }
+
   return { km: 0, routeId: null, routeLabel: null };
 }
 
@@ -107,7 +120,7 @@ function aggregate(segments, roundTrip) {
 }
 
 export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRouteId }, deps) {
-  const { deduction, shutokoDist, shutokoRoutes, gaikanDist, routes } = deps;
+  const { deduction, shutokoDist, shutokoRoutes, shutokoGraph, gaikanDist, routes } = deps;
   const isOuter = OUTER_TRUNK_ROUTES.has(outerRoute);
   const viaGaikan = outerRoute === 'gaikan_direct'
                  || needsGaikanTransit(outerRoute, entryIc, routes);
@@ -136,7 +149,7 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
 
   const startIcId = resolveShutokoStartIcId({ outerRoute, entryIc, deduction });
   const shutokoInfo = resolveShutokoDistance({
-    shutokoRoutes, shutokoDist, ics: deps.ics,
+    shutokoRoutes, shutokoDist, shutokoGraph, ics: deps.ics,
     startIcId, exitIcId: exitIc.id, shutokoRouteId
   });
 

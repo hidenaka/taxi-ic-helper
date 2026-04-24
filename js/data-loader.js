@@ -4,6 +4,7 @@ export async function loadAllData() {
     deduction:      './data/deduction.json',
     shutokoDist:    './data/shutoko_distances.json',
     shutokoRoutes:  './data/shutoko_routes.json',
+    shutokoGraph:   './data/shutoko_graph.json',
     gaikanDist:     './data/gaikan_distances.json',
     routes:         './data/routes.json',
     companyPay:     './data/company-pay.json',
@@ -41,6 +42,10 @@ export function validate(data) {
   for (const p of (data.shutokoRoutes?.pairs ?? [])) {
     if (!icIds.has(p.from)) errors.push(`shutoko_routes from missing: ${p.from}`);
     if (!icIds.has(p.to))   errors.push(`shutoko_routes to missing: ${p.to}`);
+  }
+  for (const e of (data.shutokoGraph?.edges ?? [])) {
+    if (!icIds.has(e.from)) errors.push(`shutoko_graph edge from missing: ${e.from}`);
+    if (!icIds.has(e.to))   errors.push(`shutoko_graph edge to missing: ${e.to}`);
   }
 
   if (errors.length > 0) {
