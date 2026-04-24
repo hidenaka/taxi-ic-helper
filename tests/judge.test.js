@@ -56,11 +56,18 @@ test('lookupDeduction: 船橋 は keiyo / 5.2km', () => {
   assert.strictEqual(e?.km, 5.2);
 });
 
-test('lookupDeduction: 佐倉 は tokan / 29.0km', () => {
+test('lookupDeduction: 佐倉 は tokan 指定で 29.0km', () => {
   const deduction = loadJson('data/deduction.json');
-  const e = lookupDeduction(deduction, 'sakura_tokan');
+  const e = lookupDeduction(deduction, 'sakura_tokan', 'tokan');
   assert.strictEqual(e?.direction, 'tokan');
   assert.strictEqual(e?.km, 29.0);
+});
+
+test('lookupDeduction: 佐倉 は keiyo 指定で 32.6km', () => {
+  const deduction = loadJson('data/deduction.json');
+  const e = lookupDeduction(deduction, 'sakura_tokan', 'keiyo');
+  assert.strictEqual(e?.direction, 'keiyo');
+  assert.strictEqual(e?.km, 32.6);
 });
 
 test('lookupDeduction: 木更津金田 は aqua / 15.1km', () => {
