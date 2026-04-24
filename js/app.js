@@ -1,6 +1,6 @@
 import { loadAllData } from './data-loader.js';
 import { judgeRoute } from './judge.js';
-import { createGeoWatcher, findNearestICs } from './geo.js';
+import { createGeoWatcher, findNearestICs, entryGivesCompanyPayDeduction } from './geo.js';
 
 const state = {
   data: null,
@@ -113,6 +113,10 @@ function refreshNearestSuggestions(pos) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn-geo-suggest';
+    if (entryGivesCompanyPayDeduction(ic.id, state.data.deduction)) {
+      btn.classList.add('glow');
+      btn.title = '会社負担 + 控除あり';
+    }
     btn.textContent = `${ic.name} ${distKm.toFixed(1)}km`;
     btn.addEventListener('click', () => { setEntryIc(ic.id); update(); });
     buttons.appendChild(btn);

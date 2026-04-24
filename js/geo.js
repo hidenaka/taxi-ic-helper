@@ -23,6 +23,22 @@ export function acceptSample(accuracyMeters, thresholdMeters = DEFAULT_ACCURACY_
     && accuracyMeters <= thresholdMeters;
 }
 
+/**
+ * Returns true when entering at this IC produces both:
+ *   - 会社負担 (company pay), and
+ *   - 控除距離 > 0 (positive deduction km)
+ * Determined by membership in deduction.directions[].entries with km > 0.
+ * 8入口 / 湾岸環八 など会社負担だが控除0の IC は false。
+ */
+export function entryGivesCompanyPayDeduction(icId, deduction) {
+  if (!icId || !deduction || !Array.isArray(deduction.directions)) return false;
+  for (const dir of deduction.directions) {
+    const entry = (dir.entries || []).find((e) => e.ic_id === icId);
+    if (entry && entry.km > 0) return true;
+  }
+  return false;
+}
+
 export function defaultExitIcId(pos, exitIcs, fallbackId = DEFAULT_FALLBACK_EXIT_ID) {
   if (!pos) return fallbackId;
   const ranked = findNearestICs(pos, exitIcs, { n: 1 });

@@ -5,6 +5,7 @@ import {
   acceptSample,
   defaultExitIcId,
   createGeoWatcher,
+  entryGivesCompanyPayDeduction,
 } from '../js/geo.js';
 
 const KASUMI = { lat: 35.6730, lng: 139.7495 };
@@ -146,6 +147,31 @@ test('createGeoWatcher: geolocation なしは unsupported', () => {
   const w = createGeoWatcher({ geolocation: null });
   w.start();
   assert.equal(w.getState(), 'unsupported');
+});
+
+test('entryGivesCompanyPayDeduction: km>0 のエントリは true', () => {
+  const ded = { directions: [
+    { id: 'tomei', entries: [{ ic_id: 'yokohama_machida', km: 19.7 }] },
+    { id: 'joban', entries: [{ ic_id: 'kashiwa', km: 6.1 }] },
+  ]};
+  assert.equal(entryGivesCompanyPayDeduction('yokohama_machida', ded), true);
+  assert.equal(entryGivesCompanyPayDeduction('kashiwa', ded), true);
+});
+
+test('entryGivesCompanyPayDeduction: km=0 は false (8入口/baseline)', () => {
+  const ded = { directions: [{ id: 'x', entries: [{ ic_id: 'baseline_ic', km: 0 }] }] };
+  assert.equal(entryGivesCompanyPayDeduction('baseline_ic', ded), false);
+});
+
+test('entryGivesCompanyPayDeduction: deduction にない IC は false', () => {
+  const ded = { directions: [{ id: 'tomei', entries: [{ ic_id: 'a', km: 1 }] }] };
+  assert.equal(entryGivesCompanyPayDeduction('not_listed', ded), false);
+});
+
+test('entryGivesCompanyPayDeduction: 不正入力は false', () => {
+  assert.equal(entryGivesCompanyPayDeduction(null, { directions: [] }), false);
+  assert.equal(entryGivesCompanyPayDeduction('a', null), false);
+  assert.equal(entryGivesCompanyPayDeduction('a', {}), false);
 });
 
 test('createGeoWatcher: start を二重に呼んでも safe', () => {
