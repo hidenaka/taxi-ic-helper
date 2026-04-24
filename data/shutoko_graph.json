@@ -34,7 +34,10 @@
     { "id": "kukou_chuou",     "routes": ["B", "1"] },
     { "id": "ukishima_jct",    "routes": ["B"] },
     { "id": "wangan_ichikawa", "routes": ["B"] },
-    { "id": "shioiri",         "routes": ["K1"] }
+    { "id": "shioiri",         "routes": ["K1"] },
+    { "id": "kohoku_jct",      "routes": ["S1", "C2"] },
+    { "id": "kumanocho_jct",   "routes": ["5", "C2"] },
+    { "id": "kosuge_jct",      "routes": ["6_mukojima", "6_misato", "C2"] }
   ],
   "edges": [
 
@@ -80,11 +83,16 @@
     { "from": "kukou_chuou",  "to": "ukishima_jct",    "km": 4.2,  "route": "B" },
     { "from": "ukishima_jct", "to": "wangan_kanpachi", "km": 6.0,  "route": "B" },
 
-    { "from": "bijogi_jct",   "to": "kawaguchi_jct",   "km": 8.5,  "route": "C2", "approx": true },
-    { "from": "bijogi_jct",   "to": "misato_jct",      "km": 14.5, "route": "C2", "approx": true },
-    { "from": "kawaguchi_jct","to": "kanda_bashi",     "km": 11.5, "route": "C2", "approx": true },
-    { "from": "misato_jct",   "to": "hakozaki",        "km": 20.0, "route": "C2" },
-    { "from": "bijogi_jct",   "to": "kasumigaseki",    "km": 13.5, "route": "C2", "approx": true },
+    { "from": "kawaguchi_jct","to": "kohoku_jct",      "km": 12.3, "route": "S1" },
+    { "from": "shingo",       "to": "kohoku_jct",      "km": 6.8,  "route": "S1" },
+
+    { "from": "kohoku_jct",   "to": "kumanocho_jct",   "km": 7.5,  "route": "C2" },
+    { "from": "kohoku_jct",   "to": "kosuge_jct",      "km": 5.7,  "route": "C2" },
+    { "from": "kumanocho_jct","to": "nakadai",         "km": 5.1,  "route": "5" },
+    { "from": "kumanocho_jct","to": "kanda_bashi",     "km": 8.1,  "route": "5" },
+    { "from": "kosuge_jct",   "to": "kahei",           "km": 2.2,  "route": "6_misato" },
+    { "from": "kosuge_jct",   "to": "hakozaki",        "km": 9.7,  "route": "6_mukojima" },
+    { "from": "kosuge_jct",   "to": "yotsugi",         "km": 2.1,  "route": "C2" },
 
     { "from": "shioiri",      "to": "kukou_chuou",     "km": 8.5,  "route": "K1", "approx": true }
   ]
