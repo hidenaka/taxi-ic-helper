@@ -147,11 +147,10 @@ test('lookupDeduction: 別所（横羽線経由ヒント） は yokohane_route /
   assert.strictEqual(e?.km, 2.2);
 });
 
-test('lookupDeduction: 別所（湾岸線経由ヒント） は wangan_route / 2.2km', () => {
+test('lookupDeduction: 別所 は wangan_route には存在しない', () => {
   const deduction = loadJson('data/deduction.json');
   const e = lookupDeduction(deduction, 'bessho', 'wangan_route');
-  assert.strictEqual(e?.direction, 'wangan_route');
-  assert.strictEqual(e?.km, 2.2);
+  assert.strictEqual(e, null);
 });
 
 test('lookupDeduction: ヒントなし別所は先頭マッチ（yokoyoko）', () => {
@@ -160,11 +159,11 @@ test('lookupDeduction: ヒントなし別所は先頭マッチ（yokoyoko）', (
   assert.strictEqual(e?.direction, 'yokoyoko');
 });
 
-test('lookupDeduction: 日野（湾岸線経由ヒント） は wangan_route / 6.7km', () => {
+test('lookupDeduction: 日野（湾岸線経由ヒント） は wangan_route / 8.5km', () => {
   const deduction = loadJson('data/deduction.json');
   const e = lookupDeduction(deduction, 'hino', 'wangan_route');
   assert.strictEqual(e?.direction, 'wangan_route');
-  assert.strictEqual(e?.km, 6.7);
+  assert.strictEqual(e?.km, 8.5);
 });
 
 test('routes.json: needs_gaikan_transit に全 outerRoute キーがある', () => {
