@@ -161,11 +161,11 @@ test('lookupDeduction: 別所（横羽線経由ヒント） は yokohane_route /
   assert.strictEqual(e?.km, 2.2);
 });
 
-test('lookupDeduction: 別所 は wangan_route 指定で 4.0km (推定値)', () => {
+test('lookupDeduction: 別所 は wangan_route 指定で 0km', () => {
   const deduction = loadJson('data/deduction.json');
   const e = lookupDeduction(deduction, 'bessho', 'wangan_route');
   assert.strictEqual(e?.direction, 'wangan_route');
-  assert.strictEqual(e?.km, 4.0);
+  assert.strictEqual(e?.km, 0);
 });
 
 test('lookupDeduction: ヒントなし別所は先頭マッチ（yokoyoko）', () => {
