@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <meta name="theme-color" content="#0f1723">
+  <title>タクシー IC判定</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div class="geo-status">
+        <span id="geo-location">現在地: 未取得</span>
+        <span id="geo-accuracy"></span>
+      </div>
+      <button id="btn-geo-refresh" type="button">再取得</button>
+    </header>
+
+    <section class="route-select">
+      <label>どこから戻る？
+        <select id="sel-outer-route"></select>
+      </label>
+      <label id="label-via-gaikan" hidden>
+        <input type="checkbox" id="chk-via-gaikan"> 外環経由
+      </label>
+    </section>
+
+    <section class="ic-select">
+      <label>入口IC
+        <select id="sel-entry-ic"></select>
+      </label>
+      <label>出口IC
+        <select id="sel-exit-ic"></select>
+      </label>
+      <label><input type="checkbox" id="chk-roundtrip" checked> 往復</label>
+    </section>
+
+    <section class="verdict" id="verdict">
+      <div class="badge-main" id="badge-main">—</div>
+      <div class="badge-deduction" id="badge-deduction">—</div>
+      <div class="badge-distance" id="badge-distance">—</div>
+      <details>
+        <summary>区間内訳</summary>
+        <ul id="segment-breakdown"></ul>
+      </details>
+    </section>
+
+    <section class="map">
+      <div id="svg-mount"></div>
+    </section>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
