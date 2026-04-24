@@ -44,3 +44,14 @@ test('shutoko_distances.json: 全 from/to が ics.json に存在', () => {
     assert.ok(typeof e.km === 'number' && e.km > 0, `invalid km: ${e.from}→${e.to}`);
   }
 });
+
+test('gaikan_distances.json: 全 from/to が ics.json に存在', () => {
+  const { ics } = loadJson('data/ics.json');
+  const { entries } = loadJson('data/gaikan_distances.json');
+  const icIds = new Set(ics.map(x => x.id));
+  for (const e of entries) {
+    assert.ok(icIds.has(e.from), `from not in ics.json: ${e.from}`);
+    assert.ok(icIds.has(e.to), `to not in ics.json: ${e.to}`);
+    assert.ok(typeof e.km === 'number' && e.km > 0, `invalid km: ${e.from}→${e.to}`);
+  }
+});
