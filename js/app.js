@@ -358,14 +358,6 @@ function populateExitFavorites() {
   sel.value = 'kukou_chuou';
 }
 
-// ---- State-sync helpers ----
-function findSearchValueForId(icId) {
-  for (const [val, id] of icValueIndex.entries()) {
-    if (id === icId) return val;
-  }
-  return '';
-}
-
 function setEntryIc(icId) {
   const ic = state.data.ics.find(x => x.id === icId);
   if (!ic) return;
@@ -375,7 +367,6 @@ function setEntryIc(icId) {
   updateOuterRouteOptions();  // also sets state.selected.outerRoute if current is invalid
 
   document.getElementById('sel-entry-ic').value = icId;
-  document.getElementById('inp-entry-ic').value = findSearchValueForId(icId);
 
   const hint = document.getElementById('entry-ic-hint');
   hint.textContent = ic.route_name || '';
@@ -392,12 +383,10 @@ function setExitIc(icId) {
 
   const favSel = document.getElementById('sel-exit-fav');
   const allSel = document.getElementById('sel-exit-all');
-  const inp    = document.getElementById('inp-exit-ic');
 
   const favIds = state.data.favorites.exit_favorites.map(f => f.ic_id);
   favSel.value = favIds.includes(icId) ? icId : '';
   allSel.value = icId;
-  inp.value = findSearchValueForId(icId);
 
   const hint = document.getElementById('exit-ic-hint');
   hint.textContent = ic.route_name || '';
