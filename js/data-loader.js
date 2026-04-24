@@ -1,12 +1,13 @@
 export async function loadAllData() {
   const paths = {
-    ics:         './data/ics.json',
-    deduction:   './data/deduction.json',
-    shutokoDist: './data/shutoko_distances.json',
-    gaikanDist:  './data/gaikan_distances.json',
-    routes:      './data/routes.json',
-    companyPay:  './data/company-pay.json',
-    favorites:   './data/favorites.json'
+    ics:            './data/ics.json',
+    deduction:      './data/deduction.json',
+    shutokoDist:    './data/shutoko_distances.json',
+    shutokoRoutes:  './data/shutoko_routes.json',
+    gaikanDist:     './data/gaikan_distances.json',
+    routes:         './data/routes.json',
+    companyPay:     './data/company-pay.json',
+    favorites:      './data/favorites.json'
   };
   const entries = await Promise.all(
     Object.entries(paths).map(async ([k, p]) => [k, await (await fetch(p)).json()])
@@ -36,6 +37,10 @@ export function validate(data) {
   for (const e of data.gaikanDist.entries) {
     if (!icIds.has(e.from)) errors.push(`gaikan from missing: ${e.from}`);
     if (!icIds.has(e.to))   errors.push(`gaikan to missing: ${e.to}`);
+  }
+  for (const p of (data.shutokoRoutes?.pairs ?? [])) {
+    if (!icIds.has(p.from)) errors.push(`shutoko_routes from missing: ${p.from}`);
+    if (!icIds.has(p.to))   errors.push(`shutoko_routes to missing: ${p.to}`);
   }
 
   if (errors.length > 0) {

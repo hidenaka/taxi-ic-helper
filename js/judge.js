@@ -64,6 +64,20 @@ function resolveShutokoStartIcId({ outerRoute, entryIc, deduction }) {
   return entryIc.id;
 }
 
+function resolveShutokoDistance({ shutokoRoutes, shutokoDist, startIcId, exitIcId, shutokoRouteId }) {
+  // 1. Try shutoko_routes.json pairs matching start→exit
+  const pair = shutokoRoutes?.pairs.find(p => p.from === startIcId && p.to === exitIcId);
+  if (pair) {
+    const opt = shutokoRouteId
+      ? pair.options.find(o => o.id === shutokoRouteId)
+      : (pair.options.find(o => o.default) || pair.options[0]);
+    if (opt) return { km: opt.km, routeId: opt.id, routeLabel: opt.label };
+  }
+  // 2. Fall back to shutoko_distances
+  const km = lookupDistance(shutokoDist, startIcId, exitIcId);
+  return { km, routeId: null, routeLabel: null };
+}
+
 function aggregate(segments, roundTrip) {
   const totalDed = segments.reduce((a, s) => a + s.deductionKm, 0);
   const totalDist = segments.reduce((a, s) => a + s.distanceKm, 0);
@@ -80,8 +94,8 @@ function aggregate(segments, roundTrip) {
   };
 }
 
-export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip }, deps) {
-  const { deduction, shutokoDist, gaikanDist, routes } = deps;
+export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRouteId }, deps) {
+  const { deduction, shutokoDist, shutokoRoutes, gaikanDist, routes } = deps;
   const isOuter = OUTER_TRUNK_ROUTES.has(outerRoute);
   const viaGaikan = outerRoute === 'gaikan_direct'
                  || needsGaikanTransit(outerRoute, entryIc, routes);
@@ -108,14 +122,17 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip }, deps) {
     });
   }
 
+  const startIcId = resolveShutokoStartIcId({ outerRoute, entryIc, deduction });
+  const shutokoInfo = resolveShutokoDistance({
+    shutokoRoutes, shutokoDist, startIcId, exitIcId: exitIc.id, shutokoRouteId
+  });
+
   segs.push({
-    name: '首都高',
+    name: shutokoInfo.routeLabel ? `首都高（${shutokoInfo.routeLabel}）` : '首都高',
     route: 'shutoko',
     pay: computeShutokoPay({ outerRoute, entryIc, isOuter }),
     deductionKm: 0,
-    distanceKm: lookupDistance(shutokoDist,
-      resolveShutokoStartIcId({ outerRoute, entryIc, deduction }),
-      exitIc.id)
+    distanceKm: shutokoInfo.km
   });
 
   if (exitIc.id === 'wangan_kanpachi' &&
