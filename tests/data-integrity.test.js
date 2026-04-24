@@ -56,3 +56,12 @@ test('gaikan_distances.json: 全 from/to が ics.json に存在', () => {
   }
 });
 
+test('favorites.json: 全 ic_id が ics.json に存在', () => {
+  const { ics } = loadJson('data/ics.json');
+  const { exit_favorites } = loadJson('data/favorites.json');
+  const icIds = new Set(ics.map(x => x.id));
+  for (const f of exit_favorites) {
+    assert.ok(icIds.has(f.ic_id), `favorite not in ics.json: ${f.ic_id}`);
+  }
+});
+
