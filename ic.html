@@ -20,11 +20,14 @@
   </nav>
   <main class="app">
     <header class="header">
-      <div class="geo-status">
-        <span id="geo-location">現在地: 未取得</span>
+      <div class="geo-status" id="geo-status">
+        <span id="geo-location">📍 現在地: 未取得</span>
         <span id="geo-accuracy"></span>
       </div>
-      <button id="btn-geo-refresh" type="button">再取得</button>
+      <div class="geo-actions">
+        <button id="btn-geo-refresh" type="button">再取得</button>
+        <button id="btn-geo-toggle" type="button" aria-pressed="true">GPSオフ</button>
+      </div>
     </header>
 
     <section class="ic-select">
@@ -35,6 +38,10 @@
         <div class="input-kind-label"><span class="kind-icon">▾</span> プルダウンから選ぶ</div>
         <select id="sel-entry-ic" class="input-pulldown"></select>
         <div class="hint" id="entry-ic-hint"></div>
+        <div class="geo-suggest" id="geo-suggest" hidden>
+          <span class="geo-suggest-label">📍 GPS近い順</span>
+          <div class="geo-suggest-buttons" id="geo-suggest-buttons"></div>
+        </div>
       </div>
 
       <div class="field">

@@ -38,6 +38,24 @@ body {
   gap: 8px;
 }
 .geo-status { display: flex; gap: 8px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+.geo-status.measuring #geo-location { color: var(--text); }
+.geo-status.denied #geo-location,
+.geo-status.error #geo-location,
+.geo-status.unsupported #geo-location { color: #e74c3c; }
+.geo-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.geo-actions button { min-height: 36px; padding: 4px 10px; font-size: 14px; }
+.geo-suggest {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  padding: 6px 0; font-size: 13px; color: var(--muted);
+}
+.geo-suggest-label { white-space: nowrap; }
+.geo-suggest-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-geo-suggest {
+  min-height: 32px; padding: 4px 10px; font-size: 13px;
+  background: rgba(52, 152, 219, 0.15); color: var(--text);
+  border: 1px solid var(--border); border-radius: 16px;
+}
+.btn-geo-suggest:active { background: rgba(52, 152, 219, 0.30); }
 .route-select, .ic-select {
   padding: 12px 16px; display: grid; gap: 8px;
   background: var(--surface); border-bottom: 1px solid var(--border);

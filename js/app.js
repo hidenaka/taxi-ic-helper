@@ -1,5 +1,6 @@
 import { loadAllData } from './data-loader.js';
 import { judgeRoute } from './judge.js';
+import { createGeoWatcher, findNearestICs, defaultExitIcId } from './geo.js';
 
 const state = {
   data: null,
@@ -16,6 +17,13 @@ const state = {
 
 const DAILY_BASE_KM = 365;
 const LOG_KEY_PREFIX = 'taxi_ic_helper:deduction_log:';
+const NEAREST_SUGGEST_COUNT = 4;
+
+const geoState = {
+  watcher: null,
+  enabled: true,
+  initialExitSet: false,
+};
 
 async function init() {
   state.data = await loadAllData();
@@ -28,6 +36,91 @@ async function init() {
   wireEvents();
   update();
   renderSessionLog();
+  initGeo();
+}
+
+// ---- GPS (v0.2) ----
+function initGeo() {
+  geoState.watcher = createGeoWatcher({
+    onUpdate: (pos) => onGeoUpdate(pos),
+    onState: (s) => onGeoState(s),
+  });
+  geoState.watcher.start();
+}
+
+function onGeoState(s) {
+  const root = document.getElementById('geo-status');
+  root.classList.remove('measuring', 'denied', 'error', 'idle', 'unsupported');
+  root.classList.add(s);
+  const loc = document.getElementById('geo-location');
+  const acc = document.getElementById('geo-accuracy');
+  const toggle = document.getElementById('btn-geo-toggle');
+  switch (s) {
+    case 'measuring':
+      loc.textContent = '📍 計測中…';
+      acc.textContent = '';
+      toggle.textContent = 'GPSオフ';
+      toggle.setAttribute('aria-pressed', 'true');
+      break;
+    case 'denied':
+      loc.textContent = '📍 GPS拒否（手動モード）';
+      acc.textContent = '';
+      hideGeoSuggest();
+      break;
+    case 'error':
+      loc.textContent = '📍 GPSエラー';
+      acc.textContent = '';
+      hideGeoSuggest();
+      break;
+    case 'unsupported':
+      loc.textContent = '📍 この端末はGPS非対応';
+      acc.textContent = '';
+      hideGeoSuggest();
+      break;
+    case 'idle':
+      loc.textContent = '📍 GPSオフ';
+      acc.textContent = '';
+      hideGeoSuggest();
+      toggle.textContent = 'GPSオン';
+      toggle.setAttribute('aria-pressed', 'false');
+      break;
+  }
+}
+
+function onGeoUpdate(pos) {
+  document.getElementById('geo-location').textContent = '📍 現在地取得済';
+  document.getElementById('geo-accuracy').textContent = `±${Math.round(pos.accuracy)}m`;
+  refreshNearestSuggestions(pos);
+
+  if (!geoState.initialExitSet) {
+    const favIds = state.data.favorites.exit_favorites.map(f => f.ic_id);
+    const favIcs = state.data.ics.filter(ic => favIds.includes(ic.id));
+    const exitId = defaultExitIcId(pos, favIcs);
+    setExitIc(exitId);
+    update();
+    geoState.initialExitSet = true;
+  }
+}
+
+function refreshNearestSuggestions(pos) {
+  const wrap = document.getElementById('geo-suggest');
+  const buttons = document.getElementById('geo-suggest-buttons');
+  buttons.innerHTML = '';
+  const nearest = findNearestICs(pos, state.data.ics, { n: NEAREST_SUGGEST_COUNT });
+  if (nearest.length === 0) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  for (const { ic, distKm } of nearest) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-geo-suggest';
+    btn.textContent = `${ic.name} ${distKm.toFixed(1)}km`;
+    btn.addEventListener('click', () => { setEntryIc(ic.id); update(); });
+    buttons.appendChild(btn);
+  }
+}
+
+function hideGeoSuggest() {
+  document.getElementById('geo-suggest').hidden = true;
 }
 
 // ---- Session deduction log (localStorage, per-day) ----
@@ -410,7 +503,20 @@ function wireEvents() {
     state.selected.viaGaikan = e.target.checked; update();
   });
   document.getElementById('btn-geo-refresh').addEventListener('click', () => {
-    document.getElementById('geo-location').textContent = 'GPS はv0.2で実装予定';
+    if (!geoState.watcher) return;
+    geoState.watcher.stop();
+    geoState.enabled = true;
+    geoState.watcher.start();
+  });
+  document.getElementById('btn-geo-toggle').addEventListener('click', () => {
+    if (!geoState.watcher) return;
+    if (geoState.enabled) {
+      geoState.watcher.stop();
+      geoState.enabled = false;
+    } else {
+      geoState.enabled = true;
+      geoState.watcher.start();
+    }
   });
   document.getElementById('sel-shutoko-route').addEventListener('change', (e) => {
     state.selected.shutokoRouteId = e.target.value;
