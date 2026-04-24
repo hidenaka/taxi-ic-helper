@@ -147,8 +147,7 @@ function populateExitFavorites() {
     if (!ic) continue;
     const opt = document.createElement('option');
     opt.value = f.ic_id;
-    const noteStr = f.note ? `（${f.note}）` : '';
-    opt.textContent = `${ic.name}${noteStr}`;
+    opt.textContent = ic.name;
     sel.appendChild(opt);
   }
   sel.value = 'kukou_chuou';

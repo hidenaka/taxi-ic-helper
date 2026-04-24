@@ -70,25 +70,30 @@ button:active { background: var(--muted); }
 }
 .input-kind-label .kind-icon { font-size: 14px; }
 
+/* 自由入力 = 青系（水色の tint） */
 .input-search {
-  background: #141f2e !important;
-  border: 2px solid #3a5782 !important;
-  padding-left: 32px !important;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2395a5a6' stroke-width='2'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") !important;
+  background: #0d2540 !important;
+  color: #d0e4ff !important;
+  border: 2px solid #4a90e2 !important;
+  padding-left: 36px !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a90e2' stroke-width='2'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") !important;
   background-repeat: no-repeat !important;
-  background-position: 8px center !important;
+  background-position: 10px center !important;
   background-size: 18px !important;
 }
+.input-search::placeholder { color: #6c8aa8; }
 
+/* プルダウン = 緑系（サンドベージュの tint） */
 .input-pulldown {
-  background: #1e2c3f !important;
-  border: 1px solid var(--border) !important;
-  padding-right: 30px !important;
+  background: #2a2410 !important;
+  color: #f0e6cc !important;
+  border: 2px solid #c9a24a !important;
+  padding-right: 34px !important;
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2395a5a6' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9a24a' stroke-width='2.5'><polyline points='6 9 12 15 18 9'/></svg>") !important;
   background-repeat: no-repeat !important;
-  background-position: right 8px center !important;
+  background-position: right 10px center !important;
   background-size: 16px !important;
 }
 
