@@ -245,7 +245,7 @@ const DIRECTION_LABELS = {
   'aqua':           'アクアライン',
   'tateyama':       '館山道',
   'third_keihin':   '第三京浜',
-  'yokoyoko':       '横横道路',
+  'yokoyoko':       '玉川経由',
   'yokohane_route': '横羽線経由',
   'kariba_route':   '狩場線経由',
   'wangan_route':   '湾岸線経由',
