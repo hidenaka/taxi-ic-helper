@@ -306,19 +306,14 @@ function buildSearchIndex() {
   const groups = buildIcGrouping(state.data);
   for (const grp of groups) {
     for (const { ic } of grp.ics) {
-      const value = `${ic.name}（${grp.label}）`;
+      const aliasInline = (ic.aliases && ic.aliases.length)
+        ? `／${ic.aliases.join('・')}`
+        : '';
+      const value = `${ic.name}${aliasInline}（${grp.label}）`;
       valueToIcId.set(value, ic.id);
       const opt = document.createElement('option');
       opt.value = value;
       datalist.appendChild(opt);
-
-      for (const alias of (ic.aliases || [])) {
-        const aliasValue = `${alias} → ${ic.name}（${grp.label}）`;
-        valueToIcId.set(aliasValue, ic.id);
-        const aliasOpt = document.createElement('option');
-        aliasOpt.value = aliasValue;
-        datalist.appendChild(aliasOpt);
-      }
     }
   }
   return valueToIcId;
