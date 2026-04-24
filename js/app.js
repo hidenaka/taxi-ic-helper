@@ -82,6 +82,10 @@ function clearTodayLog() {
 
 function renderSessionLog() {
   const log = loadTodayLog();
+  const d = new Date();
+  const wd = ['日','月','火','水','木','金','土'][d.getDay()];
+  document.getElementById('session-log-date').textContent =
+    `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}(${wd})`;
   const listEl = document.getElementById('session-log-list');
   listEl.innerHTML = '';
 
