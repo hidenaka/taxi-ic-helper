@@ -1,6 +1,6 @@
 import { loadAllData } from './data-loader.js';
 import { judgeRoute } from './judge.js';
-import { createGeoWatcher, findNearestICs, defaultExitIcId } from './geo.js';
+import { createGeoWatcher, findNearestICs } from './geo.js';
 
 const state = {
   data: null,
@@ -22,7 +22,7 @@ const NEAREST_SUGGEST_COUNT = 4;
 const geoState = {
   watcher: null,
   enabled: true,
-  initialExitSet: false,
+  initialEntrySet: false,
 };
 
 async function init() {
@@ -92,13 +92,13 @@ function onGeoUpdate(pos) {
   document.getElementById('geo-accuracy').textContent = `±${Math.round(pos.accuracy)}m`;
   refreshNearestSuggestions(pos);
 
-  if (!geoState.initialExitSet) {
-    const favIds = state.data.favorites.exit_favorites.map(f => f.ic_id);
-    const favIcs = state.data.ics.filter(ic => favIds.includes(ic.id));
-    const exitId = defaultExitIcId(pos, favIcs);
-    setExitIc(exitId);
-    update();
-    geoState.initialExitSet = true;
+  if (!geoState.initialEntrySet) {
+    const nearest = findNearestICs(pos, state.data.ics, { n: 1 });
+    if (nearest.length > 0) {
+      setEntryIc(nearest[0].ic.id);
+      update();
+      geoState.initialEntrySet = true;
+    }
   }
 }
 
