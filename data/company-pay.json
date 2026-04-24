@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "rule_8entries_and_outer",
+      "description": "指定8入口 + それより東京外側の首都高接続ICから首都高に戻る",
+      "applies_via": "entry_boundary_tag:company_pay_entry"
+    },
+    {
+      "id": "rule_wangan_kanpachi",
+      "description": "アクア/館山/横浜方面から戻って湾岸環八IC降車",
+      "applies_via": "exit_id:wangan_kanpachi AND outer_route_in:[aqua,tateyama,third_keihin,yokoyoko,yokohane_route,kariba_route,wangan_route]"
+    },
+    {
+      "id": "rule_outer_via_gaikan",
+      "description": "常磐/東北/関越道から外環経由で首都高に戻る場合、全区間会社負担",
+      "applies_via": "outer_route_in:[joban,tohoku,kanetsu] AND via_gaikan:true"
+    }
+  ]
+}
