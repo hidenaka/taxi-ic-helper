@@ -77,11 +77,18 @@ test('lookupDeduction: 木更津金田 は aqua / 15.1km', () => {
   assert.strictEqual(e?.km, 15.1);
 });
 
-test('lookupDeduction: 君津 は tateyama / 7.9km', () => {
+test('lookupDeduction: 君津 は tateyama 指定で 7.9km', () => {
   const deduction = loadJson('data/deduction.json');
-  const e = lookupDeduction(deduction, 'kimitsu');
+  const e = lookupDeduction(deduction, 'kimitsu', 'tateyama');
   assert.strictEqual(e?.direction, 'tateyama');
   assert.strictEqual(e?.km, 7.9);
+});
+
+test('lookupDeduction: 君津 は aqua 指定で 31.6km (アクア→館山経由)', () => {
+  const deduction = loadJson('data/deduction.json');
+  const e = lookupDeduction(deduction, 'kimitsu', 'aqua');
+  assert.strictEqual(e?.direction, 'aqua');
+  assert.strictEqual(e?.km, 31.6);
 });
 
 test('lookupDeduction: 原木 は keiyo / 4.4km (corrected)', () => {
@@ -154,10 +161,11 @@ test('lookupDeduction: 別所（横羽線経由ヒント） は yokohane_route /
   assert.strictEqual(e?.km, 2.2);
 });
 
-test('lookupDeduction: 別所 は wangan_route には存在しない', () => {
+test('lookupDeduction: 別所 は wangan_route 指定で 4.0km (推定値)', () => {
   const deduction = loadJson('data/deduction.json');
   const e = lookupDeduction(deduction, 'bessho', 'wangan_route');
-  assert.strictEqual(e, null);
+  assert.strictEqual(e?.direction, 'wangan_route');
+  assert.strictEqual(e?.km, 4.0);
 });
 
 test('lookupDeduction: ヒントなし別所は先頭マッチ（yokoyoko）', () => {
