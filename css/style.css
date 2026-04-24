@@ -62,3 +62,55 @@ button:active { background: var(--muted); }
 .exit-other[open] summary { color: var(--text); }
 .field input[type="text"] + select { margin-top: 6px; }
 .exit-other select { margin-top: 6px; }
+
+/* Distinguish free-text input from pulldown */
+.input-kind-label {
+  font-size: 12px; color: var(--muted); margin-top: 4px;
+  display: flex; gap: 6px; align-items: center;
+}
+.input-kind-label .kind-icon { font-size: 14px; }
+
+.input-search {
+  background: #141f2e !important;
+  border: 2px solid #3a5782 !important;
+  padding-left: 32px !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2395a5a6' stroke-width='2'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: 8px center !important;
+  background-size: 18px !important;
+}
+
+.input-pulldown {
+  background: #1e2c3f !important;
+  border: 1px solid var(--border) !important;
+  padding-right: 30px !important;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2395a5a6' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 8px center !important;
+  background-size: 16px !important;
+}
+
+/* outerRoute select — emphasize as "auto-selected" */
+#sel-outer-route {
+  background: #1e2c3f;
+  border-left: 4px solid var(--company);
+}
+
+/* Route path display */
+.route-path {
+  padding: 12px 16px; background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.route-path-label { margin: 0 0 8px; font-size: 14px; color: var(--muted); font-weight: normal; }
+.route-path-display {
+  font-size: 15px; line-height: 1.8;
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.route-node { padding: 4px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-weight: 600; }
+.route-arrow { color: var(--muted); }
+.route-seg { padding: 2px 8px; background: var(--border); border-radius: 10px; font-size: 13px; color: var(--text); }
+.route-seg.company { background: var(--company); color: #fff; }
+.route-seg.self { background: var(--self-none); color: #fff; }

@@ -311,6 +311,45 @@ function toggleGaikanCheckbox() {
   document.getElementById('label-via-gaikan').hidden = (conf !== 'optional');
 }
 
+function renderRoutePath(result) {
+  const section = document.getElementById('route-path-section');
+  const container = document.getElementById('route-path');
+  container.innerHTML = '';
+
+  const entryIc = state.data.ics.find(x => x.id === state.selected.entryIcId);
+  const exitIc  = state.data.ics.find(x => x.id === state.selected.exitIcId);
+  if (!entryIc || !exitIc) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+
+  const nodes = [];
+
+  // Entry IC
+  nodes.push({ type: 'node', text: entryIc.name });
+
+  // Segments from judgeRoute
+  for (const seg of result.segments) {
+    nodes.push({ type: 'arrow', text: '→' });
+    nodes.push({ type: 'seg', text: seg.name, pay: seg.pay });
+  }
+
+  nodes.push({ type: 'arrow', text: '→' });
+  nodes.push({ type: 'node', text: exitIc.name });
+
+  for (const n of nodes) {
+    const el = document.createElement('span');
+    if (n.type === 'node') { el.className = 'route-node'; el.textContent = n.text; }
+    else if (n.type === 'arrow') { el.className = 'route-arrow'; el.textContent = n.text; }
+    else if (n.type === 'seg') {
+      el.className = `route-seg ${n.pay}`;
+      el.textContent = n.text;
+    }
+    container.appendChild(el);
+  }
+}
+
 function update() {
   const icById = (id) => state.data.ics.find(x => x.id === id);
   const entryIc = icById(state.selected.entryIcId);
@@ -327,6 +366,7 @@ function update() {
 
   renderVerdict(result);
   renderBreakdown(result);
+  renderRoutePath(result);
 }
 
 function renderVerdict(result) {

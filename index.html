@@ -18,7 +18,8 @@
     </header>
 
     <section class="route-select">
-      <label>どこから戻る？
+      <label>
+        <span class="label-text">経路（入口ICから自動選択）</span>
         <select id="sel-outer-route"></select>
       </label>
       <label id="label-via-gaikan" hidden>
@@ -28,21 +29,24 @@
 
     <section class="ic-select">
       <div class="field">
-        <label for="inp-entry-ic">入口IC</label>
+        <div class="input-kind-label"><span class="kind-icon">🔍</span> 自由入力（検索）</div>
         <input type="text" id="inp-entry-ic" list="ic-list-all"
-               placeholder="IC名で検索（例: 鶴ヶ島）" autocomplete="off">
-        <select id="sel-entry-ic"></select>
+               placeholder="例: 鶴ヶ島" autocomplete="off" class="input-search">
+        <div class="input-kind-label"><span class="kind-icon">▾</span> プルダウンから選ぶ</div>
+        <select id="sel-entry-ic" class="input-pulldown"></select>
         <div class="hint" id="entry-ic-hint"></div>
       </div>
 
       <div class="field">
-        <label for="sel-exit-fav">出口IC（お気に入り）</label>
-        <select id="sel-exit-fav"></select>
+        <label for="sel-exit-fav" class="label-text">出口IC（お気に入り）</label>
+        <select id="sel-exit-fav" class="input-pulldown"></select>
         <details class="exit-other">
           <summary>別のICを探す</summary>
+          <div class="input-kind-label"><span class="kind-icon">🔍</span> 自由入力</div>
           <input type="text" id="inp-exit-ic" list="ic-list-all"
-                 placeholder="IC名で検索" autocomplete="off">
-          <select id="sel-exit-all"></select>
+                 placeholder="IC名で検索" autocomplete="off" class="input-search">
+          <div class="input-kind-label"><span class="kind-icon">▾</span> プルダウン</div>
+          <select id="sel-exit-all" class="input-pulldown"></select>
           <div class="hint" id="exit-ic-hint"></div>
         </details>
       </div>
@@ -50,6 +54,11 @@
       <label><input type="checkbox" id="chk-roundtrip" checked> 往復（デフォルト）</label>
 
       <datalist id="ic-list-all"></datalist>
+    </section>
+
+    <section class="route-path" id="route-path-section" hidden>
+      <h3 class="route-path-label">🚗 通るルート</h3>
+      <div id="route-path" class="route-path-display"></div>
     </section>
 
     <section class="verdict" id="verdict">
