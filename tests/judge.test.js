@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { loadJson } from './helpers.js';
-import { lookupDeduction, calcOneWayDeduction, judgeDeduction } from '../js/judge.js';
+import { lookupDeduction, calcOneWayDeduction, judgeDeduction, computeShutokoPay } from '../js/judge.js';
 
 test('lookupDeduction: 東名川崎 は 7.7km', () => {
   const deduction = loadJson('data/deduction.json');
@@ -233,4 +233,35 @@ test('judgeDeduction: 片道指定 = 7.7km', () => {
   const A = ics.find(x => x.id === 'tomei_kawasaki');
   const B = ics.find(x => x.id === 'kasumigaseki');
   assert.strictEqual(judgeDeduction(A, B, ded, false), 7.7);
+});
+
+// ── Task 14: computeShutokoPay ────────────────────────────────────────────────
+
+test('computeShutokoPay: 外側本線経由 → company', () => {
+  const ics = loadJson('data/ics.json').ics;
+  const entry = ics.find(x => x.id === 'tomei_kawasaki');
+  const r = computeShutokoPay({ outerRoute: 'tomei', entryIc: entry, isOuter: true });
+  assert.strictEqual(r, 'company');
+});
+
+test('computeShutokoPay: 外環直乗り → self', () => {
+  const ics = loadJson('data/ics.json').ics;
+  const entry = ics.find(x => x.id === 'oizumi') || ics.find(x => x.boundary_tag === 'gaikan');
+  assert.ok(entry, 'no gaikan IC available');
+  const r = computeShutokoPay({ outerRoute: 'gaikan_direct', entryIc: entry, isOuter: false });
+  assert.strictEqual(r, 'self');
+});
+
+test('computeShutokoPay: 8入口 → company', () => {
+  const ics = loadJson('data/ics.json').ics;
+  const entry = ics.find(x => x.id === 'maihama');
+  const r = computeShutokoPay({ outerRoute: 'none', entryIc: entry, isOuter: false });
+  assert.strictEqual(r, 'company');
+});
+
+test('computeShutokoPay: 都心側IC → self', () => {
+  const ics = loadJson('data/ics.json').ics;
+  const entry = ics.find(x => x.id === 'kasumigaseki');
+  const r = computeShutokoPay({ outerRoute: 'none', entryIc: entry, isOuter: false });
+  assert.strictEqual(r, 'self');
 });

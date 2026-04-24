@@ -27,3 +27,9 @@ export function judgeDeduction(icA, icB, deductionData, roundTrip) {
   const oneWay = calcOneWayDeduction(icA, icB, deductionData);
   return roundTrip ? oneWay * 2 : oneWay;
 }
+
+export function computeShutokoPay({ outerRoute, entryIc, isOuter }) {
+  if (isOuter) return 'company';
+  if (outerRoute === 'gaikan_direct') return 'self';
+  return entryIc.boundary_tag === 'company_pay_entry' ? 'company' : 'self';
+}
