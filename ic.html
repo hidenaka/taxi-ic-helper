@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover">
+  <title>タクシー IC判定</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="乗務">
+  <meta name="theme-color" content="#0a0a0f">
+</head>
+<body>
+  <nav class="app-tabs" role="tablist" aria-label="アプリ切替">
+    <a href="./" class="app-tab">⏱ 乗務タイマー</a>
+    <a href="ic.html" class="app-tab active" aria-current="page">🛣 IC判定</a>
+  </nav>
+  <main class="app">
+    <header class="header">
+      <div class="geo-status">
+        <span id="geo-location">現在地: 未取得</span>
+        <span id="geo-accuracy"></span>
+      </div>
+      <button id="btn-geo-refresh" type="button">再取得</button>
+    </header>
+
+    <section class="ic-select">
+      <div class="field">
+        <div class="input-kind-label"><span class="kind-icon">🔍</span> 自由入力（検索）</div>
+        <input type="text" id="inp-entry-ic" list="ic-list-all"
+               placeholder="例: 鶴ヶ島" autocomplete="off" class="input-search">
+        <div class="input-kind-label"><span class="kind-icon">▾</span> プルダウンから選ぶ</div>
+        <select id="sel-entry-ic" class="input-pulldown"></select>
+        <div class="hint" id="entry-ic-hint"></div>
+      </div>
+
+      <div class="field">
+        <label for="sel-exit-fav" class="label-text">出口IC（お気に入り）</label>
+        <select id="sel-exit-fav" class="input-pulldown"></select>
+        <details class="exit-other">
+          <summary>別のICを探す</summary>
+          <div class="input-kind-label"><span class="kind-icon">🔍</span> 自由入力</div>
+          <input type="text" id="inp-exit-ic" list="ic-list-all"
+                 placeholder="IC名で検索" autocomplete="off" class="input-search">
+          <div class="input-kind-label"><span class="kind-icon">▾</span> プルダウン</div>
+          <select id="sel-exit-all" class="input-pulldown"></select>
+          <div class="hint" id="exit-ic-hint"></div>
+        </details>
+      </div>
+
+      <label><input type="checkbox" id="chk-roundtrip" checked> 往復（デフォルト）</label>
+
+      <datalist id="ic-list-all"></datalist>
+    </section>
+
+    <section class="route-select">
+      <label>
+        <span class="label-text">経路（入口ICから自動選択）</span>
+        <select id="sel-outer-route"></select>
+      </label>
+      <label id="label-via-gaikan" hidden>
+        <input type="checkbox" id="chk-via-gaikan"> 外環経由
+      </label>
+      <label id="label-shutoko-route" hidden>
+        <span class="label-text">首都高内ルート（複数候補あり）</span>
+        <select id="sel-shutoko-route" class="input-pulldown"></select>
+      </label>
+    </section>
+
+    <section class="route-path" id="route-path-section" hidden>
+      <h3 class="route-path-label">🚗 通るルート</h3>
+      <div id="route-path" class="route-path-display"></div>
+    </section>
+
+    <section class="verdict" id="verdict">
+      <div class="badge-main" id="badge-main">—</div>
+      <div class="badge-deduction" id="badge-deduction">—</div>
+      <div class="badge-distance" id="badge-distance">—</div>
+      <details>
+        <summary>区間内訳</summary>
+        <ul id="segment-breakdown"></ul>
+      </details>
+    </section>
+
+    <section class="session-log" id="session-log">
+      <h3 class="session-log-title">📝 今日の控除距離 一時保存 <span class="session-log-date" id="session-log-date"></span></h3>
+      <div class="save-buttons">
+        <button id="btn-save-oneway" type="button" class="btn-save-oneway">片道だけ保存</button>
+        <button id="btn-save-roundtrip" type="button" class="btn-save-roundtrip">往復保存</button>
+      </div>
+      <ul id="session-log-list" class="session-log-list"></ul>
+      <div class="session-totals">
+        <div class="total-line" id="total-deduction">今日の控除合計: <strong>0.0</strong>km</div>
+        <div class="total-line drivable" id="total-drivable">走行可能距離: <strong>365.0</strong>km <span class="formula">(365 + 控除合計)</span></div>
+      </div>
+      <button id="btn-clear-log" type="button" class="btn-clear-log">今日のログを消去</button>
+    </section>
+
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+  <script>
+    // Keep tab navigation inside standalone/PWA mode on iOS (prevents kick-out to Safari)
+    document.querySelectorAll('.app-tab').forEach(a => {
+      a.addEventListener('click', (e) => {
+        if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+        e.preventDefault();
+        window.location.href = a.getAttribute('href');
+      });
+    });
+  </script>
+</body>
+</html>

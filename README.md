@@ -1,6 +1,12 @@
-# タクシー乗務 IC判定 Web アプリ
+# タクシー乗務ツール (タイマー + IC判定)
 
-帰りの空車で首都高に戻る際、**会社負担** / **控除距離** / **総走行距離** を一目で判定する個人用ツール。
+乗務中の**休憩タイマー**と、帰りの空車で首都高に戻る際の **会社負担 / 控除距離 / 総走行距離 判定**を一画面で使える個人用ツール。iPhone / iPad での擬似アプリ利用 (ホーム画面追加) 想定。
+
+## URL 構成
+
+- `/` (index.html) — 乗務タイマー (スタート地点)
+- `/ic.html` — IC判定
+- 上部タブでどちらからでも相互遷移可能
 
 ## 使い方
 
@@ -36,17 +42,30 @@
 - 他者への URL 共有は推奨しない。
 - 精度・判定ミスに起因する損害について作成者は責任を負わない。
 
+## ホーム画面追加 (iOS 擬似アプリ)
+
+iPhone/iPad で Safari で開き、共有メニュー → 「ホーム画面に追加」。以下が自動設定される:
+- アイコン: `icon-180.png`
+- タイトル: 「乗務」
+- フルスクリーン表示 (Safari UI 非表示)
+- 起動位置: タイマー (root URL)
+- タブ切替はアプリ内に留まる (Safari に飛ばない)
+
 ## ローカル起動
 
 ```bash
-npm run serve    # http://localhost:8000/
+npm run serve    # http://localhost:8000/ → タイマー
+                 # http://localhost:8000/ic.html → IC判定
 npm test         # node --test tests/ (68 tests)
 ```
 
 ## ディレクトリ
 
-- `index.html` — エントリポイント
-- `js/app.js` — UI orchestration
+- `index.html` — 乗務タイマー (root エントリ、インライン CSS/JS)
+- `ic.html` — IC判定 (ES Modules)
+- `manifest.webmanifest` — PWA マニフェスト
+- `icon-180.png` — ホーム画面アイコン
+- `js/app.js` — IC判定 UI orchestration
 - `js/judge.js` — 判定ロジック (会社負担 + 控除距離)
 - `js/shutoko-graph.js` — Dijkstra 最短経路
 - `data/*.json` — IC・距離・ルール定義
