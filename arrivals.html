@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="./icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <style>
-    :root { --bg: #0e0e10; --fg: #e8e8e8; --sub: #888; --accent: #4ea1ff; --peak: #ff5252; --warn: #ffb84d; }
+    :root { --bg: #0e0e10; --fg: #e8e8e8; --sub: #888; --accent: #4ea1ff; --peak: #ff5252; --warn: #ffb84d; --intl: #b07aff; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, system-ui, sans-serif; font-size: 15px; }
     .app-tabs {
@@ -26,14 +26,23 @@
       background: rgba(78, 161, 255, 0.08);
     }
     .app-tab:active { background: rgba(255,255,255,0.05); }
-    .terminal-tabs { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid #222; }
-    .terminal-tab { background: #1a1a1d; color: var(--sub); padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; }
+    .terminal-tabs { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid #222; flex-wrap: wrap; }
+    .terminal-tab { background: #1a1a1d; color: var(--sub); padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; }
     .terminal-tab.is-active { background: var(--accent); color: #000; }
     section { padding: 8px 12px; }
     h2 { font-size: 13px; color: var(--sub); margin: 8px 0; font-weight: normal; }
+    #legend { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 6px 12px; background: #14141a; border-bottom: 1px solid #222; font-size: 11px; color: var(--sub); }
+    .legend-item { display: inline-flex; align-items: center; gap: 4px; }
+    .legend-swatch { display: inline-block; width: 12px; height: 8px; border-radius: 2px; }
+    .legend-low  .legend-swatch { background: var(--accent); }
+    .legend-mid  .legend-swatch { background: var(--warn); }
+    .legend-high .legend-swatch { background: var(--peak); }
+    .legend-intl .legend-swatch { background: var(--intl); }
     #heatmap .heatmap-row { display: grid; grid-template-columns: 44px 1fr 200px; align-items: center; gap: 8px; padding: 4px 0; }
     .heatmap-time { color: var(--sub); font-variant-numeric: tabular-nums; font-size: 13px; }
-    .heatmap-bar { background: var(--accent); height: 10px; border-radius: 2px; min-width: 2px; }
+    .heatmap-bar-wrap { position: relative; height: 10px; background: rgba(255,255,255,0.04); border-radius: 2px; }
+    .heatmap-bar { position: relative; background: var(--accent); height: 100%; border-radius: 2px; min-width: 2px; display: block; }
+    .heatmap-bar-intl { position: absolute; right: 0; top: 0; bottom: 0; background: var(--intl); border-radius: 0 2px 2px 0; }
     .heatmap-row.tier-high .heatmap-bar { background: var(--peak); }
     .heatmap-row.tier-mid .heatmap-bar { background: var(--warn); }
     .heatmap-row.tier-low .heatmap-bar { background: var(--accent); }
@@ -43,11 +52,13 @@
     .tier-mid  .tier-badge { color: var(--warn); }
     .tier-low  .tier-badge { color: var(--sub); }
     .delay-badge { color: var(--warn); font-size: 11px; white-space: nowrap; }
+    .intl-badge { color: var(--intl); font-size: 11px; white-space: nowrap; }
     .unknown-note { color: var(--sub); font-size: 11px; }
     #summary { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 10px 12px; background: #16161a; border-bottom: 1px solid #222; font-size: 13px; }
     #summary .summary-item strong { color: var(--accent); font-size: 16px; font-variant-numeric: tabular-nums; }
     #summary .summary-delay { color: var(--warn); font-weight: 600; }
     #summary .summary-ok { color: #6ec96e; font-size: 12px; }
+    #summary .summary-intl { color: var(--intl); font-size: 12px; }
     #flight-list .flight-row { padding: 8px 0; border-bottom: 1px solid #1a1a1d; }
     .flight-line1 { display: flex; gap: 8px; align-items: baseline; }
     .flight-line1 .time { font-weight: bold; min-width: 50px; }
@@ -72,13 +83,16 @@
   </nav>
 
   <div class="terminal-tabs">
-    <button class="terminal-tab is-active" data-terminal="T1">T1 (JAL系)</button>
-    <button class="terminal-tab" data-terminal="T2">T2 (ANA系)</button>
+    <button class="terminal-tab" data-terminal="T1">T1</button>
+    <button class="terminal-tab" data-terminal="T2">T2</button>
+    <button class="terminal-tab is-active" data-terminal="T1T2">T1+T2 合計</button>
     <button class="terminal-tab" data-terminal="T3">T3 (国際)</button>
     <button id="arrivals-reload" style="margin-left:auto; background:transparent; color:var(--sub); border:none; cursor:pointer;">↻</button>
   </div>
 
   <div id="arrivals-error" hidden></div>
+
+  <div id="legend"></div>
 
   <div id="summary"></div>
 

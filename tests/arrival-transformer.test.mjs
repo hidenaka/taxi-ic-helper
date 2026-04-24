@@ -54,3 +54,38 @@ test('updatedAt が ISO8601 形式（+09:00）', () => {
   const r = transformArrivals(sample, seatsMaster, factorsMaster);
   assert.match(r.updatedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+09:00$/);
 });
+
+test('国内空港は isInternational=false', () => {
+  const r = transformArrivals(sample, seatsMaster, factorsMaster);
+  const itm = r.flights.find(f => f.from === 'ITM');
+  assert.equal(itm.isInternational, false);
+});
+
+test('国際空港は isInternational=true、stats に internationalFlights を含む', () => {
+  const intlSample = [
+    {
+      "@type": "odpt:FlightInformationArrival",
+      "odpt:flightNumber": ["JL027"],
+      "odpt:departureAirport": "odpt.Airport:JFK",
+      "odpt:terminal": "odpt.AirportTerminal:HND.T3",
+      "odpt:scheduledTime": "11:00",
+      "odpt:flightStatus": "odpt.FlightStatus:OnTime",
+      "odpt:aircraftModel": "B789"
+    },
+    {
+      "@type": "odpt:FlightInformationArrival",
+      "odpt:flightNumber": ["NH001"],
+      "odpt:departureAirport": "odpt.Airport:OKA",
+      "odpt:terminal": "odpt.AirportTerminal:HND.T2",
+      "odpt:scheduledTime": "10:00",
+      "odpt:flightStatus": "odpt.FlightStatus:OnTime",
+      "odpt:aircraftModel": "B772"
+    }
+  ];
+  const r = transformArrivals(intlSample, seatsMaster, factorsMaster);
+  const intl = r.flights.find(f => f.flightNumber === 'JL027');
+  const dom = r.flights.find(f => f.flightNumber === 'NH001');
+  assert.equal(intl.isInternational, true);
+  assert.equal(dom.isInternational, false);
+  assert.equal(r.stats.internationalFlights, 1);
+});

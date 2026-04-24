@@ -14,20 +14,39 @@ export function renderHeatmap(container, bins) {
   for (const b of bins) {
     const row = document.createElement('div');
     row.className = `heatmap-row tier-${b.densityTier}`;
-    const widthPct = (b.totalPax / maxPax) * 100;
+    const totalWidthPct = (b.totalPax / maxPax) * 100;
+    const intlWidthPct = b.totalPax > 0 ? (b.internationalPax / b.totalPax) * 100 : 0;
     const unknownNote = b.unknownCount > 0 ? ` <span class="unknown-note">機材不明${b.unknownCount}</span>` : '';
     const delayBadge = b.delayedCount > 0 ? ` <span class="delay-badge">⚠${b.delayedCount}遅延</span>` : '';
+    const intlBadge = b.internationalPax > 0
+      ? ` <span class="intl-badge">国際${b.internationalPax}人</span>`
+      : '';
     const tier = TIER_INFO[b.densityTier];
     const tierBadge = b.totalPax > 0
       ? ` <span class="tier-badge">${tier.emoji}${tier.label}</span>`
       : '';
     row.innerHTML = `
       <span class="heatmap-time">${b.bin}</span>
-      <span class="heatmap-bar" style="width:${widthPct}%"></span>
-      <span class="heatmap-label">${b.totalPax}人 (${b.flightCount}便)${unknownNote}${delayBadge}${tierBadge}</span>
+      <span class="heatmap-bar-wrap">
+        <span class="heatmap-bar" style="width:${totalWidthPct}%">
+          <span class="heatmap-bar-intl" style="width:${intlWidthPct}%"></span>
+        </span>
+      </span>
+      <span class="heatmap-label">${b.totalPax}人 (${b.flightCount}便)${unknownNote}${delayBadge}${intlBadge}${tierBadge}</span>
     `;
     container.appendChild(row);
   }
+}
+
+export function renderLegend(container) {
+  if (!container || container.dataset.rendered === '1') return;
+  container.innerHTML = `
+    <span class="legend-item legend-low"><span class="legend-swatch"></span>少ない (300人未満/30分)</span>
+    <span class="legend-item legend-mid"><span class="legend-swatch"></span>普通 (300〜600人)</span>
+    <span class="legend-item legend-high"><span class="legend-swatch"></span>多い (600人以上)</span>
+    <span class="legend-item legend-intl"><span class="legend-swatch"></span>国際線</span>
+  `;
+  container.dataset.rendered = '1';
 }
 
 export function renderSummary(container, summary) {
@@ -41,10 +60,14 @@ export function renderSummary(container, summary) {
   const delayPart = summary.delayedCount > 0
     ? `<span class="summary-delay">⚠ ${summary.delayedCount}便遅延</span>`
     : `<span class="summary-ok">全便定刻</span>`;
+  const intlPart = summary.internationalPax > 0
+    ? `<span class="summary-intl">うち国際 ${summary.internationalPax.toLocaleString()}人 (${summary.internationalCount}便)</span>`
+    : '';
   container.innerHTML = `
     <span class="summary-item">直近3時間 <strong>${summary.totalPax.toLocaleString()}人</strong></span>
     <span class="summary-item">時間あたり <strong>${summary.hourlyAvg.toLocaleString()}人</strong></span>
     <span class="summary-item">${summary.totalFlights}便</span>
+    ${intlPart}
     ${delayPart}
   `;
 }

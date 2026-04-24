@@ -1,7 +1,14 @@
-import { loadArrivals, filterByTerminal, filterByTimeWindow, aggregateHeatmapClient, summarizeFlights } from './arrivals-data.js';
-import { renderHeatmap, renderFlightList, renderUpdatedAt, renderSummary } from './arrivals-render.js';
+import { loadArrivals, filterByTerminals, filterByTimeWindow, aggregateHeatmapClient, summarizeFlights } from './arrivals-data.js';
+import { renderHeatmap, renderFlightList, renderUpdatedAt, renderSummary, renderLegend } from './arrivals-render.js';
 
-const state = { arrivals: null, terminal: 'T1' };
+const TAB_TERMINALS = {
+  'T1': ['T1'],
+  'T2': ['T2'],
+  'T1T2': ['T1', 'T2'],
+  'T3': ['T3']
+};
+
+const state = { arrivals: null, tab: 'T1T2' };
 
 async function refresh() {
   try {
@@ -14,7 +21,8 @@ async function refresh() {
 }
 
 function render() {
-  const all = filterByTerminal(state.arrivals, state.terminal);
+  const terminals = TAB_TERMINALS[state.tab] ?? ['T1'];
+  const all = filterByTerminals(state.arrivals, terminals);
   const visible = filterByTimeWindow(all, new Date(), 30, 180);
   const bins = aggregateHeatmapClient(visible);
   const summary = summarizeFlights(visible);
@@ -27,14 +35,14 @@ function render() {
     state.arrivals.stats.unknownAircraft
   );
   document.querySelectorAll('.terminal-tab').forEach(el => {
-    el.classList.toggle('is-active', el.dataset.terminal === state.terminal);
+    el.classList.toggle('is-active', el.dataset.terminal === state.tab);
   });
 }
 
 function setupTerminalTabs() {
   document.querySelectorAll('.terminal-tab').forEach(el => {
     el.addEventListener('click', () => {
-      state.terminal = el.dataset.terminal;
+      state.tab = el.dataset.terminal;
       if (state.arrivals) render();
     });
   });
@@ -45,6 +53,7 @@ function setupReload() {
   if (btn) btn.addEventListener('click', refresh);
 }
 
+renderLegend(document.getElementById('legend'));
 setupTerminalTabs();
 setupReload();
 refresh();

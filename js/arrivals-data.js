@@ -4,8 +4,9 @@ export async function loadArrivals() {
   return res.json();
 }
 
-export function filterByTerminal(arrivals, terminal) {
-  return arrivals.flights.filter(f => f.terminal === terminal);
+export function filterByTerminals(arrivals, terminals) {
+  const set = new Set(terminals);
+  return arrivals.flights.filter(f => set.has(f.terminal));
 }
 
 export function filterByTimeWindow(flights, nowDate, pastMinutes = 30, futureMinutes = 180) {
@@ -37,12 +38,19 @@ export function aggregateHeatmapClient(flights) {
     const binMin = m < 30 ? '00' : '30';
     const key = `${String(h).padStart(2, '0')}:${binMin}`;
     if (!bins.has(key)) {
-      bins.set(key, { bin: key, totalPax: 0, flightCount: 0, unknownCount: 0, delayedCount: 0 });
+      bins.set(key, {
+        bin: key, totalPax: 0, internationalPax: 0,
+        flightCount: 0, unknownCount: 0, delayedCount: 0, internationalCount: 0
+      });
     }
     const b = bins.get(key);
     b.flightCount += 1;
     if (f.estimatedPax === null) b.unknownCount += 1;
-    else b.totalPax += f.estimatedPax;
+    else {
+      b.totalPax += f.estimatedPax;
+      if (f.isInternational) b.internationalPax += f.estimatedPax;
+    }
+    if (f.isInternational) b.internationalCount += 1;
     if (f.status === '遅延') b.delayedCount += 1;
   }
   const arr = Array.from(bins.values()).sort((a, b) => a.bin.localeCompare(b.bin));
@@ -51,11 +59,19 @@ export function aggregateHeatmapClient(flights) {
 
 export function summarizeFlights(flights, windowHours = 3.5) {
   const totalPax = flights.reduce((s, f) => s + (f.estimatedPax ?? 0), 0);
+  const internationalPax = flights
+    .filter(f => f.isInternational)
+    .reduce((s, f) => s + (f.estimatedPax ?? 0), 0);
   const totalFlights = flights.length;
+  const internationalCount = flights.filter(f => f.isInternational).length;
   const delayedCount = flights.filter(f => f.status === '遅延').length;
   const unknownCount = flights.filter(f => f.estimatedPax === null).length;
   const hourlyAvg = totalFlights > 0 ? Math.round(totalPax / windowHours) : 0;
-  return { totalPax, totalFlights, delayedCount, unknownCount, hourlyAvg };
+  return {
+    totalPax, internationalPax,
+    totalFlights, internationalCount,
+    delayedCount, unknownCount, hourlyAvg
+  };
 }
 
 export function minutesSince(isoString) {
