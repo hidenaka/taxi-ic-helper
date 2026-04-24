@@ -54,6 +54,34 @@ function populateIcSelects() {
   exitSel.value = 'kasumigaseki';
   state.selected.entryIcId = 'maihama';
   state.selected.exitIcId = 'kasumigaseki';
+
+  const defaultEntry = state.data.ics.find(x => x.id === 'maihama');
+  state.selected.outerRoute = inferOuterRoute(defaultEntry);
+  document.getElementById('sel-outer-route').value = state.selected.outerRoute;
+  toggleGaikanCheckbox();
+}
+
+function inferOuterRoute(ic) {
+  if (!ic) return 'none';
+  const ROUTE_MAP = {
+    'tomei':    'tomei',
+    'chuo':     'chuo',
+    'kanetsu':  'kanetsu',
+    'tohoku':   'tohoku',
+    'joban':    'joban',
+    'keiyo':    'keiyo',
+    'tokan':    'tokan',
+    'aqua':     'aqua',
+    'tateyama': 'tateyama',
+    'third_keihin':   'third_keihin',
+    'yokoyoko':       'yokoyoko',
+    'yokohane_route': 'yokohane_route',
+    'kariba_route':   'kariba_route',
+    'wangan_route':   'wangan_route'
+  };
+  if (ROUTE_MAP[ic.route]) return ROUTE_MAP[ic.route];
+  if (ic.boundary_tag === 'gaikan') return 'gaikan_direct';
+  return 'none';  // 都心IC / 首都高内
 }
 
 function groupIcsByRoute(ics) {
@@ -72,7 +100,13 @@ function wireEvents() {
     update();
   });
   document.getElementById('sel-entry-ic').addEventListener('change', (e) => {
-    state.selected.entryIcId = e.target.value; update();
+    state.selected.entryIcId = e.target.value;
+    const ic = state.data.ics.find(x => x.id === e.target.value);
+    const inferred = inferOuterRoute(ic);
+    state.selected.outerRoute = inferred;
+    document.getElementById('sel-outer-route').value = inferred;
+    toggleGaikanCheckbox();
+    update();
   });
   document.getElementById('sel-exit-ic').addEventListener('change', (e) => {
     state.selected.exitIcId = e.target.value; update();
