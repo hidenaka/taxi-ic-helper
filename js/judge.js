@@ -22,3 +22,8 @@ export function calcOneWayDeduction(icA, icB, deductionData) {
   if (eA.direction !== eB.direction) return 0;
   return Math.abs(eA.km - eB.km);
 }
+
+export function judgeDeduction(icA, icB, deductionData, roundTrip) {
+  const oneWay = calcOneWayDeduction(icA, icB, deductionData);
+  return roundTrip ? oneWay * 2 : oneWay;
+}

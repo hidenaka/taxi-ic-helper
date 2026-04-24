@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { loadJson } from './helpers.js';
-import { lookupDeduction, calcOneWayDeduction } from '../js/judge.js';
+import { lookupDeduction, calcOneWayDeduction, judgeDeduction } from '../js/judge.js';
 
 test('lookupDeduction: 東名川崎 は 7.7km', () => {
   const deduction = loadJson('data/deduction.json');
@@ -215,4 +215,22 @@ test('calcOneWayDeduction: 異方面 → 0', () => {
   const A = ics.find(x => x.id === 'tomei_kawasaki');
   const B = ics.find(x => x.id === 'tokorozawa');
   assert.strictEqual(calcOneWayDeduction(A, B, ded), 0);
+});
+
+// ── Task 13: judgeDeduction ───────────────────────────────────────────────────
+
+test('judgeDeduction: 東名川崎⇔霞ヶ関 往復 = 15.4km', () => {
+  const ded = loadJson('data/deduction.json');
+  const ics = loadJson('data/ics.json').ics;
+  const A = ics.find(x => x.id === 'tomei_kawasaki');
+  const B = ics.find(x => x.id === 'kasumigaseki');
+  assert.strictEqual(judgeDeduction(A, B, ded, true), 15.4);
+});
+
+test('judgeDeduction: 片道指定 = 7.7km', () => {
+  const ded = loadJson('data/deduction.json');
+  const ics = loadJson('data/ics.json').ics;
+  const A = ics.find(x => x.id === 'tomei_kawasaki');
+  const B = ics.find(x => x.id === 'kasumigaseki');
+  assert.strictEqual(judgeDeduction(A, B, ded, false), 7.7);
 });
