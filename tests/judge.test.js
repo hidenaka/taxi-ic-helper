@@ -166,3 +166,12 @@ test('lookupDeduction: 日野（湾岸線経由ヒント） は wangan_route / 6
   assert.strictEqual(e?.direction, 'wangan_route');
   assert.strictEqual(e?.km, 6.7);
 });
+
+test('routes.json: needs_gaikan_transit に全 outerRoute キーがある', () => {
+  const r = loadJson('data/routes.json');
+  const expected = ['tomei','chuo','kanetsu','tohoku','joban','keiyo','tokan','aqua','tateyama',
+                    'third_keihin','yokoyoko','yokohane_route','wangan_route'];
+  for (const key of expected) {
+    assert.ok(key in r.needs_gaikan_transit, `missing: ${key}`);
+  }
+});
