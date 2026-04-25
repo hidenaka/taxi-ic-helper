@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "source": "ユーザー経験則（アプリ配車のタクシー客）+ 国土交通省 航空旅客動態調査（参考）",
+    "scope": "アプリ配車のタクシー客に特化（流し営業・付け待ちと別パターン）",
+    "updated": "2026-04-25",
+    "note": "全係数は過去乗務履歴データで順次校正する前提。バケット境界はロビー出口時刻ベース。"
+  },
+  "buckets": [
+    { "id": "early",     "label": "7-9時",      "fromHHMM": "07:00", "toHHMM": "09:00", "rates": { "T1": 0.08, "T2": 0.08, "T3": 0.10 } },
+    { "id": "morning",   "label": "9-12時",     "fromHHMM": "09:00", "toHHMM": "12:00", "rates": { "T1": 0.11, "T2": 0.11, "T3": 0.12 } },
+    { "id": "noon",      "label": "12-15時",    "fromHHMM": "12:00", "toHHMM": "15:00", "rates": { "T1": 0.14, "T2": 0.14, "T3": 0.16 } },
+    { "id": "afternoon", "label": "15-17時",    "fromHHMM": "15:00", "toHHMM": "17:00", "rates": { "T1": 0.18, "T2": 0.18, "T3": 0.20 } },
+    { "id": "peak1",     "label": "17-19時",    "fromHHMM": "17:00", "toHHMM": "19:00", "rates": { "T1": 0.24, "T2": 0.24, "T3": 0.22 } },
+    { "id": "evening",   "label": "19-21:30",   "fromHHMM": "19:00", "toHHMM": "21:30", "rates": { "T1": 0.14, "T2": 0.14, "T3": 0.18 } },
+    { "id": "peak2",     "label": "21:30-24時", "fromHHMM": "21:30", "toHHMM": "24:00", "rates": { "T1": 0.32, "T2": 0.32, "T3": 0.32 } },
+    { "id": "midnight",  "label": "24時以降",   "fromHHMM": "24:00", "toHHMM": "27:00", "rates": { "T1": 0.30, "T2": 0.30, "T3": 0.30 } }
+  ],
+  "reachBoost": [
+    { "minRate": 0.9, "boost": 1.0 },
+    { "minRate": 0.5, "boost": 1.3 },
+    { "minRate": 0.1, "boost": 2.0 },
+    { "minRate": 0.0, "boost": 3.0 }
+  ],
+  "delayBoost": {
+    "minDelayMinutes": 60,
+    "minLobbyExitTime": "23:30",
+    "boost": 2.0
+  },
+  "maxRatio": 0.85,
+  "fallbackRate": 0.10
+}

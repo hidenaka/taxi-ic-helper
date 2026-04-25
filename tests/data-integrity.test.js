@@ -91,3 +91,39 @@ test('shutoko_graph.json: 全 edge の from/to が ics.json に存在', () => {
   }
 });
 
+
+test('transit-share.json: 8 buckets × 3 terminals × 4 boost levels', () => {
+  const d = loadJson('data/transit-share.json');
+  assert.equal(d.buckets.length, 8);
+  for (const b of d.buckets) {
+    for (const t of ['T1', 'T2', 'T3']) {
+      assert.ok(typeof b.rates[t] === 'number', `bucket ${b.id} missing rate for ${t}`);
+      assert.ok(b.rates[t] >= 0 && b.rates[t] <= 1, `bucket ${b.id} ${t} out of range`);
+    }
+  }
+  assert.equal(d.reachBoost.length, 4);
+  assert.equal(d.maxRatio, 0.85);
+  assert.ok(typeof d.fallbackRate === 'number');
+});
+
+test('last-mile-routes.json: 全ルートが必須フィールドを持ち weight 合計が 1.0 ±0.01', () => {
+  const d = loadJson('data/last-mile-routes.json');
+  assert.ok(d.routes.length >= 10, `expected >= 10 routes, got ${d.routes.length}`);
+  let sum = 0;
+  for (const r of d.routes) {
+    assert.ok(typeof r.id === 'string' && r.id.length > 0, `missing id`);
+    assert.ok(typeof r.weekdayLastArrival === 'string', `missing weekdayLastArrival: ${r.id}`);
+    assert.ok(typeof r.holidayLastArrival === 'string', `missing holidayLastArrival: ${r.id}`);
+    assert.ok(typeof r.weight === 'number' && r.weight > 0, `invalid weight: ${r.id}`);
+    sum += r.weight;
+  }
+  assert.ok(Math.abs(sum - 1.0) <= 0.01, `weight sum = ${sum}`);
+});
+
+test('terminal-egress.json: T1/T2/T3 全部に domestic/international', () => {
+  const d = loadJson('data/terminal-egress.json');
+  for (const term of ['T1', 'T2', 'T3']) {
+    assert.ok(typeof d.egress[term].domestic === 'number', `${term} missing domestic`);
+    assert.ok(typeof d.egress[term].international === 'number', `${term} missing international`);
+  }
+});

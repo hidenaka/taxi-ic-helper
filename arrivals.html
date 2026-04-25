@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="./icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <style>
-    :root { --bg: #0e0e10; --fg: #e8e8e8; --sub: #888; --accent: #4ea1ff; --peak: #ff5252; --warn: #ffb84d; --intl: #b07aff; }
+    :root { --bg: #0e0e10; --fg: #e8e8e8; --sub: #888; --accent: #4ea1ff; --peak: #ff5252; --warn: #ffb84d; --intl: #b07aff; --taxi: #6ec96e; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, system-ui, sans-serif; font-size: 15px; }
     .app-tabs {
@@ -38,6 +38,9 @@
     .legend-mid  .legend-swatch { background: var(--warn); }
     .legend-high .legend-swatch { background: var(--peak); }
     .legend-intl .legend-swatch { background: var(--intl); }
+    .heatmap-mode-toggle { display: flex; gap: 6px; padding: 6px 12px; }
+    .heatmap-mode-btn { background: #1a1a1d; color: var(--sub); padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; }
+    .heatmap-mode-btn.is-active { background: var(--accent); color: #000; }
     #heatmap .heatmap-row { display: grid; grid-template-columns: 44px 1fr 200px; align-items: center; gap: 8px; padding: 4px 0; }
     .heatmap-time { color: var(--sub); font-variant-numeric: tabular-nums; font-size: 13px; }
     .heatmap-bar-wrap { position: relative; height: 10px; background: rgba(255,255,255,0.04); border-radius: 2px; }
@@ -46,6 +49,12 @@
     .heatmap-row.tier-high .heatmap-bar { background: var(--peak); }
     .heatmap-row.tier-mid .heatmap-bar { background: var(--warn); }
     .heatmap-row.tier-low .heatmap-bar { background: var(--accent); }
+    #heatmap.is-taxi-mode .heatmap-row.tier-low .heatmap-bar  { background: #3a6e3a; }
+    #heatmap.is-taxi-mode .heatmap-row.tier-mid .heatmap-bar  { background: var(--taxi); }
+    #heatmap.is-taxi-mode .heatmap-row.tier-high .heatmap-bar { background: #22c55e; }
+    #heatmap.is-taxi-mode .heatmap-row.tier-mid .tier-badge   { color: var(--taxi); }
+    #heatmap.is-taxi-mode .heatmap-row.tier-high .tier-badge  { color: #22c55e; }
+    #heatmap.is-taxi-mode .heatmap-row.tier-low .tier-badge   { color: #6e9e6e; }
     .heatmap-label { color: var(--fg); font-size: 12px; text-align: right; line-height: 1.5; }
     .tier-badge { font-size: 11px; padding: 1px 5px; border-radius: 3px; background: rgba(255,255,255,0.06); white-space: nowrap; }
     .tier-high .tier-badge { color: var(--peak); }
@@ -59,13 +68,16 @@
     #summary .summary-delay { color: var(--warn); font-weight: 600; }
     #summary .summary-ok { color: #6ec96e; font-size: 12px; }
     #summary .summary-intl { color: var(--intl); font-size: 12px; }
-    #topics { background: #2a1a14; border-bottom: 1px solid #4a2a1a; padding: 8px 12px; }
-    #topics .topic-header { color: var(--warn); font-weight: 700; font-size: 13px; margin-bottom: 4px; }
-    #topics .topic-item { display: grid; grid-template-columns: 28px 60px 1fr auto 26px; gap: 6px; align-items: baseline; padding: 3px 0; font-size: 12px; }
-    #topics .topic-icons { font-size: 13px; }
+    #summary .summary-taxi strong { color: var(--taxi) !important; }
+    #summary .summary-peak { color: var(--accent); font-size: 12px; }
+    #summary .summary-reach-none { color: var(--peak); font-size: 12px; font-weight: 600; }
+    #topics { background: #181820; border-top: 1px solid #2a2a35; border-bottom: 1px solid #2a2a35; padding: 8px 12px; }
+    #topics .topic-header { color: var(--peak); font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+    #topics .topic-item { display: grid; grid-template-columns: 56px 60px 1fr auto 26px; gap: 6px; align-items: baseline; padding: 3px 0; font-size: 12px; }
+    #topics .topic-icons { font-size: 13px; white-space: nowrap; letter-spacing: 1px; }
     #topics .topic-flight { color: var(--accent); font-weight: 600; }
     #topics .topic-from { color: var(--fg); }
-    #topics .topic-detail { color: var(--warn); font-size: 11px; text-align: right; }
+    #topics .topic-detail { color: var(--fg); font-size: 11px; text-align: right; opacity: 0.85; }
     #topics .topic-terminal { color: var(--sub); font-size: 11px; }
     #detail-toggle { display: block; margin: 8px auto; padding: 6px 14px; background: #1a1a1d; color: var(--sub); border: 1px solid #333; border-radius: 6px; cursor: pointer; font-size: 12px; }
     #detail-toggle.is-active { background: var(--accent); color: #000; border-color: var(--accent); }
@@ -75,6 +87,9 @@
     .flight-line1 .flight-no { color: var(--accent); min-width: 60px; }
     .flight-line1 .from { flex: 1; }
     .flight-line1 .aircraft { color: var(--sub); font-size: 12px; }
+    .flight-line1 .reach { font-size: 13px; margin-left: auto; }
+    .flight-line2 .taxi-pax { color: var(--taxi); font-weight: 600; }
+    .delay-boost { color: var(--peak); font-size: 11px; padding: 1px 4px; border-radius: 3px; background: rgba(255,82,82,0.15); margin-left: 4px; }
     .flight-line2 { display: flex; gap: 8px; color: var(--sub); font-size: 12px; padding-left: 50px; }
     .flight-row.is-delayed { background: rgba(255, 184, 77, 0.08); }
     .flight-row.is-delayed .status { color: var(--warn); }
@@ -110,8 +125,13 @@
 
   <button id="detail-toggle" type="button">▼ 今日の全便を表示</button>
 
+  <div class="heatmap-mode-toggle">
+    <button class="heatmap-mode-btn is-active" data-mode="pax">降客数</button>
+    <button class="heatmap-mode-btn" data-mode="taxi">タクシー候補</button>
+  </div>
+
   <section>
-    <h2>時間帯別 推定降客（30分単位）</h2>
+    <h2 id="heatmap-title">時間帯別 推定降客数（30分単位）</h2>
     <div id="heatmap"></div>
   </section>
 

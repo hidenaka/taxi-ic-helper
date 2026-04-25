@@ -4,27 +4,36 @@ const TIER_INFO = {
   low:  { label: '少ない', emoji: '🟦' }
 };
 
-export function renderHeatmap(container, bins) {
+export function renderHeatmap(container, bins, mode = 'pax') {
   container.innerHTML = '';
   if (bins.length === 0) {
     container.innerHTML = '<div class="empty">表示可能な時間帯がありません</div>';
     return;
   }
-  const maxPax = Math.max(1, ...bins.map(b => b.totalPax));
+  const isTaxi = mode === 'taxi';
+  const valueOf = b => isTaxi ? (b.totalTaxiPax ?? 0) : b.totalPax;
+  const tierOf = b => isTaxi ? b.taxiDensityTier : b.densityTier;
+  const maxVal = Math.max(1, ...bins.map(valueOf));
   for (const b of bins) {
     const row = document.createElement('div');
-    row.className = `heatmap-row tier-${b.densityTier}`;
-    const totalWidthPct = (b.totalPax / maxPax) * 100;
-    const intlWidthPct = b.totalPax > 0 ? (b.internationalPax / b.totalPax) * 100 : 0;
+    row.className = `heatmap-row tier-${tierOf(b)}`;
+    const totalWidthPct = (valueOf(b) / maxVal) * 100;
+    const intlWidthPct = (!isTaxi && b.totalPax > 0) ? (b.internationalPax / b.totalPax) * 100 : 0;
     const unknownNote = b.unknownCount > 0 ? ` <span class="unknown-note">機材不明${b.unknownCount}</span>` : '';
     const delayBadge = b.delayedCount > 0 ? ` <span class="delay-badge">⚠${b.delayedCount}遅延</span>` : '';
-    const intlBadge = b.internationalPax > 0
+    const intlBadge = (!isTaxi && b.internationalPax > 0)
       ? ` <span class="intl-badge">国際${b.internationalPax}人</span>`
       : '';
-    const tier = TIER_INFO[b.densityTier];
-    const tierBadge = b.totalPax > 0
+    const reachNoneBadge = (isTaxi && b.reachNoneCount > 0)
+      ? ` <span class="delay-badge">🔴${b.reachNoneCount}</span>`
+      : '';
+    const tier = TIER_INFO[tierOf(b)];
+    const tierBadge = valueOf(b) > 0
       ? ` <span class="tier-badge">${tier.emoji}${tier.label}</span>`
       : '';
+    const valueLabel = isTaxi
+      ? `タクシー候補${valueOf(b)}人`
+      : `${valueOf(b)}人 (${b.flightCount}便)`;
     row.innerHTML = `
       <span class="heatmap-time">${b.bin}</span>
       <span class="heatmap-bar-wrap">
@@ -32,7 +41,7 @@ export function renderHeatmap(container, bins) {
           <span class="heatmap-bar-intl" style="width:${intlWidthPct}%"></span>
         </span>
       </span>
-      <span class="heatmap-label">${b.totalPax}人 (${b.flightCount}便)${unknownNote}${delayBadge}${intlBadge}${tierBadge}</span>
+      <span class="heatmap-label">${valueLabel}${unknownNote}${delayBadge}${intlBadge}${reachNoneBadge}${tierBadge}</span>
     `;
     container.appendChild(row);
   }
@@ -63,10 +72,22 @@ export function renderSummary(container, summary) {
   const intlPart = summary.internationalPax > 0
     ? `<span class="summary-intl">うち国際 ${summary.internationalPax.toLocaleString()}人 (${summary.internationalCount}便)</span>`
     : '';
+  const taxiPart = summary.totalTaxiPax > 0
+    ? `<span class="summary-item summary-taxi">タクシー候補 <strong>${summary.totalTaxiPax.toLocaleString()}人</strong></span>`
+    : '';
+  const peakPart = summary.peakTaxiBin?.bin
+    ? `<span class="summary-item summary-peak">ピーク帯 ${summary.peakTaxiBin.bin}</span>`
+    : '';
+  const reachNonePart = summary.reachNoneCount > 0
+    ? `<span class="summary-item summary-reach-none">🔴 ${summary.reachNoneCount}便（公共交通不可）</span>`
+    : '';
   container.innerHTML = `
     <span class="summary-item">${summary.windowLabel} <strong>${summary.totalPax.toLocaleString()}人</strong></span>
     <span class="summary-item">時間あたり <strong>${summary.hourlyAvg.toLocaleString()}人</strong></span>
     <span class="summary-item">${summary.totalFlights}便</span>
+    ${taxiPart}
+    ${peakPart}
+    ${reachNonePart}
     ${intlPart}
     ${delayPart}
   `;
@@ -82,12 +103,15 @@ export function renderTopics(container, topics) {
   container.hidden = false;
   const items = topics.map(t => {
     const icons = [
-      t.isMajorDelay ? '⚠' : '',
-      t.isLateNight ? '🌙' : ''
-    ].filter(Boolean).join('');
+      t.reachNone ? '🔴' : '',
+      t.delayBoost ? '🌙' : ''
+    ].filter(Boolean).join(' ');
+    const paxLabel = (t.estimatedPax !== null && t.estimatedPax !== undefined)
+      ? `約${t.estimatedPax}人`
+      : '推定不可';
     const detail = t.delayMin > 0
-      ? `${t.delayMin}分遅延 (${t.scheduledTime}→${t.estimatedTime})`
-      : `${t.estimatedTime}到着`;
+      ? `${t.scheduledTime}→${t.estimatedTime} (${t.delayMin}分遅延) / ${paxLabel} / タクシー候補~${t.estimatedTaxiPax}`
+      : `${t.estimatedTime}着 / ${paxLabel} / タクシー候補~${t.estimatedTaxiPax}`;
     return `<div class="topic-item">
       <span class="topic-icons">${icons}</span>
       <span class="topic-flight">${t.flightNumber}</span>
@@ -97,7 +121,7 @@ export function renderTopics(container, topics) {
     </div>`;
   }).join('');
   container.innerHTML = `
-    <div class="topic-header">🚨 注目 (${topics.length}件) — 大幅遅延・深夜便</div>
+    <div class="topic-header">🚨 タクシー需要急増 (${topics.length}件) — 公共交通不可 / 遅延深夜</div>
     ${items}
   `;
 }
@@ -116,23 +140,30 @@ export function renderFlightList(container, flights) {
     const time = f.estimatedTime ?? f.scheduledTime ?? '--:--';
     const aircraft = f.aircraftCode ?? '機材不明';
     const pax = f.estimatedPax !== null ? `約${f.estimatedPax}人` : '推定不可';
-    const factorNote = f.loadFactorSource === 'route'
-      ? ` (路線実績 ${Math.round(f.loadFactor * 100)}%)`
-      : f.loadFactorSource === 'default'
-        ? ` (平均搭乗率 ${Math.round(f.loadFactor * 100)}%)`
-        : '';
     const statusIcon = isDelayed ? ' ⚠' : '';
+    const reachIcon = f.reachTier === 'high' ? '🟢'
+                    : f.reachTier === 'mid'  ? '🟡'
+                    : f.reachTier === 'low'  ? '🟡'
+                    : f.reachTier === 'none' ? '🔴'
+                    : '';
+    const taxiPax = (f.estimatedTaxiPax !== null && f.estimatedTaxiPax !== undefined)
+      ? `タクシー候補~${f.estimatedTaxiPax}`
+      : '';
+    const delayBoostBadge = (f.taxiDelayBoost && f.taxiDelayBoost > 1.0)
+      ? ` <span class="delay-boost">遅延+深夜</span>`
+      : '';
     row.innerHTML = `
       <div class="flight-line1">
         <span class="time">${time}</span>
         <span class="flight-no">${f.flightNumber}</span>
         <span class="from">${f.fromName}</span>
         <span class="aircraft">${aircraft}</span>
+        <span class="reach">${reachIcon}</span>
       </div>
       <div class="flight-line2">
         <span class="pax">${pax}</span>
-        <span class="status">${f.status}${statusIcon}</span>
-        <span class="factor">${factorNote}</span>
+        <span class="taxi-pax">${taxiPax}</span>
+        <span class="status">${f.status}${statusIcon}${delayBoostBadge}</span>
       </div>
     `;
     container.appendChild(row);

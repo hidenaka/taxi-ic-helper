@@ -1,0 +1,105 @@
+{
+  "_meta": {
+    "source": "京急電鉄 / 東京モノレール / 東京空港交通 公式時刻表（手動取得）",
+    "updated": "2026-04-25",
+    "note": "weight は降車地の経験則初期値。過去履歴で校正予定。lastArrival は乗継後の目的地着時刻（ロビー出口時刻からの逆算ベース、平日/休日）。"
+  },
+  "routes": [
+    {
+      "id": "chiyoda-minato-rail",
+      "name": "千代田・港（東京・新橋・品川・六本木）",
+      "via": ["京急", "JR山手線/メトロ"],
+      "weekdayLastArrival": "00:30",
+      "holidayLastArrival": "00:25",
+      "weight": 0.30
+    },
+    {
+      "id": "shinjuku-shibuya-rail",
+      "name": "新宿・渋谷（京急→品川→JR山手線）",
+      "via": ["京急", "JR山手線"],
+      "weekdayLastArrival": "00:15",
+      "holidayLastArrival": "00:10",
+      "weight": 0.20
+    },
+    {
+      "id": "yokohama-rail",
+      "name": "横浜（京急本線直通）",
+      "via": ["京急本線"],
+      "weekdayLastArrival": "00:30",
+      "holidayLastArrival": "00:25",
+      "weight": 0.10
+    },
+    {
+      "id": "nerima-seibu-ikebukuro",
+      "name": "練馬区（西武池袋線）",
+      "via": ["京急", "JR山手線", "西武池袋線"],
+      "weekdayLastArrival": "00:00",
+      "holidayLastArrival": "23:55",
+      "weight": 0.06
+    },
+    {
+      "id": "nerima-toei-oedo",
+      "name": "練馬区（都営大江戸線）",
+      "via": ["京急", "都営浅草線", "都営大江戸線"],
+      "weekdayLastArrival": "00:10",
+      "holidayLastArrival": "00:05",
+      "weight": 0.04
+    },
+    {
+      "id": "itabashi-tobu",
+      "name": "板橋（東武東上線）",
+      "via": ["京急", "JR山手線", "東武東上線"],
+      "weekdayLastArrival": "00:00",
+      "holidayLastArrival": "23:55",
+      "weight": 0.05
+    },
+    {
+      "id": "itabashi-mita",
+      "name": "板橋（都営三田線）",
+      "via": ["京急", "都営浅草線", "都営三田線"],
+      "weekdayLastArrival": "00:05",
+      "holidayLastArrival": "00:00",
+      "weight": 0.04
+    },
+    {
+      "id": "suginami-jr-chuo",
+      "name": "杉並（JR中央線）",
+      "via": ["京急", "JR山手線", "JR中央線"],
+      "weekdayLastArrival": "00:15",
+      "holidayLastArrival": "00:10",
+      "weight": 0.05
+    },
+    {
+      "id": "suginami-keio-inokashira",
+      "name": "杉並（京王井の頭線）",
+      "via": ["京急", "JR山手線", "京王井の頭線"],
+      "weekdayLastArrival": "00:00",
+      "holidayLastArrival": "23:55",
+      "weight": 0.04
+    },
+    {
+      "id": "bus-tokyo-st",
+      "name": "東京駅（リムジンバス）",
+      "via": ["リムジンバス"],
+      "weekdayLastArrival": "23:00",
+      "holidayLastArrival": "23:00",
+      "weight": 0.04
+    },
+    {
+      "id": "bus-shinjuku",
+      "name": "新宿駅（リムジンバス）",
+      "via": ["リムジンバス"],
+      "weekdayLastArrival": "23:30",
+      "holidayLastArrival": "23:30",
+      "weight": 0.04
+    },
+    {
+      "id": "bus-nerima-musashino",
+      "name": "練馬・吉祥寺方面（リムジンバス）",
+      "via": ["リムジンバス"],
+      "weekdayLastArrival": "21:30",
+      "holidayLastArrival": "21:30",
+      "weight": 0.04
+    }
+  ]
+}
