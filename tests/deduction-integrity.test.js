@@ -146,13 +146,31 @@ test('D-INT-D 北西線経由 (hokuseisen_route): 港北IC等で選択可能', (
   // 港北IC が登録されていること
   const kohokuEntry = hokuseisen.entries.find((e) => e.ic_id === 'kohoku');
   assert.ok(kohokuEntry, '港北IC が hokuseisen_route entries に登録');
-  // 判定動作確認
+  // 北西線は控除外、東名のみ控除 (kohoku→東京IC = 東名13.3km控除)
+  assert.equal(kohokuEntry.km, 13.3, '港北 kohoku の控除13.3km (北西線控除0、東名のみ)');
   const r = judgeRoute({
     outerRoute: 'hokuseisen_route', entryIc: find('kohoku'),
     exitIc: find('kukou_chuou'), roundTrip: false,
   }, data);
   assert.equal(r.totals.paySummary, 'all_company');
-  assert.equal(r.totals.deductionKmOneway, 20.0);
+  assert.equal(r.totals.deductionKmOneway, 13.3);
+});
+
+test('D-INT-E 北線経由 (kitasen_route) の控除は0 (北西線/北線/K1すべて控除外)', () => {
+  const data = loadAll();
+  const find = (id) => data.ics.find((x) => x.id === id);
+  const kitasen = data.deduction.directions.find((d) => d.id === 'kitasen_route');
+  assert.ok(kitasen, 'kitasen_route direction が存在');
+  const aobaEntry = kitasen.entries.find((e) => e.ic_id === 'yokohama_aoba');
+  assert.equal(aobaEntry.km, 0, '青葉 kitasen_route の控除は0 (北西線/北線/K1は全て控除外)');
+  assert.equal(aobaEntry.physical_km, 19.0, '走行距離は19km (有料区間全て)');
+
+  const r = judgeRoute({
+    outerRoute: 'kitasen_route', entryIc: find('yokohama_aoba'),
+    exitIc: find('wangan_kanpachi'), roundTrip: false,
+  }, data);
+  assert.equal(r.totals.deductionKmOneway, 0, '控除0');
+  assert.equal(r.totals.distanceKmOneway, 33.0, '走行33km (北西7+北線8.2+K1 4 + 湾岸線基点→湾岸環八14)');
 });
 
 test('D-INT-A 出口IC = 本線baseline自身 のとき shutokoセグは含めない (本線完結)', () => {

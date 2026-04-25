@@ -300,7 +300,7 @@
         { "ic_id": "kawakami",         "name": "川上",     "km": 1.4,  "physical_km": 4.4 },
         { "ic_id": "imai",             "name": "今井",     "km": 2.8,  "physical_km": 5.8 },
         { "ic_id": "totsuka",          "name": "戸塚",     "km": 5.5,  "physical_km": 8.5 },
-        { "ic_id": "yokohama_aoba",    "name": "横浜青葉（東名→北西線→第三京浜→BP）", "km": 12.5, "physical_km": 15.5 },
+        { "ic_id": "yokohama_aoba",    "name": "横浜青葉（東名→北西線→第三京浜→BP）", "km": 5.5, "physical_km": 15.5 },
         { "ic_id": "yokohama_machida", "name": "横浜町田（→国道16号→BP）",  "km": 0, "physical_km": 14.0 },
         { "ic_id": "ebina",            "name": "海老名（→国道246/16号→BP）","km": 0, "physical_km": 21.0 },
         { "ic_id": "atsugi",           "name": "厚木（→国道246/16号→BP）",  "km": 0, "physical_km": 28.0 }
@@ -310,20 +310,21 @@
       "id": "hokuseisen_route",
       "name": "横浜方面（北西線→東名経由）",
       "baseline": { "ic_id": "tokyo_ic", "ic_name": "東京IC" },
+      "_doc": "km=控除距離(第三京浜+東名のみ、北西線は控除外)、physical_km=走行距離(北西線含む)",
       "entries": [
-        { "ic_id": "tamagawa_ic",     "name": "玉川",     "km": 25.0 },
-        { "ic_id": "kohoku",          "name": "港北",     "km": 20.0 },
-        { "ic_id": "tsuzuki",         "name": "都筑",     "km": 22.6 },
-        { "ic_id": "keihin_kawasaki", "name": "京浜川崎", "km": 28.6 }
+        { "ic_id": "tamagawa_ic",     "name": "玉川",     "km": 18.9, "physical_km": 25.9 },
+        { "ic_id": "kohoku",          "name": "港北",     "km": 13.3, "physical_km": 20.3 },
+        { "ic_id": "tsuzuki",         "name": "都筑",     "km": 15.9, "physical_km": 22.9 },
+        { "ic_id": "keihin_kawasaki", "name": "京浜川崎", "km": 21.9, "physical_km": 28.9 }
       ]
     },
     {
       "id": "kitasen_route",
       "name": "横浜方面（北西線→横浜北線→湾岸線経由・東京IC回避）",
       "baseline": { "ic_id": "wangan_shutoko", "ic_name": "首都高湾岸線基点" },
-      "_doc": "横浜青葉JCT→北西線(7km)→港北JCT→横浜北線K7(8.2km)→生麦JCT→K1(4km)→大黒JCT で湾岸線に合流。kmは合計19km。出口湾岸環八なら +14km(湾岸線基点→湾岸環八) = 33km",
+      "_doc": "横浜青葉JCT→北西線(7km、控除外)→港北JCT→横浜北線K7(8.2km、控除外)→生麦JCT→K1(4km)→大黒JCT。北西線/北線は控除0、東名走行も0(青葉JCT直結)。physical_km=19は走行距離(全有料区間)",
       "entries": [
-        { "ic_id": "yokohama_aoba", "name": "横浜青葉（東名→北西線→横浜北線→大黒JCT）", "km": 19.0 }
+        { "ic_id": "yokohama_aoba", "name": "横浜青葉（東名→北西線→横浜北線→大黒JCT）", "km": 0, "physical_km": 19.0 }
       ]
     }
   ]
