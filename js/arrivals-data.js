@@ -81,16 +81,34 @@ export function summarizeFlights(flights, opts = {}) {
   const delayedCount = flights.filter(f => f.status === '遅延').length;
   const unknownCount = flights.filter(f => f.estimatedPax === null).length;
   const hourlyAvg = totalFlights > 0 ? Math.round(totalPax / windowHours) : 0;
+  const totalTaxiPax = flights.reduce((s, f) => s + (f.estimatedTaxiPax ?? 0), 0);
+  const reachNoneCount = flights.filter(f => f.reachTier === 'none').length;
+  const peakTaxiBin = computePeakTaxiBin(flights);
   return {
     totalPax, internationalPax,
     totalFlights, internationalCount,
     delayedCount, unknownCount, hourlyAvg,
-    windowLabel
+    windowLabel,
+    totalTaxiPax,
+    reachNoneCount,
+    peakTaxiBin
   };
 }
 
-const MAJOR_DELAY_MINUTES = 30;
-const LATE_NIGHT_HHMM = '23:30';
+function computePeakTaxiBin(flights) {
+  const bins = new Map();
+  for (const f of flights) {
+    const t = f.estimatedTime ?? f.scheduledTime;
+    if (!t) continue;
+    const [h, mm] = t.split(':').map(Number);
+    const binMin = mm < 30 ? '00' : '30';
+    const key = `${String(h).padStart(2, '0')}:${binMin}`;
+    bins.set(key, (bins.get(key) ?? 0) + (f.estimatedTaxiPax ?? 0));
+  }
+  let bestKey = null, best = 0;
+  for (const [k, v] of bins) if (v > best) { bestKey = k; best = v; }
+  return { bin: bestKey, value: best };
+}
 
 function timeToMinutes(hhmm) {
   if (!hhmm) return null;
@@ -99,28 +117,26 @@ function timeToMinutes(hhmm) {
 }
 
 export function detectTopics(flights) {
-  const lateMin = timeToMinutes(LATE_NIGHT_HHMM);
   const topics = [];
   for (const f of flights) {
     if (f.status === '到着') continue;
+    const reachNone = f.reachTier === 'none';
+    const delayBoost = f.taxiDelayBoost && f.taxiDelayBoost > 1.0;
+    if (!reachNone && !delayBoost) continue;
     const sched = timeToMinutes(f.scheduledTime);
     const est = timeToMinutes(f.estimatedTime ?? f.scheduledTime);
-    if (sched === null || est === null) continue;
-    const delayMin = est - sched;
-    const isMajorDelay = delayMin >= MAJOR_DELAY_MINUTES;
-    const isLateNight = est >= lateMin;
-    if (isMajorDelay || isLateNight) {
-      topics.push({
-        flightNumber: f.flightNumber,
-        fromName: f.fromName,
-        terminal: f.terminal,
-        scheduledTime: f.scheduledTime,
-        estimatedTime: f.estimatedTime ?? f.scheduledTime,
-        delayMin,
-        isMajorDelay,
-        isLateNight
-      });
-    }
+    const delayMin = (sched !== null && est !== null) ? Math.max(0, est - sched) : 0;
+    topics.push({
+      flightNumber: f.flightNumber,
+      fromName: f.fromName,
+      terminal: f.terminal,
+      scheduledTime: f.scheduledTime,
+      estimatedTime: f.estimatedTime ?? f.scheduledTime,
+      delayMin,
+      reachNone,
+      delayBoost: !!delayBoost,
+      estimatedTaxiPax: f.estimatedTaxiPax ?? 0
+    });
   }
   topics.sort((a, b) => timeToMinutes(a.estimatedTime) - timeToMinutes(b.estimatedTime));
   return topics;
