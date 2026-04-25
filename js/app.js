@@ -271,8 +271,9 @@ function buildIcGrouping(data) {
 
   for (const ic of ics) {
     if (assignment.has(ic.id)) continue;
-    if (ic.boundary_tag === 'gaikan') {
-      assignment.set(ic.id, { groupId: 'gaikan', sortKey: 0 });
+    // 外環道のIC は boundary_tag='gaikan' または gaikan_kp フィールドを持つ
+    if (ic.boundary_tag === 'gaikan' || typeof ic.gaikan_kp === 'number') {
+      assignment.set(ic.id, { groupId: 'gaikan', sortKey: ic.gaikan_kp ?? 0 });
     } else {
       assignment.set(ic.id, { groupId: 'shutoko_inner', sortKey: 0 });
     }
