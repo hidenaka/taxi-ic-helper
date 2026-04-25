@@ -48,7 +48,7 @@ const OUTER_TRUNK_ROUTES = new Set([
   'tomei','chuo','kanetsu','tohoku','joban',
   'keiyo','tokan','aqua','tateyama',
   'third_keihin','yokoyoko','yokohane_route','kariba_route','wangan_route',
-  'hodogaya_route','hokuseisen_route'
+  'hodogaya_route','hokuseisen_route','kitasen_route'
 ]);
 
 function needsGaikanTransit(outerRoute, entryIc, routes) {
@@ -242,7 +242,7 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
   });
 
   if (exitIc.id === 'wangan_kanpachi' &&
-      ['aqua','tateyama','third_keihin','yokoyoko','yokohane_route','kariba_route','wangan_route','hodogaya_route','hokuseisen_route'].includes(outerRoute)) {
+      ['aqua','tateyama','third_keihin','yokoyoko','yokohane_route','kariba_route','wangan_route','hodogaya_route','hokuseisen_route','kitasen_route'].includes(outerRoute)) {
     segs[segs.length - 1].pay = 'company';
   }
 

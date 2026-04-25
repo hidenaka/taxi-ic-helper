@@ -213,7 +213,7 @@ const DIRECTION_ORDER = [
   'tomei', 'chuo', 'kanetsu', 'tohoku', 'joban',
   'keiyo', 'tokan', 'aqua', 'tateyama',
   'third_keihin', 'yokoyoko', 'yokohane_route', 'kariba_route', 'wangan_route',
-  'hodogaya_route', 'hokuseisen_route',
+  'hodogaya_route', 'hokuseisen_route', 'kitasen_route',
   'gaikan', 'shutoko_inner'
 ];
 
@@ -234,6 +234,7 @@ const DIRECTION_EMOJI = {
   'wangan_route':   '🟩',
   'hodogaya_route': '🟫',
   'hokuseisen_route':'⬛',
+  'kitasen_route':  '🟪',
   'gaikan':         '⚪',
   'shutoko_inner':  '⚫'
 };
@@ -255,6 +256,7 @@ const DIRECTION_LABELS = {
   'wangan_route':   '湾岸線経由',
   'hodogaya_route': '保土ヶ谷BP経由',
   'hokuseisen_route':'北西線経由',
+  'kitasen_route':  '北線経由',
   'gaikan':         '外環道',
   'shutoko_inner':  '首都高都心側'
 };
