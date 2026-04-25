@@ -21,6 +21,20 @@ if (jstHour < 5) {
 
 const seatsMaster = JSON.parse(readFileSync('./data/aircraft-seats.json', 'utf8'));
 const factorsMaster = JSON.parse(readFileSync('./data/load-factors.json', 'utf8'));
+const transitShareMaster = JSON.parse(readFileSync('./data/transit-share.json', 'utf8'));
+const routesMaster = JSON.parse(readFileSync('./data/last-mile-routes.json', 'utf8'));
+const egressMaster = JSON.parse(readFileSync('./data/terminal-egress.json', 'utf8'));
+
+let railStatusOperators = null;
+try {
+  railStatusOperators = JSON.parse(readFileSync('./data/rail-status.json', 'utf8')).operators;
+} catch {
+  railStatusOperators = { Keikyu: { status: 'OnTime', delayMinutes: 0 }, TokyoMonorail: { status: 'OnTime', delayMinutes: 0 } };
+}
+
+const jstNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+const dayOfWeek = jstNow.getDay();
+const dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'holiday' : 'weekday';
 
 const odptData = await fetchHndArrivals(TOKEN);
 if (odptData.length === 0) {
@@ -28,7 +42,13 @@ if (odptData.length === 0) {
   process.exit(0);
 }
 
-const out = transformArrivals(odptData, seatsMaster, factorsMaster);
+const out = transformArrivals(odptData, seatsMaster, factorsMaster, {
+  transitShare: transitShareMaster,
+  routes: routesMaster,
+  egress: egressMaster,
+  railStatus: railStatusOperators,
+  dayType
+});
 const outPath = './data/arrivals.json';
 const newJson = JSON.stringify(out, null, 2);
 
