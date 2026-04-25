@@ -122,17 +122,29 @@ export function renderFlightList(container, flights) {
         ? ` (平均搭乗率 ${Math.round(f.loadFactor * 100)}%)`
         : '';
     const statusIcon = isDelayed ? ' ⚠' : '';
+    const reachIcon = f.reachTier === 'high' ? '🟢'
+                    : f.reachTier === 'mid'  ? '🟡'
+                    : f.reachTier === 'low'  ? '🟡'
+                    : f.reachTier === 'none' ? '🔴'
+                    : '';
+    const taxiPax = (f.estimatedTaxiPax !== null && f.estimatedTaxiPax !== undefined)
+      ? `タクシー候補~${f.estimatedTaxiPax}`
+      : '';
+    const delayBoostBadge = (f.taxiDelayBoost && f.taxiDelayBoost > 1.0)
+      ? ` <span class="delay-boost">遅延+深夜</span>`
+      : '';
     row.innerHTML = `
       <div class="flight-line1">
         <span class="time">${time}</span>
         <span class="flight-no">${f.flightNumber}</span>
         <span class="from">${f.fromName}</span>
         <span class="aircraft">${aircraft}</span>
+        <span class="reach">${reachIcon}</span>
       </div>
       <div class="flight-line2">
         <span class="pax">${pax}</span>
-        <span class="status">${f.status}${statusIcon}</span>
-        <span class="factor">${factorNote}</span>
+        <span class="taxi-pax">${taxiPax}</span>
+        <span class="status">${f.status}${statusIcon}${delayBoostBadge}</span>
       </div>
     `;
     container.appendChild(row);
