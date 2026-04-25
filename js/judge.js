@@ -218,12 +218,16 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
   }
 
   if (viaGaikan) {
+    const gaikanPay = isOuter ? 'company' : 'self';
     segs.push({
       name: '外環道',
       route: 'gaikan',
-      pay: isOuter ? 'company' : 'self',
+      pay: gaikanPay,
       deductionKm: 0,
-      distanceKm: resolveGaikanDistance(outerRoute, entryIc, gaikanDist)
+      distanceKm: resolveGaikanDistance(outerRoute, entryIc, gaikanDist),
+      note: gaikanPay === 'self'
+        ? '外環道区間は控除対象外。外環道から乗ると外環道の区間は自己負担になります。'
+        : null,
     });
   }
 
