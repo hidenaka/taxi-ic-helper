@@ -71,15 +71,37 @@ const GAIKAN_TRANSIT_PAIRS = {
   tohoku:  ['kawaguchi_jct', 'bijogi_jct'],
 };
 
+// gaikan_direct時に首都高に乗り換える接続点 (外環kp ベース)
+// 各エントリICの gaikan_kp と 接続点kpの差で外環走行距離を計算
+const GAIKAN_SHUTOKO_HUBS = [
+  { id: 'bijogi_jct',     kp: 7.8 },  // 5号池袋線接続
+  { id: 'kawaguchi_jct',  kp: 14.4 }, // S1川口線接続
+];
+
+function pickGaikanShutokoHub(entryIc) {
+  if (typeof entryIc?.gaikan_kp !== 'number') return null;
+  let best = null;
+  let bestDist = Infinity;
+  for (const hub of GAIKAN_SHUTOKO_HUBS) {
+    const d = Math.abs(entryIc.gaikan_kp - hub.kp);
+    if (d < bestDist) { bestDist = d; best = hub; }
+  }
+  return { hubId: best.id, gaikanKm: bestDist };
+}
+
 function resolveGaikanDistance(outerRoute, entryIc, gaikanDist) {
-  if (!gaikanDist) return 0;
   if (outerRoute === 'gaikan_direct') {
     if (entryIc.id === 'bijogi_jct') return 0;
-    if (entryIc.id === 'oizumi_jct' || entryIc.id === 'oizumi') {
+    // gaikan_kp ベースの汎用計算 (新規外環IC対応)
+    const hub = pickGaikanShutokoHub(entryIc);
+    if (hub) return hub.gaikanKm;
+    // legacy fallback (gaikan_kp 未付与の旧IC用)
+    if (gaikanDist && (entryIc.id === 'oizumi_jct' || entryIc.id === 'oizumi')) {
       return lookupDistance(gaikanDist, 'oizumi_jct', 'bijogi_jct');
     }
     return 0;
   }
+  if (!gaikanDist) return 0;
   const pair = GAIKAN_TRANSIT_PAIRS[outerRoute];
   if (!pair) return 0;
   return lookupDistance(gaikanDist, pair[0], pair[1]);
@@ -97,6 +119,12 @@ const VIA_GAIKAN_SHUTOKO_ENTRY = {
 };
 
 function resolveShutokoStartIcId({ outerRoute, entryIc, deduction, viaGaikan }) {
+  if (viaGaikan && outerRoute === 'gaikan_direct') {
+    // gaikan_direct: gaikan_kp で最寄りの首都高接続点を選ぶ (新規IC対応)
+    const hub = pickGaikanShutokoHub(entryIc);
+    if (hub) return hub.hubId;
+    return 'bijogi_jct'; // legacy fallback
+  }
   if (viaGaikan && VIA_GAIKAN_SHUTOKO_ENTRY[outerRoute]) {
     return VIA_GAIKAN_SHUTOKO_ENTRY[outerRoute];
   }
@@ -191,12 +219,15 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
   }
 
   const startIcId = resolveShutokoStartIcId({ outerRoute, entryIc, deduction, viaGaikan });
-  const shutokoInfo = resolveShutokoDistance({
+  // 出口IC が本線baseline 自身 (= 首都高に乗り換える必要がない、本線で完結) なら shutokoセグ自体を追加しない。
+  // 例: 港北IC→玉川IC は第三京浜内で完結、首都高は通らない。
+  const skipShutoko = startIcId === exitIc.id;
+  const shutokoInfo = skipShutoko ? null : resolveShutokoDistance({
     shutokoRoutes, shutokoDist, shutokoGraph, ics: deps.ics,
     startIcId, exitIcId: exitIc.id, shutokoRouteId
   });
 
-  segs.push({
+  if (!skipShutoko) segs.push({
     name: shutokoInfo.routeLabel ? `首都高（${shutokoInfo.routeLabel}）` : '首都高',
     route: 'shutoko',
     pay: computeShutokoPay({ outerRoute, entryIc, isOuter }),
