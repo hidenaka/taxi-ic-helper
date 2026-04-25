@@ -110,7 +110,7 @@ export function renderTopics(container, topics) {
       ? `約${t.estimatedPax}人`
       : '推定不可';
     const detail = t.delayMin > 0
-      ? `${t.delayMin}分遅延 / ${paxLabel} / タクシー候補~${t.estimatedTaxiPax}`
+      ? `${t.scheduledTime}→${t.estimatedTime} (${t.delayMin}分遅延) / ${paxLabel} / タクシー候補~${t.estimatedTaxiPax}`
       : `${t.estimatedTime}着 / ${paxLabel} / タクシー候補~${t.estimatedTaxiPax}`;
     return `<div class="topic-item">
       <span class="topic-icons">${icons}</span>
