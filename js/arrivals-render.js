@@ -116,11 +116,6 @@ export function renderFlightList(container, flights) {
     const time = f.estimatedTime ?? f.scheduledTime ?? '--:--';
     const aircraft = f.aircraftCode ?? '機材不明';
     const pax = f.estimatedPax !== null ? `約${f.estimatedPax}人` : '推定不可';
-    const factorNote = f.loadFactorSource === 'route'
-      ? ` (路線実績 ${Math.round(f.loadFactor * 100)}%)`
-      : f.loadFactorSource === 'default'
-        ? ` (平均搭乗率 ${Math.round(f.loadFactor * 100)}%)`
-        : '';
     const statusIcon = isDelayed ? ' ⚠' : '';
     const reachIcon = f.reachTier === 'high' ? '🟢'
                     : f.reachTier === 'mid'  ? '🟡'
