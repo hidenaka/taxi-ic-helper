@@ -200,6 +200,27 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
                  || needsGaikanTransit(outerRoute, entryIc, routes);
   const segs = [];
 
+  // 本線途中下車パターン: entryIc も exitIc も同じ outer 本線の entries に存在する場合
+  // 例: 八王子IC→調布IC (両方chuo direction) は abs差分で控除を計算し、首都高経由しない
+  if (isOuter) {
+    const entryDed = lookupDeduction(deduction, entryIc.id, outerRoute);
+    const exitDed = lookupDeduction(deduction, exitIc.id, outerRoute);
+    if (entryDed && exitDed) {
+      const physA = entryDed.physicalKm ?? entryDed.km;
+      const physB = exitDed.physicalKm ?? exitDed.km;
+      const round1 = (n) => Math.round(n * 10) / 10;
+      segs.push({
+        name: routes.labels[outerRoute],
+        route: outerRoute,
+        pay: 'company',
+        deductionKm: round1(Math.abs(entryDed.km - exitDed.km)),
+        distanceKm: round1(Math.abs(physA - physB)),
+        note: entryDed.note ?? exitDed.note ?? null,
+      });
+      return { segments: segs, totals: aggregate(segs, roundTrip) };
+    }
+  }
+
   if (isOuter) {
     const ded = lookupDeduction(deduction, entryIc.id, outerRoute);
     const controlKm = ded?.km ?? 0;
