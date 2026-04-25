@@ -78,7 +78,7 @@ function resolveShutokoDistance({ shutokoRoutes, shutokoDist, shutokoGraph, ics,
     const opt = shutokoRouteId
       ? pair.options.find(o => o.id === shutokoRouteId)
       : (pair.options.find(o => o.default) || pair.options[0]);
-    if (opt) return { km: opt.km, routeId: opt.id, routeLabel: opt.label };
+    if (opt) return { km: opt.km, routeId: opt.id, routeLabel: opt.label, path: opt.path ?? null };
   }
 
   // 2. graph-based Dijkstra (preferred accurate source)
