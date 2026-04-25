@@ -90,6 +90,12 @@
     .flight-line1 .reach { font-size: 13px; margin-left: auto; }
     .flight-line2 .taxi-pax { color: var(--taxi); font-weight: 600; }
     .delay-boost { color: var(--peak); font-size: 11px; padding: 1px 4px; border-radius: 3px; background: rgba(255,82,82,0.15); margin-left: 4px; }
+    .lightning-boost { color: #ffd84d; font-size: 11px; padding: 1px 4px; border-radius: 3px; background: rgba(255,216,77,0.15); margin-left: 4px; font-weight: 600; }
+    #weather-banner { padding: 10px 12px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #2a2a35; }
+    #weather-banner.is-active { background: linear-gradient(90deg, #4a2010, #5a2818); color: #ffd5b0; border-color: #6b3520; }
+    #weather-banner.is-recovery { background: linear-gradient(90deg, #2a3a18, #3a4d20); color: #fff3a0; border-color: #5a6e2a; }
+    #weather-banner .weather-icon { font-size: 18px; }
+    #weather-banner strong { color: #fff; font-weight: 700; }
     .flight-line2 { display: flex; gap: 8px; color: var(--sub); font-size: 12px; padding-left: 50px; }
     .flight-row.is-delayed { background: rgba(255, 184, 77, 0.08); }
     .flight-row.is-delayed .status { color: var(--warn); }
@@ -116,6 +122,8 @@
   </div>
 
   <div id="arrivals-error" hidden></div>
+
+  <div id="weather-banner" hidden></div>
 
   <div id="topics" hidden></div>
 

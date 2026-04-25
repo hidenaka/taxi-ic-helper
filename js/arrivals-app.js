@@ -1,5 +1,5 @@
 import { loadArrivals, filterByTerminals, filterByTimeWindow, aggregateHeatmapClient, summarizeFlights, detectTopics } from './arrivals-data.js';
-import { renderHeatmap, renderFlightList, renderUpdatedAt, renderSummary, renderLegend, renderTopics } from './arrivals-render.js';
+import { renderHeatmap, renderFlightList, renderUpdatedAt, renderSummary, renderLegend, renderTopics, renderWeatherBanner } from './arrivals-render.js';
 
 const TAB_TERMINALS = {
   'T1': ['T1'],
@@ -30,6 +30,7 @@ function render() {
     : { windowHours: 3.5, windowLabel: '直近3時間' };
   const summary = summarizeFlights(visible, summaryOpts);
   const topics = detectTopics(all);
+  renderWeatherBanner(document.getElementById('weather-banner'), state.arrivals.weather ?? null);
   renderTopics(document.getElementById('topics'), topics);
   renderSummary(document.getElementById('summary'), summary);
   const heatmapEl = document.getElementById('heatmap');
