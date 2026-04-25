@@ -12,7 +12,12 @@ export function lookupDeduction(deductionData, icId, directionId = null) {
     if (dir.baseline.ic_id === icId) return null;
     const entry = dir.entries.find(e => e.ic_id === icId);
     if (entry) {
-      return { direction: dir.id, name: entry.name, km: entry.km };
+      return {
+        direction: dir.id,
+        name: entry.name,
+        km: entry.km,
+        physicalKm: entry.physical_km ?? null,
+      };
     }
   }
   return null;
@@ -80,12 +85,24 @@ function resolveGaikanDistance(outerRoute, entryIc, gaikanDist) {
   return lookupDistance(gaikanDist, pair[0], pair[1]);
 }
 
-function resolveShutokoStartIcId({ outerRoute, entryIc, deduction }) {
+// 外環経由時、本線高速の baseline IC ではなく外環からの首都高接続点を起点にする
+// kanetsu/tohoku: 外環→美女木JCT→5号池袋線
+// joban:          外環→川口JCT→S1川口線
+// gaikan_direct:  外環→美女木JCT→5号池袋線 (default)
+const VIA_GAIKAN_SHUTOKO_ENTRY = {
+  kanetsu: 'bijogi_jct',
+  tohoku: 'bijogi_jct',
+  joban: 'kawaguchi_jct',
+  gaikan_direct: 'bijogi_jct',
+};
+
+function resolveShutokoStartIcId({ outerRoute, entryIc, deduction, viaGaikan }) {
+  if (viaGaikan && VIA_GAIKAN_SHUTOKO_ENTRY[outerRoute]) {
+    return VIA_GAIKAN_SHUTOKO_ENTRY[outerRoute];
+  }
   // Outer-trunk routes: shutoko segment starts at the direction's baseline IC
-  // (that is where the driver physically enters the shutoko network)
   const dir = deduction.directions.find(d => d.id === outerRoute);
   if (dir) return dir.baseline.ic_id;
-  // gaikan_direct: v0.1 simplification — use entryIc.id (will produce 0 for unknown pairs)
   // none (首都高内のみ): entryIc IS already the shutoko entry point
   return entryIc.id;
 }
@@ -149,12 +166,17 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
 
   if (isOuter) {
     const ded = lookupDeduction(deduction, entryIc.id, outerRoute);
+    const controlKm = ded?.km ?? 0;
+    // 物理走行距離 = physical_km があればそれ。なければ控除値にフォールバック。
+    // viaGaikan時は本線が外環接続点 (例: 関越→大泉JCT) で分岐するため shorten_km 分を差引く。
+    const physicalBase = ded?.physicalKm ?? controlKm;
+    const shortenKm = viaGaikan ? (routes.via_gaikan_shorten_km?.[outerRoute] ?? 0) : 0;
     segs.push({
       name: routes.labels[outerRoute],
       route: outerRoute,
       pay: 'company',
-      deductionKm: ded?.km ?? 0,
-      distanceKm: ded?.km ?? 0
+      deductionKm: controlKm,
+      distanceKm: Math.max(0, physicalBase - shortenKm),
     });
   }
 
@@ -168,7 +190,7 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     });
   }
 
-  const startIcId = resolveShutokoStartIcId({ outerRoute, entryIc, deduction });
+  const startIcId = resolveShutokoStartIcId({ outerRoute, entryIc, deduction, viaGaikan });
   const shutokoInfo = resolveShutokoDistance({
     shutokoRoutes, shutokoDist, shutokoGraph, ics: deps.ics,
     startIcId, exitIcId: exitIc.id, shutokoRouteId

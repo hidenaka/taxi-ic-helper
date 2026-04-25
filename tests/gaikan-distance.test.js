@@ -80,12 +80,13 @@ test('T6 外環直乗り 美女木JCT: 外環セグメント distanceKm = 0 (既
   assert.equal(g.distanceKm, 0);
 });
 
-test('T7 関越 viaGaikan 総距離: 関越(9.4) + 外環(7.8) + 首都高(17) = 34.2km片道', () => {
+test('T7 関越 viaGaikan 総距離: 関越(8.6) + 外環(7.8) + 首都高 美女木→霞ヶ関(23) = 39.4km片道', () => {
   const data = loadAll();
   const entry = { ...find(data, 'tokorozawa'), _viaGaikan: true };
   const r = run({
     outerRoute: 'kanetsu', entryIc: entry, exitIc: find(data, 'kasumigaseki'),
   }, data);
-  // 関越=9.4 + 外環=7.8 + 首都高(nerima→kasumigaseki c2_c1)=17.0 = 34.2km
-  assert.equal(r.totals.distanceKmOneway, 34.2);
+  // 関越=9.4-0.8(大泉JCT分岐)=8.6 + 外環=7.8 + 首都高(bijogi_jct→kasumigaseki 5号→C1)=23.0 = 39.4km
+  // viaGaikan時は本線baseline(練馬IC)ではなく外環接続点(美女木JCT)で首都高に乗る
+  assert.equal(r.totals.distanceKmOneway, 39.4);
 });

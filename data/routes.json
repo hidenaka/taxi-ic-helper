@@ -18,6 +18,12 @@
     "gaikan_direct":   "外環直乗り",
     "none":            "首都高内のみ"
   },
+  "via_gaikan_shorten_km": {
+    "_doc": "viaGaikan時、本線高速の控除km から差し引くkm。baselineが外環接続点と異なる方面のみ正の値を持つ。Wikipedia値: 関越道 練馬IC=0kp ↔ 大泉JCT=0.8kp なので 0.8km 短縮 (大泉JCTで降りて外環へ)。常磐/東北は baseline=三郷JCT/川口JCT が外環接続点なので 0。",
+    "kanetsu": 0.8,
+    "joban": 0,
+    "tohoku": 0
+  },
   "needs_gaikan_transit": {
     "tomei":           false,
     "chuo":            false,
