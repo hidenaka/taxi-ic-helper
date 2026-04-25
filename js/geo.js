@@ -8,11 +8,18 @@ const DEFAULT_WATCH_OPTIONS = {
   timeout: 10000,
 };
 
+// 直線距離 (haversine) → 走行距離近似 倍率
+// 東京近郊の道路網平均から ~1.3 (社内ルール「全距離は走行距離」に統一)
+export const DRIVING_DETOUR_FACTOR = 1.3;
+
 export function findNearestICs(pos, ics, { n = 5, filter } = {}) {
   if (!pos) return [];
   return ics
     .filter((ic) => ic.gps && (!filter || filter(ic)))
-    .map((ic) => ({ ic, distKm: haversineKm(pos, ic.gps) }))
+    .map((ic) => ({
+      ic,
+      distKm: haversineKm(pos, ic.gps) * DRIVING_DETOUR_FACTOR,
+    }))
     .sort((a, b) => a.distKm - b.distKm)
     .slice(0, n);
 }
