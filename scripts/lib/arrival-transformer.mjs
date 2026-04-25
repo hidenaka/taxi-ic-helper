@@ -1,4 +1,6 @@
 import { estimatePax } from './pax-estimator.mjs';
+import { computeLobbyExitTime, computeReachRate, hhmmToMinutes } from './route-reachability.mjs';
+import { estimateTaxiPax } from './taxi-estimator.mjs';
 
 const DOMESTIC_AIRPORTS = {
   // 北海道
@@ -86,7 +88,7 @@ function nowJstIso() {
   return jst.toISOString().replace('Z', '+09:00').replace(/\.\d+/, '');
 }
 
-export function transformArrivals(odptResponse, seatsMaster, factorsMaster) {
+export function transformArrivals(odptResponse, seatsMaster, factorsMaster, taxiOpts = null) {
   const flights = odptResponse.map(item => {
     const flightNumber = Array.isArray(item['odpt:flightNumber'])
       ? item['odpt:flightNumber'][0]
@@ -96,7 +98,7 @@ export function transformArrivals(odptResponse, seatsMaster, factorsMaster) {
     const aircraftCode = item['odpt:aircraftModel'] ?? null;
     const status = STATUS_MAP[item['odpt:flightStatus']] ?? '不明';
     const pax = estimatePax({ aircraftCode, from }, seatsMaster, factorsMaster);
-    return {
+    const baseFields = {
       flightNumber,
       airline: extractAirline(item['odpt:airline']),
       from,
@@ -109,6 +111,57 @@ export function transformArrivals(odptResponse, seatsMaster, factorsMaster) {
       status,
       aircraftCode,
       ...pax
+    };
+
+    if (!taxiOpts) {
+      return {
+        ...baseFields,
+        lobbyExitTime: null,
+        reachRate: null,
+        reachTier: null,
+        estimatedTaxiPax: null,
+        taxiBucket: null,
+        taxiBaseRate: null,
+        taxiBoost: null,
+        taxiDelayBoost: null,
+        taxiClamped: null
+      };
+    }
+
+    const lobbyExitTime = computeLobbyExitTime(
+      baseFields.estimatedTime,
+      terminal,
+      baseFields.isInternational,
+      taxiOpts.egress
+    );
+    const { reachRate } = computeReachRate(
+      lobbyExitTime,
+      taxiOpts.routes,
+      taxiOpts.dayType ?? 'weekday',
+      taxiOpts.railStatus
+    );
+    const reachTier = reachRate >= 0.9 ? 'high' : reachRate >= 0.5 ? 'mid' : reachRate >= 0.1 ? 'low' : 'none';
+    const delayMinutes = (baseFields.estimatedTime && baseFields.scheduledTime)
+      ? Math.max(0, (hhmmToMinutes(baseFields.estimatedTime) ?? 0) - (hhmmToMinutes(baseFields.scheduledTime) ?? 0))
+      : 0;
+    const tx = estimateTaxiPax({
+      estimatedPax: baseFields.estimatedPax,
+      terminal,
+      lobbyExitTime,
+      delayMinutes
+    }, taxiOpts.transitShare, reachRate);
+
+    return {
+      ...baseFields,
+      lobbyExitTime,
+      reachRate: Number(reachRate.toFixed(3)),
+      reachTier,
+      estimatedTaxiPax: tx.estimatedTaxiPax,
+      taxiBucket: tx.bucket,
+      taxiBaseRate: tx.baseRate,
+      taxiBoost: tx.appliedBoost,
+      taxiDelayBoost: tx.appliedDelayBoost,
+      taxiClamped: tx.clamped
     };
   });
   const byTerminal = flights.reduce((acc, f) => {
@@ -123,7 +176,8 @@ export function transformArrivals(odptResponse, seatsMaster, factorsMaster) {
       totalFlights: flights.length,
       unknownAircraft: flights.filter(f => f.aircraftCode === null).length,
       internationalFlights: flights.filter(f => f.isInternational === true).length,
-      byTerminal
+      byTerminal,
+      totalEstimatedTaxiPax: flights.reduce((s, f) => s + (f.estimatedTaxiPax ?? 0), 0)
     }
   };
 }

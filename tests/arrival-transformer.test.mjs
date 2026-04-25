@@ -89,3 +89,61 @@ test('国際空港は isInternational=true、stats に internationalFlights を�
   assert.equal(dom.isInternational, false);
   assert.equal(r.stats.internationalFlights, 1);
 });
+
+import { readFileSync as rfs2 } from 'node:fs';
+
+const transitShareReal = JSON.parse(rfs2('./data/transit-share.json', 'utf8'));
+const routesReal = JSON.parse(rfs2('./data/last-mile-routes.json', 'utf8'));
+const egressReal = JSON.parse(rfs2('./data/terminal-egress.json', 'utf8'));
+const railOk = { Keikyu: { status: 'OnTime', delayMinutes: 0 }, TokyoMonorail: { status: 'OnTime', delayMinutes: 0 } };
+
+test('taxi拡張: 各便に lobbyExitTime / reachRate / reachTier / estimatedTaxiPax フィールドが出る', () => {
+  const r = transformArrivals(sample, seatsMaster, factorsMaster, {
+    transitShare: transitShareReal,
+    routes: routesReal,
+    egress: egressReal,
+    railStatus: railOk,
+    dayType: 'weekday'
+  });
+  for (const f of r.flights) {
+    assert.ok('lobbyExitTime' in f);
+    assert.ok('reachRate' in f);
+    assert.ok('reachTier' in f);
+    assert.ok('estimatedTaxiPax' in f);
+  }
+});
+
+test('taxi拡張: 機材nullの便は estimatedTaxiPax も null', () => {
+  const r = transformArrivals(sample, seatsMaster, factorsMaster, {
+    transitShare: transitShareReal,
+    routes: routesReal,
+    egress: egressReal,
+    railStatus: railOk,
+    dayType: 'weekday'
+  });
+  const f = r.flights.find(x => x.flightNumber === 'NH012');
+  assert.equal(f.estimatedPax, null);
+  assert.equal(f.estimatedTaxiPax, null);
+});
+
+test('taxi拡張: stats.totalEstimatedTaxiPax が便ごとの合計', () => {
+  const r = transformArrivals(sample, seatsMaster, factorsMaster, {
+    transitShare: transitShareReal,
+    routes: routesReal,
+    egress: egressReal,
+    railStatus: railOk,
+    dayType: 'weekday'
+  });
+  const sum = r.flights.reduce((s, f) => s + (f.estimatedTaxiPax ?? 0), 0);
+  assert.equal(r.stats.totalEstimatedTaxiPax, sum);
+});
+
+test('taxi拡張: 引数 taxiOpts なしでも既存挙動を維持', () => {
+  const r = transformArrivals(sample, seatsMaster, factorsMaster);
+  assert.equal(r.flights.length, 5);
+  for (const f of r.flights) {
+    assert.equal(f.lobbyExitTime, null);
+    assert.equal(f.reachRate, null);
+    assert.equal(f.estimatedTaxiPax, null);
+  }
+});
