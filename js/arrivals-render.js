@@ -63,10 +63,22 @@ export function renderSummary(container, summary) {
   const intlPart = summary.internationalPax > 0
     ? `<span class="summary-intl">うち国際 ${summary.internationalPax.toLocaleString()}人 (${summary.internationalCount}便)</span>`
     : '';
+  const taxiPart = summary.totalTaxiPax > 0
+    ? `<span class="summary-item summary-taxi">タクシー候補 <strong>${summary.totalTaxiPax.toLocaleString()}人</strong></span>`
+    : '';
+  const peakPart = summary.peakTaxiBin?.bin
+    ? `<span class="summary-item summary-peak">ピーク帯 ${summary.peakTaxiBin.bin}</span>`
+    : '';
+  const reachNonePart = summary.reachNoneCount > 0
+    ? `<span class="summary-item summary-reach-none">🔴 ${summary.reachNoneCount}便（公共交通不可）</span>`
+    : '';
   container.innerHTML = `
     <span class="summary-item">${summary.windowLabel} <strong>${summary.totalPax.toLocaleString()}人</strong></span>
     <span class="summary-item">時間あたり <strong>${summary.hourlyAvg.toLocaleString()}人</strong></span>
     <span class="summary-item">${summary.totalFlights}便</span>
+    ${taxiPart}
+    ${peakPart}
+    ${reachNonePart}
     ${intlPart}
     ${delayPart}
   `;
@@ -82,12 +94,12 @@ export function renderTopics(container, topics) {
   container.hidden = false;
   const items = topics.map(t => {
     const icons = [
-      t.isMajorDelay ? '⚠' : '',
-      t.isLateNight ? '🌙' : ''
+      t.reachNone ? '🔴' : '',
+      t.delayBoost ? '🌙⚠' : ''
     ].filter(Boolean).join('');
     const detail = t.delayMin > 0
-      ? `${t.delayMin}分遅延 (${t.scheduledTime}→${t.estimatedTime})`
-      : `${t.estimatedTime}到着`;
+      ? `${t.delayMin}分遅延 / タクシー候補~${t.estimatedTaxiPax}`
+      : `${t.estimatedTime}着 / タクシー候補~${t.estimatedTaxiPax}`;
     return `<div class="topic-item">
       <span class="topic-icons">${icons}</span>
       <span class="topic-flight">${t.flightNumber}</span>
@@ -97,7 +109,7 @@ export function renderTopics(container, topics) {
     </div>`;
   }).join('');
   container.innerHTML = `
-    <div class="topic-header">🚨 注目 (${topics.length}件) — 大幅遅延・深夜便</div>
+    <div class="topic-header">🚨 タクシー需要急増 (${topics.length}件) — 公共交通不可 / 遅延深夜</div>
     ${items}
   `;
 }
