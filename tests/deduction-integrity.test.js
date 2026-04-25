@@ -109,6 +109,51 @@ test('D-INT4 shutoko seg: deductionKm は常に 0 (首都高区間は控除対�
   }
 });
 
+test('D-INT-C 横浜方面 複数経路: 保土ヶ谷IC で 玉川経由 / 保土ヶ谷BP経由 が選択可能', () => {
+  const data = loadAll();
+  const find = (id) => data.ics.find((x) => x.id === id);
+  // 保土ヶ谷IC が hodogaya_route の entries に登録されていること
+  const hodogayaRoute = data.deduction.directions.find((d) => d.id === 'hodogaya_route');
+  assert.ok(hodogayaRoute, 'hodogaya_route direction が存在');
+  const hodEntry = hodogayaRoute.entries.find((e) => e.ic_id === 'hodogaya');
+  assert.ok(hodEntry, '保土ヶ谷IC が hodogaya_route entries に登録');
+  assert.equal(hodEntry.km, 3.0, '保土ヶ谷IC の hodogaya_route 控除km は 3.0 (BP区間 ≈ 3km)');
+
+  // 玉川経由 (third_keihin)
+  const r1 = judgeRoute({
+    outerRoute: 'third_keihin', entryIc: find('hodogaya'),
+    exitIc: find('kukou_chuou'), roundTrip: false,
+  }, data);
+  assert.equal(r1.totals.deductionKmOneway, 16.6, '玉川経由: 控除 16.6km');
+  assert.equal(r1.totals.paySummary, 'all_company');
+
+  // 保土ヶ谷BP→K1経由
+  const r2 = judgeRoute({
+    outerRoute: 'hodogaya_route', entryIc: find('hodogaya'),
+    exitIc: find('kukou_chuou'), roundTrip: false,
+  }, data);
+  assert.equal(r2.totals.deductionKmOneway, 3.0, '保土ヶ谷BP経由: 控除 3.0km');
+  assert.equal(r2.totals.distanceKmOneway, 25.0, '保土ヶ谷BP経由: 走行 25km (BP3 + K1接続22)');
+  assert.equal(r2.totals.paySummary, 'all_company');
+});
+
+test('D-INT-D 北西線経由 (hokuseisen_route): 港北IC等で選択可能', () => {
+  const data = loadAll();
+  const find = (id) => data.ics.find((x) => x.id === id);
+  const hokuseisen = data.deduction.directions.find((d) => d.id === 'hokuseisen_route');
+  assert.ok(hokuseisen, 'hokuseisen_route direction が存在');
+  // 港北IC が登録されていること
+  const kohokuEntry = hokuseisen.entries.find((e) => e.ic_id === 'kohoku');
+  assert.ok(kohokuEntry, '港北IC が hokuseisen_route entries に登録');
+  // 判定動作確認
+  const r = judgeRoute({
+    outerRoute: 'hokuseisen_route', entryIc: find('kohoku'),
+    exitIc: find('kukou_chuou'), roundTrip: false,
+  }, data);
+  assert.equal(r.totals.paySummary, 'all_company');
+  assert.equal(r.totals.deductionKmOneway, 20.0);
+});
+
 test('D-INT-A 出口IC = 本線baseline自身 のとき shutokoセグは含めない (本線完結)', () => {
   const data = loadAll();
   const find = (id) => data.ics.find((x) => x.id === id);
