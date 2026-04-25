@@ -20,6 +20,7 @@ const transitShare = {
     { minRate: 0.0, boost: 2.5 }
   ],
   delayBoost: { minDelayMinutes: 60, minLobbyExitTime: '23:30', boost: 1.15 },
+  lightningRecoveryBoost: { boost: 1.5, windowMinutes: 60, deactivateAfter: '24:00' },
   maxRatio: 0.85,
   fallbackRate: 0.10
 };
@@ -103,4 +104,34 @@ test('estimateTaxiPax: バケット範囲外（早朝5時）→ fallbackRate', (
   }, transitShare, 1.0);
   assert.equal(r.estimatedTaxiPax, 10);
   assert.equal(r.bucket, 'fallback');
+});
+
+test('estimateTaxiPax: 雷解除窓内（60分以内）→ lightningRecoveryBoost ×1.5 適用', () => {
+  // 雷解除 12:30、便 12:45 → 窓内、noon T1 0.14 × 1.0 (reach=high) × 1.5
+  const r = estimateTaxiPax({
+    estimatedPax: 200, terminal: 'T1', lobbyExitTime: '12:45', delayMinutes: 0
+  }, transitShare, 1.0, { lightningRecoveryStartHHMM: '12:30' });
+  assert.equal(r.appliedLightningBoost, 1.5);
+  assert.equal(r.estimatedTaxiPax, Math.round(200 * 0.14 * 1.0 * 1.5));
+});
+
+test('estimateTaxiPax: 雷解除窓外（解除から61分後） → 適用なし', () => {
+  const r = estimateTaxiPax({
+    estimatedPax: 200, terminal: 'T1', lobbyExitTime: '13:31', delayMinutes: 0
+  }, transitShare, 1.0, { lightningRecoveryStartHHMM: '12:30' });
+  assert.equal(r.appliedLightningBoost, 1.0);
+});
+
+test('estimateTaxiPax: 24:00以降のロビー出口便には適用しない（深夜帯除外）', () => {
+  const r = estimateTaxiPax({
+    estimatedPax: 200, terminal: 'T1', lobbyExitTime: '24:30', delayMinutes: 0
+  }, transitShare, 1.0, { lightningRecoveryStartHHMM: '24:00' });
+  assert.equal(r.appliedLightningBoost, 1.0);
+});
+
+test('estimateTaxiPax: weatherContext なし → 適用なし', () => {
+  const r = estimateTaxiPax({
+    estimatedPax: 200, terminal: 'T1', lobbyExitTime: '13:00', delayMinutes: 0
+  }, transitShare, 1.0);
+  assert.equal(r.appliedLightningBoost, 1.0);
 });
