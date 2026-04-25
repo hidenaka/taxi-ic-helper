@@ -20,6 +20,10 @@ RELS = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
 
 CUTOFF_DATE = date(2024, 8, 1)
 MIN_HAILED_RATIO = 0.90
+PERIODS = [
+    ('2024-08以降', lambda d: d >= CUTOFF_DATE),
+    ('2024-08以前', lambda d: d < CUTOFF_DATE),
+]
 
 WEEKDAY_JP = {0:'月', 1:'火', 2:'水', 3:'木', 4:'金', 5:'土', 6:'日'}
 
@@ -127,94 +131,57 @@ def is_op_no(no_field):
     if not s: return False
     return all(ch.isdigit() or ch == '.' for ch in s)
 
-def main():
-    z, strings, sheets = open_xlsx()
-
+def aggregate_for_period(z, strings, sheets, period_filter, label):
+    """指定periodのフィルタ条件で集計。"""
     bucket_count = defaultdict(int)
     bucket_wait = defaultdict(list)
     bucket_fare = defaultdict(list)
     bucket_dist = defaultdict(list)
     bucket_dest = defaultdict(lambda: defaultdict(int))
     days_processed = 0
-    days_skipped_oldness = 0
     days_skipped_low_hailed = 0
-    days_skipped_no_log = 0
     total_haneda_ops = 0
-    qualified_dates = []
 
     for name, target in sheets[3:]:
         if not target: continue
         d = parse_sheet_date(name)
-        if d is None:
-            continue
-        if d < CUTOFF_DATE:
-            days_skipped_oldness += 1
-            continue
-
+        if d is None or not period_filter(d): continue
         try:
             rows = read_sheet(z, strings, target)
-        except Exception:
-            continue
+        except Exception: continue
         log_start = find_log_start(rows)
-        if log_start is None:
-            days_skipped_no_log += 1
-            continue
+        if log_start is None: continue
 
-        # 迎車率を計算
-        total_ops = 0
-        hailed_ops = 0
+        total_ops = 0; hailed_ops = 0
         for r in rows[log_start:]:
             if len(r) < 5: continue
-            no_field = r[0] or ''
-            meet_or_break = r[4] or ''
-            if is_op_no(no_field):
+            if is_op_no(r[0] or ''):
                 total_ops += 1
-                if '迎' in meet_or_break:
-                    hailed_ops += 1
-        if total_ops == 0:
-            days_skipped_no_log += 1
-            continue
-        hailed_ratio = hailed_ops / total_ops
-        if hailed_ratio < MIN_HAILED_RATIO:
+                if '迎' in (r[4] or ''): hailed_ops += 1
+        if total_ops == 0: continue
+        if (hailed_ops/total_ops) < MIN_HAILED_RATIO:
             days_skipped_low_hailed += 1
             continue
-
-        # 集計対象の日
         days_processed += 1
-        qualified_dates.append((d, name, hailed_ratio, total_ops))
 
-        # 羽田空港発営業を抽出
         prev_break_min = 0
         for r in rows[log_start:]:
             if len(r) < 9: continue
-            no_field = r[0] or ''
-            board = r[1] or ''
-            duration = r[3] or ''
-            meet_or_break = r[4] or ''
-            from_addr = r[5] or ''
-            to_addr = r[6] or ''
-            distance = r[7] or ''
-            fare = r[8] or ''
-
-            is_op = is_op_no(no_field)
+            no_field, board, _, duration, meet_or_break, from_addr, to_addr, distance, fare = r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]
+            is_op = is_op_no(no_field or '')
             is_break = '休' in (no_field or '')
-
             board_min = excel_time_to_minutes(board)
             dur_min = excel_time_to_minutes(duration) if duration else 0
-
             if is_break:
                 if dur_min: prev_break_min += dur_min
                 continue
-
             if is_op and is_haneda(from_addr):
                 if board_min is None: continue
                 bk_id = None
                 for bid, frm, to in BUCKETS:
                     if board_min >= frm and board_min < to: bk_id = bid; break
-                if bk_id is None and board_min < BUCKETS[0][1]:
-                    bk_id = 'midnight'
+                if bk_id is None and board_min < BUCKETS[0][1]: bk_id = 'midnight'
                 if bk_id is None: continue
-
                 bucket_count[bk_id] += 1
                 bucket_wait[bk_id].append(prev_break_min)
                 try: bucket_fare[bk_id].append(float((fare or '0').replace(',','')))
@@ -230,43 +197,68 @@ def main():
             elif is_op:
                 prev_break_min = 0
 
-    print(f'カットオフ: {CUTOFF_DATE} 以降、迎車率 ≥ {MIN_HAILED_RATIO*100:.0f}%')
-    print(f'  集計対象日数: {days_processed}')
-    print(f'  除外（旧日付）: {days_skipped_oldness}')
-    print(f'  除外（迎車率 < 90%）: {days_skipped_low_hailed}')
-    print(f'  除外（ログなし/空）: {days_skipped_no_log}')
-    print(f'  羽田空港発の営業件数 合計: {total_haneda_ops}')
-    print()
-    print('=== 時間帯別 羽田空港発の営業件数 と 直前の平均待機時間（分） ===')
-    print(f"{'バケット':<12} {'時間帯':<14} {'件数':<6} {'1日あたり':<10} {'平均待機(分)':<12} {'中央値待機':<10} {'平均運賃':<10} {'平均距離':<8}")
+    return {
+        'label': label,
+        'days_processed': days_processed,
+        'days_skipped_low_hailed': days_skipped_low_hailed,
+        'total_haneda_ops': total_haneda_ops,
+        'bucket_count': bucket_count,
+        'bucket_wait': bucket_wait,
+        'bucket_fare': bucket_fare,
+        'bucket_dist': bucket_dist,
+        'bucket_dest': bucket_dest,
+    }
+
+def print_report(r):
+    print(f'\n========== {r["label"]} ==========')
+    print(f'集計対象日数: {r["days_processed"]} (除外: 迎車率<90% {r["days_skipped_low_hailed"]}日)')
+    print(f'羽田空港発営業 合計: {r["total_haneda_ops"]}件')
+    print(f'\n時間帯別:')
+    print(f"{'バケット':<10} {'時間帯':<13} {'件数':<5} {'1日あたり':<10} {'平均待機分':<10} {'中央値分':<8} {'平均運賃':<8} {'平均距離':<8}")
     for bid, frm, to in BUCKETS:
-        cnt = bucket_count[bid]
-        avg_per_day = cnt / days_processed if days_processed else 0
-        waits = bucket_wait[bid]
-        fares = bucket_fare[bid]
-        dists = bucket_dist[bid]
-        avg_wait = sum(waits)/len(waits) if waits else 0
-        median_wait = (sorted(waits)[len(waits)//2] if waits else 0)
-        avg_fare = sum(fares)/len(fares) if fares else 0
-        avg_dist = sum(dists)/len(dists) if dists else 0
+        cnt = r['bucket_count'][bid]
+        per_day = cnt / r['days_processed'] if r['days_processed'] else 0
+        waits = r['bucket_wait'][bid]
+        fares = r['bucket_fare'][bid]
+        dists = r['bucket_dist'][bid]
+        avg_w = sum(waits)/len(waits) if waits else 0
+        med_w = sorted(waits)[len(waits)//2] if waits else 0
+        avg_f = sum(fares)/len(fares) if fares else 0
+        avg_d = sum(dists)/len(dists) if dists else 0
         frm_h = f'{frm//60:02d}:{frm%60:02d}'
         to_h = f'{to//60:02d}:{to%60:02d}'
-        print(f"{bid:<12} {frm_h}-{to_h:<8} {cnt:<6} {avg_per_day:<10.2f} {avg_wait:<12.1f} {median_wait:<10.1f} ¥{int(avg_fare):<9} {avg_dist:<8.1f}km")
-
-    print()
-    print('=== 各バケットの主要降車地区 TOP6 ===')
+        print(f"{bid:<10} {frm_h}-{to_h:<7} {cnt:<5} {per_day:<10.2f} {avg_w:<10.1f} {med_w:<8.1f} ¥{int(avg_f):<7} {avg_d:<8.1f}km")
+    print(f'\n降車地区 TOP6:')
     for bid, frm, to in BUCKETS:
-        dests = bucket_dest[bid]
+        dests = r['bucket_dest'][bid]
         if not dests: continue
         top = sorted(dests.items(), key=lambda x: -x[1])[:6]
         formatted = ', '.join(f'{k}:{v}' for k, v in top)
         print(f'  {bid}: {formatted}')
 
+def main():
+    z, strings, sheets = open_xlsx()
+    print(f'迎車率カットオフ: ≥ {MIN_HAILED_RATIO*100:.0f}%、CUTOFF: {CUTOFF_DATE}')
+    results = []
+    for label, period_filter in PERIODS:
+        results.append(aggregate_for_period(z, strings, sheets, period_filter, label))
+    for r in results:
+        print_report(r)
+
+    # 比較表
+    print(f'\n========== 比較（1日あたり件数）==========')
+    print(f"{'バケット':<10} {'時間帯':<14}", end='')
+    for r in results: print(f"{r['label']:<14}", end='')
     print()
-    print(f'=== 集計対象日 (新→古) ===')
-    for d, name, ratio, ops in sorted(qualified_dates, reverse=True)[:8]:
-        print(f'  {d} ({name}) hailed_ratio={ratio*100:.1f}% ops={ops}')
-    print(f'  ...全 {len(qualified_dates)} 日')
+    for bid, frm, to in BUCKETS:
+        frm_h = f'{frm//60:02d}:{frm%60:02d}'
+        to_h = f'{to//60:02d}:{to%60:02d}'
+        print(f"{bid:<10} {frm_h}-{to_h:<8}", end='')
+        for r in results:
+            cnt = r['bucket_count'][bid]
+            per_day = cnt / r['days_processed'] if r['days_processed'] else 0
+            print(f"{per_day:<14.2f}", end='')
+        print()
 
 if __name__ == '__main__':
     main()
