@@ -104,8 +104,8 @@ export function renderTopics(container, topics) {
   const items = topics.map(t => {
     const icons = [
       t.reachNone ? '🔴' : '',
-      t.delayBoost ? '🌙⚠' : ''
-    ].filter(Boolean).join('');
+      t.delayBoost ? '🌙' : ''
+    ].filter(Boolean).join(' ');
     const detail = t.delayMin > 0
       ? `${t.delayMin}分遅延 / タクシー候補~${t.estimatedTaxiPax}`
       : `${t.estimatedTime}着 / タクシー候補~${t.estimatedTaxiPax}`;
