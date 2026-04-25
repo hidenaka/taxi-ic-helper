@@ -22,10 +22,14 @@ export function filterByTimeWindow(flights, nowDate, pastMinutes = 30, futureMin
 
 const DENSITY_HIGH = 600;
 const DENSITY_MID = 300;
+const TAXI_DENSITY_HIGH = 70;
+const TAXI_DENSITY_MID = 30;
 
-function classifyDensity(totalPax) {
-  if (totalPax >= DENSITY_HIGH) return 'high';
-  if (totalPax >= DENSITY_MID) return 'mid';
+function classifyDensity(value, mode = 'pax') {
+  const high = mode === 'taxi' ? TAXI_DENSITY_HIGH : DENSITY_HIGH;
+  const mid = mode === 'taxi' ? TAXI_DENSITY_MID : DENSITY_MID;
+  if (value >= high) return 'high';
+  if (value >= mid) return 'mid';
   return 'low';
 }
 
@@ -40,7 +44,9 @@ export function aggregateHeatmapClient(flights) {
     if (!bins.has(key)) {
       bins.set(key, {
         bin: key, totalPax: 0, internationalPax: 0,
-        flightCount: 0, unknownCount: 0, delayedCount: 0, internationalCount: 0
+        totalTaxiPax: 0,
+        flightCount: 0, unknownCount: 0, delayedCount: 0, internationalCount: 0,
+        reachNoneCount: 0
       });
     }
     const b = bins.get(key);
@@ -52,9 +58,15 @@ export function aggregateHeatmapClient(flights) {
     }
     if (f.isInternational) b.internationalCount += 1;
     if (f.status === '遅延') b.delayedCount += 1;
+    b.totalTaxiPax += f.estimatedTaxiPax ?? 0;
+    if (f.reachTier === 'none') b.reachNoneCount += 1;
   }
   const arr = Array.from(bins.values()).sort((a, b) => a.bin.localeCompare(b.bin));
-  return arr.map(b => ({ ...b, densityTier: classifyDensity(b.totalPax) }));
+  return arr.map(b => ({
+    ...b,
+    densityTier: classifyDensity(b.totalPax),
+    taxiDensityTier: classifyDensity(b.totalTaxiPax, 'taxi')
+  }));
 }
 
 export function summarizeFlights(flights, opts = {}) {
