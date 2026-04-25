@@ -683,6 +683,16 @@ function renderVerdict(result) {
 
   ded.textContent  = `🛣 控除: 片道 ${deductionKmOneway.toFixed(1)}km / 往復 ${deductionKmRoundtrip.toFixed(1)}km`;
   dist.textContent = `📏 総距離: 片道 ${distanceKmOneway.toFixed(1)}km / 往復 ${distanceKmRoundtrip.toFixed(1)}km`;
+
+  const notesEl = document.getElementById('route-notes');
+  const notes = result.totals.notes || [];
+  if (notes.length > 0) {
+    notesEl.hidden = false;
+    notesEl.innerHTML = notes.map((n) => `<div class="note-item">⚠️ ${n}</div>`).join('');
+  } else {
+    notesEl.hidden = true;
+    notesEl.innerHTML = '';
+  }
 }
 
 function renderBreakdown(result) {

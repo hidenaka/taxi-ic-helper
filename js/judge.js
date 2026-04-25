@@ -17,6 +17,7 @@ export function lookupDeduction(deductionData, icId, directionId = null) {
         name: entry.name,
         km: entry.km,
         physicalKm: entry.physical_km ?? null,
+        note: entry.note ?? null,
       };
     }
   }
@@ -181,12 +182,14 @@ function aggregate(segments, roundTrip) {
   const paySummary = pays.size === 1
     ? (pays.has('company') ? 'all_company' : 'all_self')
     : 'mixed';
+  const notes = segments.map(s => s.note).filter(Boolean);
   return {
     paySummary,
     deductionKmOneway: totalDed,
     deductionKmRoundtrip: roundTrip ? totalDed * 2 : totalDed,
     distanceKmOneway: totalDist,
-    distanceKmRoundtrip: roundTrip ? totalDist * 2 : totalDist
+    distanceKmRoundtrip: roundTrip ? totalDist * 2 : totalDist,
+    notes,
   };
 }
 
@@ -210,6 +213,7 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
       pay: 'company',
       deductionKm: controlKm,
       distanceKm: Math.max(0, physicalBase - shortenKm),
+      note: ded?.note ?? null,
     });
   }
 
