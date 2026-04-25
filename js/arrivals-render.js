@@ -64,11 +64,41 @@ export function renderSummary(container, summary) {
     ? `<span class="summary-intl">うち国際 ${summary.internationalPax.toLocaleString()}人 (${summary.internationalCount}便)</span>`
     : '';
   container.innerHTML = `
-    <span class="summary-item">直近3時間 <strong>${summary.totalPax.toLocaleString()}人</strong></span>
+    <span class="summary-item">${summary.windowLabel} <strong>${summary.totalPax.toLocaleString()}人</strong></span>
     <span class="summary-item">時間あたり <strong>${summary.hourlyAvg.toLocaleString()}人</strong></span>
     <span class="summary-item">${summary.totalFlights}便</span>
     ${intlPart}
     ${delayPart}
+  `;
+}
+
+export function renderTopics(container, topics) {
+  if (!container) return;
+  if (topics.length === 0) {
+    container.innerHTML = '';
+    container.hidden = true;
+    return;
+  }
+  container.hidden = false;
+  const items = topics.map(t => {
+    const icons = [
+      t.isMajorDelay ? '⚠' : '',
+      t.isLateNight ? '🌙' : ''
+    ].filter(Boolean).join('');
+    const detail = t.delayMin > 0
+      ? `${t.delayMin}分遅延 (${t.scheduledTime}→${t.estimatedTime})`
+      : `${t.estimatedTime}到着`;
+    return `<div class="topic-item">
+      <span class="topic-icons">${icons}</span>
+      <span class="topic-flight">${t.flightNumber}</span>
+      <span class="topic-from">${t.fromName}</span>
+      <span class="topic-detail">${detail}</span>
+      <span class="topic-terminal">${t.terminal}</span>
+    </div>`;
+  }).join('');
+  container.innerHTML = `
+    <div class="topic-header">🚨 注目 (${topics.length}件) — 大幅遅延・深夜便</div>
+    ${items}
   `;
 }
 

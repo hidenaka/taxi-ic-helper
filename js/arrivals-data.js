@@ -57,7 +57,9 @@ export function aggregateHeatmapClient(flights) {
   return arr.map(b => ({ ...b, densityTier: classifyDensity(b.totalPax) }));
 }
 
-export function summarizeFlights(flights, windowHours = 3.5) {
+export function summarizeFlights(flights, opts = {}) {
+  const windowHours = opts.windowHours ?? 3.5;
+  const windowLabel = opts.windowLabel ?? '直近3時間';
   const totalPax = flights.reduce((s, f) => s + (f.estimatedPax ?? 0), 0);
   const internationalPax = flights
     .filter(f => f.isInternational)
@@ -70,8 +72,46 @@ export function summarizeFlights(flights, windowHours = 3.5) {
   return {
     totalPax, internationalPax,
     totalFlights, internationalCount,
-    delayedCount, unknownCount, hourlyAvg
+    delayedCount, unknownCount, hourlyAvg,
+    windowLabel
   };
+}
+
+const MAJOR_DELAY_MINUTES = 30;
+const LATE_NIGHT_HHMM = '23:30';
+
+function timeToMinutes(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+export function detectTopics(flights) {
+  const lateMin = timeToMinutes(LATE_NIGHT_HHMM);
+  const topics = [];
+  for (const f of flights) {
+    if (f.status === '到着') continue;
+    const sched = timeToMinutes(f.scheduledTime);
+    const est = timeToMinutes(f.estimatedTime ?? f.scheduledTime);
+    if (sched === null || est === null) continue;
+    const delayMin = est - sched;
+    const isMajorDelay = delayMin >= MAJOR_DELAY_MINUTES;
+    const isLateNight = est >= lateMin;
+    if (isMajorDelay || isLateNight) {
+      topics.push({
+        flightNumber: f.flightNumber,
+        fromName: f.fromName,
+        terminal: f.terminal,
+        scheduledTime: f.scheduledTime,
+        estimatedTime: f.estimatedTime ?? f.scheduledTime,
+        delayMin,
+        isMajorDelay,
+        isLateNight
+      });
+    }
+  }
+  topics.sort((a, b) => timeToMinutes(a.estimatedTime) - timeToMinutes(b.estimatedTime));
+  return topics;
 }
 
 export function minutesSince(isoString) {

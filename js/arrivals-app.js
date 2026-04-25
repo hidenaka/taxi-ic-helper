@@ -1,5 +1,5 @@
-import { loadArrivals, filterByTerminals, filterByTimeWindow, aggregateHeatmapClient, summarizeFlights } from './arrivals-data.js';
-import { renderHeatmap, renderFlightList, renderUpdatedAt, renderSummary, renderLegend } from './arrivals-render.js';
+import { loadArrivals, filterByTerminals, filterByTimeWindow, aggregateHeatmapClient, summarizeFlights, detectTopics } from './arrivals-data.js';
+import { renderHeatmap, renderFlightList, renderUpdatedAt, renderSummary, renderLegend, renderTopics } from './arrivals-render.js';
 
 const TAB_TERMINALS = {
   'T1': ['T1'],
@@ -8,7 +8,7 @@ const TAB_TERMINALS = {
   'T3': ['T3']
 };
 
-const state = { arrivals: null, tab: 'T1T2' };
+const state = { arrivals: null, tab: 'T1T2', detailMode: false };
 
 async function refresh() {
   try {
@@ -23,9 +23,14 @@ async function refresh() {
 function render() {
   const terminals = TAB_TERMINALS[state.tab] ?? ['T1'];
   const all = filterByTerminals(state.arrivals, terminals);
-  const visible = filterByTimeWindow(all, new Date(), 30, 180);
+  const visible = state.detailMode ? all : filterByTimeWindow(all, new Date(), 30, 180);
   const bins = aggregateHeatmapClient(visible);
-  const summary = summarizeFlights(visible);
+  const summaryOpts = state.detailMode
+    ? { windowHours: 19, windowLabel: '今日全体' }
+    : { windowHours: 3.5, windowLabel: '直近3時間' };
+  const summary = summarizeFlights(visible, summaryOpts);
+  const topics = detectTopics(all);
+  renderTopics(document.getElementById('topics'), topics);
   renderSummary(document.getElementById('summary'), summary);
   renderHeatmap(document.getElementById('heatmap'), bins);
   renderFlightList(document.getElementById('flight-list'), visible);
@@ -37,6 +42,14 @@ function render() {
   document.querySelectorAll('.terminal-tab').forEach(el => {
     el.classList.toggle('is-active', el.dataset.terminal === state.tab);
   });
+  updateDetailButton();
+}
+
+function updateDetailButton() {
+  const btn = document.getElementById('detail-toggle');
+  if (!btn) return;
+  btn.textContent = state.detailMode ? '▲ 直近3時間に戻す' : '▼ 今日の全便を表示';
+  btn.classList.toggle('is-active', state.detailMode);
 }
 
 function setupTerminalTabs() {
@@ -53,8 +66,18 @@ function setupReload() {
   if (btn) btn.addEventListener('click', refresh);
 }
 
+function setupDetailToggle() {
+  const btn = document.getElementById('detail-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    state.detailMode = !state.detailMode;
+    if (state.arrivals) render();
+  });
+}
+
 renderLegend(document.getElementById('legend'));
 setupTerminalTabs();
 setupReload();
+setupDetailToggle();
 refresh();
 setInterval(refresh, 60000);
