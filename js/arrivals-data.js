@@ -122,7 +122,8 @@ export function detectTopics(flights) {
     if (f.status === '到着') continue;
     const reachNone = f.reachTier === 'none';
     const delayBoost = f.taxiDelayBoost && f.taxiDelayBoost > 1.0;
-    if (!reachNone && !delayBoost) continue;
+    const lightningBoost = f.taxiLightningBoost && f.taxiLightningBoost > 1.0;
+    if (!reachNone && !delayBoost && !lightningBoost) continue;
     const sched = timeToMinutes(f.scheduledTime);
     const est = timeToMinutes(f.estimatedTime ?? f.scheduledTime);
     const delayMin = (sched !== null && est !== null) ? Math.max(0, est - sched) : 0;
@@ -135,6 +136,7 @@ export function detectTopics(flights) {
       delayMin,
       reachNone,
       delayBoost: !!delayBoost,
+      lightningBoost: !!lightningBoost,
       estimatedPax: f.estimatedPax ?? null,
       estimatedTaxiPax: f.estimatedTaxiPax ?? 0
     });

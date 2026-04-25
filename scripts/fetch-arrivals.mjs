@@ -32,6 +32,18 @@ try {
   railStatusOperators = { Keikyu: { status: 'OnTime', delayMinutes: 0 }, TokyoMonorail: { status: 'OnTime', delayMinutes: 0 } };
 }
 
+let weatherContext = null;
+try {
+  const w = JSON.parse(readFileSync('./data/weather.json', 'utf8'));
+  weatherContext = {
+    weatherCode: w.current?.weatherCode ?? null,
+    lightningActive: !!w.current?.lightningActive,
+    lightningRecoveryStartHHMM: w.lightningRecoveryStartHHMM ?? null
+  };
+} catch {
+  weatherContext = null;
+}
+
 const jstNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
 const dayOfWeek = jstNow.getDay();
 const dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'holiday' : 'weekday';
@@ -47,7 +59,8 @@ const out = transformArrivals(odptData, seatsMaster, factorsMaster, {
   routes: routesMaster,
   egress: egressMaster,
   railStatus: railStatusOperators,
-  dayType
+  dayType,
+  weatherContext
 });
 const outPath = './data/arrivals.json';
 const newJson = JSON.stringify(out, null, 2);

@@ -29,9 +29,21 @@ function shouldApplyDelayBoost(lobbyExitTime, delayMinutes, transitShare) {
   return exitMin >= minMin;
 }
 
-export function estimateTaxiPax(flight, transitShare, reachRate) {
+function shouldApplyLightningBoost(lobbyExitTime, weatherContext, transitShare) {
+  const cfg = transitShare.lightningRecoveryBoost;
+  if (!cfg || !weatherContext || !weatherContext.lightningRecoveryStartHHMM) return false;
+  const exitMin = hhmmToMinutes(lobbyExitTime);
+  const startMin = hhmmToMinutes(weatherContext.lightningRecoveryStartHHMM);
+  if (exitMin === null || startMin === null) return false;
+  if (exitMin < startMin || exitMin > startMin + cfg.windowMinutes) return false;
+  const cutoff = hhmmToMinutes(cfg.deactivateAfter);
+  if (cutoff !== null && exitMin >= cutoff) return false;
+  return true;
+}
+
+export function estimateTaxiPax(flight, transitShare, reachRate, weatherContext = null) {
   if (flight.estimatedPax === null || flight.estimatedPax === undefined) {
-    return { estimatedTaxiPax: null, baseRate: null, appliedBoost: null, appliedDelayBoost: null, clamped: false, bucket: null };
+    return { estimatedTaxiPax: null, baseRate: null, appliedBoost: null, appliedDelayBoost: null, appliedLightningBoost: null, clamped: false, bucket: null };
   }
   const bucket = pickBucket(flight.lobbyExitTime, transitShare);
   let baseRate;
@@ -44,13 +56,16 @@ export function estimateTaxiPax(flight, transitShare, reachRate) {
     bucketId = 'fallback';
   }
   if (typeof baseRate !== 'number') {
-    return { estimatedTaxiPax: null, baseRate: null, appliedBoost: null, appliedDelayBoost: null, clamped: false, bucket: bucketId };
+    return { estimatedTaxiPax: null, baseRate: null, appliedBoost: null, appliedDelayBoost: null, appliedLightningBoost: null, clamped: false, bucket: bucketId };
   }
   const boost = pickBoost(reachRate, transitShare);
   const delayBoost = shouldApplyDelayBoost(flight.lobbyExitTime, flight.delayMinutes, transitShare)
     ? transitShare.delayBoost.boost
     : 1.0;
-  let ratio = baseRate * boost * delayBoost;
+  const lightningBoost = shouldApplyLightningBoost(flight.lobbyExitTime, weatherContext, transitShare)
+    ? transitShare.lightningRecoveryBoost.boost
+    : 1.0;
+  let ratio = baseRate * boost * delayBoost * lightningBoost;
   let clamped = false;
   if (ratio > transitShare.maxRatio) {
     ratio = transitShare.maxRatio;
@@ -61,6 +76,7 @@ export function estimateTaxiPax(flight, transitShare, reachRate) {
     baseRate,
     appliedBoost: boost,
     appliedDelayBoost: delayBoost,
+    appliedLightningBoost: lightningBoost,
     clamped,
     bucket: bucketId
   };

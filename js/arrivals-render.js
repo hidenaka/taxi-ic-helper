@@ -104,7 +104,8 @@ export function renderTopics(container, topics) {
   const items = topics.map(t => {
     const icons = [
       t.reachNone ? '🔴' : '',
-      t.delayBoost ? '🌙' : ''
+      t.delayBoost ? '🌙' : '',
+      t.lightningBoost ? '⚡' : ''
     ].filter(Boolean).join(' ');
     const paxLabel = (t.estimatedPax !== null && t.estimatedPax !== undefined)
       ? `約${t.estimatedPax}人`
@@ -120,10 +121,47 @@ export function renderTopics(container, topics) {
       <span class="topic-terminal">${t.terminal}</span>
     </div>`;
   }).join('');
+  const reasons = [];
+  if (topics.some(t => t.reachNone)) reasons.push('公共交通不可');
+  if (topics.some(t => t.delayBoost)) reasons.push('遅延深夜');
+  if (topics.some(t => t.lightningBoost)) reasons.push('雷解除ラッシュ');
   container.innerHTML = `
-    <div class="topic-header">🚨 タクシー需要急増 (${topics.length}件) — 公共交通不可 / 遅延深夜</div>
+    <div class="topic-header">🚨 タクシー需要急増 (${topics.length}件) — ${reasons.join(' / ')}</div>
     ${items}
   `;
+}
+
+export function renderWeatherBanner(container, weather) {
+  if (!container) return;
+  if (!weather) {
+    container.innerHTML = '';
+    container.hidden = true;
+    container.classList.remove('is-active', 'is-recovery');
+    return;
+  }
+  if (weather.lightningActive) {
+    container.hidden = false;
+    container.classList.add('is-active');
+    container.classList.remove('is-recovery');
+    container.innerHTML = `
+      <span class="weather-icon">🌩</span>
+      <span class="weather-msg"><strong>雷活動中</strong> — 羽田着陸見合わせの可能性。便遅延・滞留に注意</span>
+    `;
+    return;
+  }
+  if (weather.lightningRecoveryStartHHMM) {
+    container.hidden = false;
+    container.classList.add('is-recovery');
+    container.classList.remove('is-active');
+    container.innerHTML = `
+      <span class="weather-icon">⚡</span>
+      <span class="weather-msg"><strong>雷解除 ${weather.lightningRecoveryStartHHMM}</strong> — 滞留便ラッシュ需要中（60分窓）</span>
+    `;
+    return;
+  }
+  container.innerHTML = '';
+  container.hidden = true;
+  container.classList.remove('is-active', 'is-recovery');
 }
 
 export function renderFlightList(container, flights) {
@@ -152,6 +190,9 @@ export function renderFlightList(container, flights) {
     const delayBoostBadge = (f.taxiDelayBoost && f.taxiDelayBoost > 1.0)
       ? ` <span class="delay-boost">遅延+深夜</span>`
       : '';
+    const lightningBadge = (f.taxiLightningBoost && f.taxiLightningBoost > 1.0)
+      ? ` <span class="lightning-boost">⚡ラッシュ</span>`
+      : '';
     row.innerHTML = `
       <div class="flight-line1">
         <span class="time">${time}</span>
@@ -163,7 +204,7 @@ export function renderFlightList(container, flights) {
       <div class="flight-line2">
         <span class="pax">${pax}</span>
         <span class="taxi-pax">${taxiPax}</span>
-        <span class="status">${f.status}${statusIcon}${delayBoostBadge}</span>
+        <span class="status">${f.status}${statusIcon}${delayBoostBadge}${lightningBadge}</span>
       </div>
     `;
     container.appendChild(row);

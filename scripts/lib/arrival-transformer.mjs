@@ -124,6 +124,7 @@ export function transformArrivals(odptResponse, seatsMaster, factorsMaster, taxi
         taxiBaseRate: null,
         taxiBoost: null,
         taxiDelayBoost: null,
+        taxiLightningBoost: null,
         taxiClamped: null
       };
     }
@@ -149,7 +150,7 @@ export function transformArrivals(odptResponse, seatsMaster, factorsMaster, taxi
       terminal,
       lobbyExitTime,
       delayMinutes
-    }, taxiOpts.transitShare, reachRate);
+    }, taxiOpts.transitShare, reachRate, taxiOpts.weatherContext);
 
     return {
       ...baseFields,
@@ -161,6 +162,7 @@ export function transformArrivals(odptResponse, seatsMaster, factorsMaster, taxi
       taxiBaseRate: tx.baseRate,
       taxiBoost: tx.appliedBoost,
       taxiDelayBoost: tx.appliedDelayBoost,
+      taxiLightningBoost: tx.appliedLightningBoost,
       taxiClamped: tx.clamped
     };
   });
@@ -172,6 +174,13 @@ export function transformArrivals(odptResponse, seatsMaster, factorsMaster, taxi
     updatedAt: nowJstIso(),
     source: 'ODPT (api.odpt.org)',
     flights,
+    weather: taxiOpts?.weatherContext
+      ? {
+          lightningActive: !!taxiOpts.weatherContext.lightningActive,
+          lightningRecoveryStartHHMM: taxiOpts.weatherContext.lightningRecoveryStartHHMM ?? null,
+          weatherCode: taxiOpts.weatherContext.weatherCode ?? null
+        }
+      : null,
     stats: {
       totalFlights: flights.length,
       unknownAircraft: flights.filter(f => f.aircraftCode === null).length,

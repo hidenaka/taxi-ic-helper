@@ -11,7 +11,7 @@
  *
  * トークン取得後は GitHub Actions 側で本物のODPTデータが書き込むため、このスクリプトは不要。
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { transformArrivals } from './lib/arrival-transformer.mjs';
 
 const seatsMaster = JSON.parse(readFileSync('./data/aircraft-seats.json', 'utf8'));
@@ -19,6 +19,28 @@ const factorsMaster = JSON.parse(readFileSync('./data/load-factors.json', 'utf8'
 const transitShare = JSON.parse(readFileSync('./data/transit-share.json', 'utf8'));
 const routes = JSON.parse(readFileSync('./data/last-mile-routes.json', 'utf8'));
 const egress = JSON.parse(readFileSync('./data/terminal-egress.json', 'utf8'));
+
+// 環境変数 MOCK_LIGHTNING_RECOVERY_HHMM が指定されていれば雷解除直後シナリオを差し込む
+// （未指定なら data/weather.json があれば読む、なければ null）
+let weatherContext = null;
+const envRecovery = process.env.MOCK_LIGHTNING_RECOVERY_HHMM;
+const envActive = process.env.MOCK_LIGHTNING_ACTIVE === '1';
+if (envActive) {
+  weatherContext = { weatherCode: 95, lightningActive: true, lightningRecoveryStartHHMM: null };
+} else if (envRecovery) {
+  weatherContext = { weatherCode: 80, lightningActive: false, lightningRecoveryStartHHMM: envRecovery };
+} else if (existsSync('./data/weather.json')) {
+  try {
+    const w = JSON.parse(readFileSync('./data/weather.json', 'utf8'));
+    weatherContext = {
+      weatherCode: w.current?.weatherCode ?? null,
+      lightningActive: !!w.current?.lightningActive,
+      lightningRecoveryStartHHMM: w.lightningRecoveryStartHHMM ?? null
+    };
+  } catch {
+    weatherContext = null;
+  }
+}
 
 const railOk = {
   Keikyu: { status: 'OnTime', delayMinutes: 0 },
@@ -129,7 +151,8 @@ const out = transformArrivals(odptItems, seatsMaster, factorsMaster, {
   routes,
   egress,
   railStatus: railOk,
-  dayType
+  dayType,
+  weatherContext
 });
 
 writeFileSync('./data/arrivals.json', JSON.stringify(out, null, 2), 'utf8');
@@ -140,3 +163,6 @@ console.log(`  reachTier breakdown: ${JSON.stringify(
 )}`);
 const delayBoosted = out.flights.filter(f => f.taxiDelayBoost && f.taxiDelayBoost > 1.0);
 console.log(`  delayBoost flights: ${delayBoosted.length} (${delayBoosted.map(f => f.flightNumber).join(', ')})`);
+const lightningBoosted = out.flights.filter(f => f.taxiLightningBoost && f.taxiLightningBoost > 1.0);
+console.log(`  lightningBoost flights: ${lightningBoosted.length} (${lightningBoosted.map(f => f.flightNumber).join(', ')})`);
+if (out.weather) console.log(`  weather: ${JSON.stringify(out.weather)}`);
