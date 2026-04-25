@@ -59,6 +59,27 @@ function lookupDistance(distData, fromId, toId) {
   return hit?.km ?? 0;
 }
 
+// 外環道セグメントの実走行距離 (距離 / 高速料金用、控除には含めない)
+const GAIKAN_TRANSIT_PAIRS = {
+  kanetsu: ['oizumi_jct', 'bijogi_jct'],
+  joban:   ['misato_jct', 'kawaguchi_jct'],
+  tohoku:  ['kawaguchi_jct', 'bijogi_jct'],
+};
+
+function resolveGaikanDistance(outerRoute, entryIc, gaikanDist) {
+  if (!gaikanDist) return 0;
+  if (outerRoute === 'gaikan_direct') {
+    if (entryIc.id === 'bijogi_jct') return 0;
+    if (entryIc.id === 'oizumi_jct' || entryIc.id === 'oizumi') {
+      return lookupDistance(gaikanDist, 'oizumi_jct', 'bijogi_jct');
+    }
+    return 0;
+  }
+  const pair = GAIKAN_TRANSIT_PAIRS[outerRoute];
+  if (!pair) return 0;
+  return lookupDistance(gaikanDist, pair[0], pair[1]);
+}
+
 function resolveShutokoStartIcId({ outerRoute, entryIc, deduction }) {
   // Outer-trunk routes: shutoko segment starts at the direction's baseline IC
   // (that is where the driver physically enters the shutoko network)
@@ -143,7 +164,7 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
       route: 'gaikan',
       pay: isOuter ? 'company' : 'self',
       deductionKm: 0,
-      distanceKm: 0
+      distanceKm: resolveGaikanDistance(outerRoute, entryIc, gaikanDist)
     });
   }
 
