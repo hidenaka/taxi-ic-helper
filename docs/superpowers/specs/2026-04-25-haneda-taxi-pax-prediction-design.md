@@ -60,7 +60,7 @@
     [3-a] ODPT運行情報補正（C案）
         京急/モノレール運休 or 30分以上遅延 → 該当ルートを reachable から除外
     
-    reachRate = (重み付き reachable 比率)
+    reachRate = Σ(reachable[i].weight) / Σ(routes[i].weight)
 
 [4] reachブースト係数
     reachRate ≥ 0.9       → boost = 1.0
