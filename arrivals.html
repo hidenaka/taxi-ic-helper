@@ -49,6 +49,12 @@
     .heatmap-row.tier-high .heatmap-bar { background: var(--peak); }
     .heatmap-row.tier-mid .heatmap-bar { background: var(--warn); }
     .heatmap-row.tier-low .heatmap-bar { background: var(--accent); }
+    #heatmap.is-taxi-mode .heatmap-row.tier-low .heatmap-bar  { background: #3a6e3a; }
+    #heatmap.is-taxi-mode .heatmap-row.tier-mid .heatmap-bar  { background: var(--taxi); }
+    #heatmap.is-taxi-mode .heatmap-row.tier-high .heatmap-bar { background: #22c55e; }
+    #heatmap.is-taxi-mode .heatmap-row.tier-mid .tier-badge   { color: var(--taxi); }
+    #heatmap.is-taxi-mode .heatmap-row.tier-high .tier-badge  { color: #22c55e; }
+    #heatmap.is-taxi-mode .heatmap-row.tier-low .tier-badge   { color: #6e9e6e; }
     .heatmap-label { color: var(--fg); font-size: 12px; text-align: right; line-height: 1.5; }
     .tier-badge { font-size: 11px; padding: 1px 5px; border-radius: 3px; background: rgba(255,255,255,0.06); white-space: nowrap; }
     .tier-high .tier-badge { color: var(--peak); }

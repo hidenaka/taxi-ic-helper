@@ -32,7 +32,9 @@ function render() {
   const topics = detectTopics(all);
   renderTopics(document.getElementById('topics'), topics);
   renderSummary(document.getElementById('summary'), summary);
-  renderHeatmap(document.getElementById('heatmap'), bins, state.heatmapMode);
+  const heatmapEl = document.getElementById('heatmap');
+  heatmapEl.classList.toggle('is-taxi-mode', state.heatmapMode === 'taxi');
+  renderHeatmap(heatmapEl, bins, state.heatmapMode);
   const title = document.getElementById('heatmap-title');
   if (title) title.textContent = state.heatmapMode === 'taxi'
     ? '時間帯別 タクシー候補数（30分単位）'
