@@ -13,18 +13,18 @@
     { "id": "peak1",     "label": "17-19時",    "fromHHMM": "17:00", "toHHMM": "19:00", "rates": { "T1": 0.24, "T2": 0.24, "T3": 0.22 } },
     { "id": "evening",   "label": "19-21:30",   "fromHHMM": "19:00", "toHHMM": "21:30", "rates": { "T1": 0.14, "T2": 0.14, "T3": 0.18 } },
     { "id": "peak2",     "label": "21:30-24時", "fromHHMM": "21:30", "toHHMM": "24:00", "rates": { "T1": 0.21, "T2": 0.21, "T3": 0.22 } },
-    { "id": "midnight",  "label": "24時以降",   "fromHHMM": "24:00", "toHHMM": "27:00", "rates": { "T1": 0.05, "T2": 0.05, "T3": 0.22 } }
+    { "id": "midnight",  "label": "24時以降",   "fromHHMM": "24:00", "toHHMM": "27:00", "rates": { "T1": 0.15, "T2": 0.15, "T3": 0.22 } }
   ],
   "reachBoost": [
     { "minRate": 0.9, "boost": 1.0 },
     { "minRate": 0.5, "boost": 1.3 },
-    { "minRate": 0.1, "boost": 1.8 },
-    { "minRate": 0.0, "boost": 2.5 }
+    { "minRate": 0.1, "boost": 2.0 },
+    { "minRate": 0.0, "boost": 3.0 }
   ],
   "delayBoost": {
     "minDelayMinutes": 60,
     "minLobbyExitTime": "23:30",
-    "boost": 1.15
+    "boost": 2.0
   },
   "maxRatio": 0.85,
   "fallbackRate": 0.10
