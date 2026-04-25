@@ -312,6 +312,24 @@
     #history-list .rec-time { color: #f0f0f0; font-weight: 600; }
     #history-list .rec-dur { color: #8a8a92; font-size: 13px; text-align: center; }
     #history-list .rec-next { color: #7cb8ff; font-size: 14px; font-weight: 600; text-align: right; }
+    #history-list .btn-rec-delete {
+      flex: 0 0 auto;
+      min-width: 32px; min-height: 32px;
+      margin-left: 10px;
+      padding: 4px 8px;
+      background: transparent;
+      color: #8a8a92;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 4px;
+      font-size: 18px; line-height: 1;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #history-list .btn-rec-delete:active {
+      background: rgba(255,82,82,0.12);
+      color: #ff5252;
+      border-color: rgba(255,82,82,0.4);
+    }
 
     .reset { padding: 14px; text-align: center; }
     #btn-reset {
@@ -645,9 +663,22 @@ function renderHistory() {
     nextEl.className = 'rec-next';
     nextEl.textContent = nextDeadline;
 
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-rec-delete';
+    delBtn.type = 'button';
+    delBtn.textContent = '×';
+    delBtn.setAttribute('aria-label', '記録を削除');
+    delBtn.addEventListener('click', () => {
+      if (!confirm(`${fmtTime(startDate)} → ${fmtTime(recDate)} (${mins}分) を削除しますか？`)) return;
+      state.records = state.records.filter(x => x.recordedAt !== r.recordedAt);
+      saveState(state);
+      renderAll();
+    });
+
     li.appendChild(timeEl);
     li.appendChild(durEl);
     li.appendChild(nextEl);
+    li.appendChild(delBtn);
     list.appendChild(li);
   }
 }
