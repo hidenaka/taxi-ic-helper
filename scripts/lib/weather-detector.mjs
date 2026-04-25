@@ -53,11 +53,15 @@ export function parseOpenMeteoResponse(resp) {
   const m15 = resp?.minutely_15 ?? {};
   const times = m15.time ?? [];
   const codes = m15.weather_code ?? [];
-  const history15min = times.map((t, i) => ({
-    time: t,
-    weatherCode: codes[i] ?? null,
-    isLightning: isLightningCode(codes[i])
-  }));
+  // minutely_15 は当日全体（過去+未来予報）を返すので、current.time 以前の実観測スロットのみ採用。
+  const currentMs = parseIsoLocal(current.time ?? '');
+  const history15min = times.reduce((acc, t, i) => {
+    const ms = parseIsoLocal(t);
+    if (ms === null) return acc;
+    if (currentMs !== null && ms > currentMs) return acc;
+    acc.push({ time: t, weatherCode: codes[i] ?? null, isLightning: isLightningCode(codes[i]) });
+    return acc;
+  }, []);
   const weatherCode = current.weather_code ?? null;
   const lightningActive = isLightningCode(weatherCode);
   const lastLightningEndedAt = findLastLightningEndedAt(history15min, current.time ?? '');
