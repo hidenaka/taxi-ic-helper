@@ -135,6 +135,7 @@ export function detectTopics(flights) {
       delayMin,
       reachNone,
       delayBoost: !!delayBoost,
+      estimatedPax: f.estimatedPax ?? null,
       estimatedTaxiPax: f.estimatedTaxiPax ?? 0
     });
   }

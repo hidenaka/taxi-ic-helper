@@ -106,9 +106,12 @@ export function renderTopics(container, topics) {
       t.reachNone ? '🔴' : '',
       t.delayBoost ? '🌙' : ''
     ].filter(Boolean).join(' ');
+    const paxLabel = (t.estimatedPax !== null && t.estimatedPax !== undefined)
+      ? `約${t.estimatedPax}人`
+      : '推定不可';
     const detail = t.delayMin > 0
-      ? `${t.delayMin}分遅延 / タクシー候補~${t.estimatedTaxiPax}`
-      : `${t.estimatedTime}着 / タクシー候補~${t.estimatedTaxiPax}`;
+      ? `${t.delayMin}分遅延 / ${paxLabel} / タクシー候補~${t.estimatedTaxiPax}`
+      : `${t.estimatedTime}着 / ${paxLabel} / タクシー候補~${t.estimatedTaxiPax}`;
     return `<div class="topic-item">
       <span class="topic-icons">${icons}</span>
       <span class="topic-flight">${t.flightNumber}</span>
