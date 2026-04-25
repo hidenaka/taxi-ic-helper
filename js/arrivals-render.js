@@ -4,27 +4,36 @@ const TIER_INFO = {
   low:  { label: '少ない', emoji: '🟦' }
 };
 
-export function renderHeatmap(container, bins) {
+export function renderHeatmap(container, bins, mode = 'pax') {
   container.innerHTML = '';
   if (bins.length === 0) {
     container.innerHTML = '<div class="empty">表示可能な時間帯がありません</div>';
     return;
   }
-  const maxPax = Math.max(1, ...bins.map(b => b.totalPax));
+  const isTaxi = mode === 'taxi';
+  const valueOf = b => isTaxi ? (b.totalTaxiPax ?? 0) : b.totalPax;
+  const tierOf = b => isTaxi ? b.taxiDensityTier : b.densityTier;
+  const maxVal = Math.max(1, ...bins.map(valueOf));
   for (const b of bins) {
     const row = document.createElement('div');
-    row.className = `heatmap-row tier-${b.densityTier}`;
-    const totalWidthPct = (b.totalPax / maxPax) * 100;
-    const intlWidthPct = b.totalPax > 0 ? (b.internationalPax / b.totalPax) * 100 : 0;
+    row.className = `heatmap-row tier-${tierOf(b)}`;
+    const totalWidthPct = (valueOf(b) / maxVal) * 100;
+    const intlWidthPct = (!isTaxi && b.totalPax > 0) ? (b.internationalPax / b.totalPax) * 100 : 0;
     const unknownNote = b.unknownCount > 0 ? ` <span class="unknown-note">機材不明${b.unknownCount}</span>` : '';
     const delayBadge = b.delayedCount > 0 ? ` <span class="delay-badge">⚠${b.delayedCount}遅延</span>` : '';
-    const intlBadge = b.internationalPax > 0
+    const intlBadge = (!isTaxi && b.internationalPax > 0)
       ? ` <span class="intl-badge">国際${b.internationalPax}人</span>`
       : '';
-    const tier = TIER_INFO[b.densityTier];
-    const tierBadge = b.totalPax > 0
+    const reachNoneBadge = (isTaxi && b.reachNoneCount > 0)
+      ? ` <span class="delay-badge">🔴${b.reachNoneCount}</span>`
+      : '';
+    const tier = TIER_INFO[tierOf(b)];
+    const tierBadge = valueOf(b) > 0
       ? ` <span class="tier-badge">${tier.emoji}${tier.label}</span>`
       : '';
+    const valueLabel = isTaxi
+      ? `タクシー候補${valueOf(b)}人`
+      : `${valueOf(b)}人 (${b.flightCount}便)`;
     row.innerHTML = `
       <span class="heatmap-time">${b.bin}</span>
       <span class="heatmap-bar-wrap">
@@ -32,7 +41,7 @@ export function renderHeatmap(container, bins) {
           <span class="heatmap-bar-intl" style="width:${intlWidthPct}%"></span>
         </span>
       </span>
-      <span class="heatmap-label">${b.totalPax}人 (${b.flightCount}便)${unknownNote}${delayBadge}${intlBadge}${tierBadge}</span>
+      <span class="heatmap-label">${valueLabel}${unknownNote}${delayBadge}${intlBadge}${reachNoneBadge}${tierBadge}</span>
     `;
     container.appendChild(row);
   }

@@ -38,6 +38,9 @@
     .legend-mid  .legend-swatch { background: var(--warn); }
     .legend-high .legend-swatch { background: var(--peak); }
     .legend-intl .legend-swatch { background: var(--intl); }
+    .heatmap-mode-toggle { display: flex; gap: 6px; padding: 6px 12px; }
+    .heatmap-mode-btn { background: #1a1a1d; color: var(--sub); padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; }
+    .heatmap-mode-btn.is-active { background: var(--accent); color: #000; }
     #heatmap .heatmap-row { display: grid; grid-template-columns: 44px 1fr 200px; align-items: center; gap: 8px; padding: 4px 0; }
     .heatmap-time { color: var(--sub); font-variant-numeric: tabular-nums; font-size: 13px; }
     .heatmap-bar-wrap { position: relative; height: 10px; background: rgba(255,255,255,0.04); border-radius: 2px; }
@@ -116,8 +119,13 @@
 
   <button id="detail-toggle" type="button">▼ 今日の全便を表示</button>
 
+  <div class="heatmap-mode-toggle">
+    <button class="heatmap-mode-btn is-active" data-mode="pax">降客数</button>
+    <button class="heatmap-mode-btn" data-mode="taxi">タクシー候補</button>
+  </div>
+
   <section>
-    <h2>時間帯別 推定降客（30分単位）</h2>
+    <h2 id="heatmap-title">時間帯別 推定降客数（30分単位）</h2>
     <div id="heatmap"></div>
   </section>
 

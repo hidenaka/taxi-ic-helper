@@ -8,7 +8,7 @@ const TAB_TERMINALS = {
   'T3': ['T3']
 };
 
-const state = { arrivals: null, tab: 'T1T2', detailMode: false };
+const state = { arrivals: null, tab: 'T1T2', detailMode: false, heatmapMode: 'pax' };
 
 async function refresh() {
   try {
@@ -32,7 +32,11 @@ function render() {
   const topics = detectTopics(all);
   renderTopics(document.getElementById('topics'), topics);
   renderSummary(document.getElementById('summary'), summary);
-  renderHeatmap(document.getElementById('heatmap'), bins);
+  renderHeatmap(document.getElementById('heatmap'), bins, state.heatmapMode);
+  const title = document.getElementById('heatmap-title');
+  if (title) title.textContent = state.heatmapMode === 'taxi'
+    ? '時間帯別 タクシー候補数（30分単位）'
+    : '時間帯別 推定降客数（30分単位）';
   renderFlightList(document.getElementById('flight-list'), visible);
   renderUpdatedAt(
     document.getElementById('arrivals-footer'),
@@ -75,9 +79,22 @@ function setupDetailToggle() {
   });
 }
 
+function setupHeatmapModeToggle() {
+  document.querySelectorAll('.heatmap-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.heatmapMode = btn.dataset.mode;
+      document.querySelectorAll('.heatmap-mode-btn').forEach(b => {
+        b.classList.toggle('is-active', b.dataset.mode === state.heatmapMode);
+      });
+      if (state.arrivals) render();
+    });
+  });
+}
+
 renderLegend(document.getElementById('legend'));
 setupTerminalTabs();
 setupReload();
 setupDetailToggle();
+setupHeatmapModeToggle();
 refresh();
 setInterval(refresh, 60000);
