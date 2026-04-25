@@ -73,9 +73,13 @@ const GAIKAN_TRANSIT_PAIRS = {
 
 // gaikan_direct時に首都高に乗り換える接続点 (外環kp ベース)
 // 各エントリICの gaikan_kp と 接続点kpの差で外環走行距離を計算
+// takaya_jct (35.5kp) は外環の東端で、ここから京葉道路→篠崎(7号小松川線) ルート
+// (shutoko_routes の takaya_jct→ ペアに京葉道路区間も含めた距離を登録)
 const GAIKAN_SHUTOKO_HUBS = [
   { id: 'bijogi_jct',     kp: 7.8 },  // 5号池袋線接続
   { id: 'kawaguchi_jct',  kp: 14.4 }, // S1川口線接続
+  { id: 'misato_jct',     kp: 21.5 }, // 6号三郷線接続
+  { id: 'takaya_jct',     kp: 35.5 }, // 京葉道路経由 (高谷JCT→篠崎→7号小松川線)
 ];
 
 function pickGaikanShutokoHub(entryIc) {
