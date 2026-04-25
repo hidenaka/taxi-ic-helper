@@ -1,6 +1,7 @@
 import { loadAllData } from './data-loader.js';
 import { judgeRoute } from './judge.js';
 import { createGeoWatcher, findNearestICs, entryGivesCompanyPayDeduction } from './geo.js';
+import { buildSearchEntries, buildValueToIcIdMap } from './search.js';
 
 const state = {
   data: null,
@@ -301,22 +302,14 @@ function buildIcGrouping(data) {
 function buildSearchIndex() {
   const datalist = document.getElementById('ic-list-all');
   datalist.innerHTML = '';
-  const valueToIcId = new Map();
-
   const groups = buildIcGrouping(state.data);
-  for (const grp of groups) {
-    for (const { ic } of grp.ics) {
-      const aliasInline = (ic.aliases && ic.aliases.length)
-        ? `／${ic.aliases.join('・')}`
-        : '';
-      const value = `${ic.name}${aliasInline}（${grp.label}）`;
-      valueToIcId.set(value, ic.id);
-      const opt = document.createElement('option');
-      opt.value = value;
-      datalist.appendChild(opt);
-    }
+  const entries = buildSearchEntries(groups);
+  for (const e of entries) {
+    const opt = document.createElement('option');
+    opt.value = e.value;
+    datalist.appendChild(opt);
   }
-  return valueToIcId;
+  return buildValueToIcIdMap(entries);
 }
 
 let icValueIndex = new Map();
