@@ -331,7 +331,7 @@
       border-color: rgba(255,82,82,0.4);
     }
 
-    .reset { padding: 14px; text-align: center; }
+    .reset { padding: 14px; text-align: center; display: grid; gap: 10px; }
     #btn-reset {
       background: linear-gradient(180deg, #4a90e2 0%, #3a7bd5 100%);
       color: white;
@@ -339,6 +339,17 @@
       border: none;
       box-shadow: 0 2px 8px rgba(58, 123, 213, 0.3);
     }
+    #btn-undo-reset {
+      background: transparent;
+      color: #f0c060;
+      width: 100%;
+      border: 1px solid rgba(240, 192, 96, 0.4);
+      padding: 10px;
+      font-size: 14px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #btn-undo-reset:active { background: rgba(240, 192, 96, 0.12); }
   </style>
 </head>
 <body>
@@ -424,6 +435,7 @@
 
     <section class="reset">
       <button id="btn-reset" type="button">乗務を開始（リセット）</button>
+      <button id="btn-undo-reset" type="button" hidden>↩ 直前のリセットを取り消す</button>
     </section>
   </main>
 
@@ -491,7 +503,7 @@ function addMinutes(date, minutes) {
 const STORAGE_KEY = 'taxi-timer-v1';
 
 function loadState() {
-  const defaults = { shiftStart: '07:00', records: [], runningStartedAt: null, targetBreakMin: 180, continuousDriveMin: 360, shiftStartAt: null };
+  const defaults = { shiftStart: '07:00', records: [], runningStartedAt: null, targetBreakMin: 180, continuousDriveMin: 360, shiftStartAt: null, lastResetSnapshot: null };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaults;
@@ -502,7 +514,8 @@ function loadState() {
       runningStartedAt: typeof parsed.runningStartedAt === 'number' ? parsed.runningStartedAt : null,
       targetBreakMin: (typeof parsed.targetBreakMin === 'number' && parsed.targetBreakMin >= 0) ? parsed.targetBreakMin : 180,
       continuousDriveMin: (typeof parsed.continuousDriveMin === 'number' && parsed.continuousDriveMin > 0) ? parsed.continuousDriveMin : 360,
-      shiftStartAt: typeof parsed.shiftStartAt === 'number' ? parsed.shiftStartAt : null
+      shiftStartAt: typeof parsed.shiftStartAt === 'number' ? parsed.shiftStartAt : null,
+      lastResetSnapshot: (parsed.lastResetSnapshot && typeof parsed.lastResetSnapshot === 'object') ? parsed.lastResetSnapshot : null
     };
   } catch (e) {
     return defaults;
@@ -515,7 +528,8 @@ function saveState(state) {
     records: state.records,
     targetBreakMin: state.targetBreakMin,
     continuousDriveMin: state.continuousDriveMin,
-    shiftStartAt: state.shiftStartAt
+    shiftStartAt: state.shiftStartAt,
+    lastResetSnapshot: state.lastResetSnapshot
   };
   if (state.stopwatch.running && state.stopwatch.startedAt) {
     data.runningStartedAt = state.stopwatch.startedAt;
@@ -535,6 +549,7 @@ const state = {
   targetBreakMin: _loaded.targetBreakMin,
   continuousDriveMin: _loaded.continuousDriveMin,
   shiftStartAt: _loaded.shiftStartAt,
+  lastResetSnapshot: _loaded.lastResetSnapshot,
   stopwatch: _loaded.runningStartedAt
     ? { running: true, startedAt: _loaded.runningStartedAt, elapsedMs: 0 }
     : { running: false, startedAt: null, elapsedMs: 0 }
@@ -683,6 +698,20 @@ function renderHistory() {
   }
 }
 
+function renderUndoReset() {
+  const btn = $('btn-undo-reset');
+  const snap = state.lastResetSnapshot;
+  if (!isResetSnapshotValid(snap)) {
+    btn.hidden = true;
+    if (snap) { state.lastResetSnapshot = null; saveState(state); }
+    return;
+  }
+  const count = Array.isArray(snap.records) ? snap.records.length : 0;
+  const t = fmtTime(new Date(snap.savedAt));
+  btn.hidden = false;
+  btn.textContent = `↩ ${t} のリセットを取り消す（記録${count}件を復元）`;
+}
+
 function renderAll() {
   renderDate();
   renderShiftStart();
@@ -692,6 +721,7 @@ function renderAll() {
   renderButtons();
   renderMetrics();
   renderHistory();
+  renderUndoReset();
 }
 
 // ============================================================
@@ -769,9 +799,27 @@ $('btn-settings-toggle').addEventListener('click', () => {
   toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
 });
 
+const RESET_UNDO_TTL_MS = 24 * 60 * 60 * 1000; // 24時間
+
+function captureResetSnapshot() {
+  const hasData = state.records.length > 0 || state.shiftStartAt !== null;
+  if (!hasData) return null;
+  return {
+    records: [...state.records],
+    shiftStartAt: state.shiftStartAt,
+    shiftStart: state.shiftStart,
+    savedAt: Date.now(),
+  };
+}
+
+function isResetSnapshotValid(snap) {
+  return !!snap && (Date.now() - snap.savedAt) < RESET_UNDO_TTL_MS;
+}
+
 $('btn-reset').addEventListener('click', () => {
   const hasData = state.records.length > 0 || state.shiftStartAt !== null || state.stopwatch.running;
   if (hasData && !confirm('現在の乗務記録をリセットして新しい乗務を開始します。よろしいですか？')) return;
+  state.lastResetSnapshot = captureResetSnapshot();
   state.records = [];
   state.stopwatch.running = false;
   state.stopwatch.startedAt = null;
@@ -781,6 +829,17 @@ $('btn-reset').addEventListener('click', () => {
   const baseline = new Date();
   baseline.setHours(h, m, 0, 0);
   state.shiftStartAt = baseline.getTime();
+  saveState(state);
+  renderAll();
+});
+
+$('btn-undo-reset').addEventListener('click', () => {
+  const snap = state.lastResetSnapshot;
+  if (!isResetSnapshotValid(snap)) return;
+  state.records = Array.isArray(snap.records) ? snap.records : [];
+  state.shiftStartAt = typeof snap.shiftStartAt === 'number' ? snap.shiftStartAt : null;
+  state.shiftStart = snap.shiftStart || state.shiftStart;
+  state.lastResetSnapshot = null;
   saveState(state);
   renderAll();
 });
@@ -795,6 +854,7 @@ const MAX_SHIFT_MS = 20 * 60 * 60 * 1000;
 setInterval(() => {
   // 20時間経過で自動リセット（基準日時と記録をクリア）
   if (state.shiftStartAt && Date.now() - state.shiftStartAt > MAX_SHIFT_MS) {
+    state.lastResetSnapshot = captureResetSnapshot();
     state.shiftStartAt = null;
     state.records = [];
     state.stopwatch.running = false;
