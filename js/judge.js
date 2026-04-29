@@ -124,7 +124,7 @@ const VIA_GAIKAN_SHUTOKO_ENTRY = {
   gaikan_direct: 'bijogi_jct',
 };
 
-function resolveShutokoStartIcId({ outerRoute, entryIc, deduction, viaGaikan }) {
+export function resolveShutokoStartIcId({ outerRoute, entryIc, deduction, viaGaikan }) {
   if (viaGaikan && outerRoute === 'gaikan_direct') {
     // gaikan_direct: gaikan_kp で最寄りの首都高接続点を選ぶ (新規IC対応)
     const hub = pickGaikanShutokoHub(entryIc);
