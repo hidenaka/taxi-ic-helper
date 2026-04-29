@@ -12,7 +12,7 @@ export function buildSearchEntries(groups) {
       const aliasInline = (ic.aliases && ic.aliases.length)
         ? `／${ic.aliases.join('・')}`
         : '';
-      const value = `${ic.name}${aliasInline}（${grp.label}）`;
+      const value = `${ic.name}${aliasInline}`;
       entries.push({ value, icId: ic.id });
     }
   }

@@ -1,12 +1,12 @@
 const HANEDA_EXIT_IDS = new Set(['kukou_chuou', 'wangan_kanpachi']);
 const HANEDA_KANAGAWA_PRIORITY = [
+  'hokuseisen_route',
   'kitasen_route',
   'wangan_route',
   'yokohane_route',
   'hodogaya_route',
   'third_keihin',
   'yokoyoko',
-  'hokuseisen_route',
   'tomei',
 ];
 

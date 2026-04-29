@@ -34,7 +34,7 @@
 
     <section class="ic-select">
       <div class="field">
-        <div class="input-kind-label"><span class="kind-icon">🔍</span> 自由入力（検索）</div>
+        <div class="input-kind-label"><span class="kind-icon">🔍</span> 自由入力（候補を予想変換から選択）</div>
         <input type="text" id="inp-entry-ic" list="ic-list-all"
                placeholder="例: 鶴ヶ島" autocomplete="off" class="input-search">
         <div class="input-kind-label"><span class="kind-icon">▾</span> プルダウンから選ぶ</div>
@@ -51,7 +51,7 @@
         <select id="sel-exit-fav" class="input-pulldown"></select>
         <details class="exit-other">
           <summary>別のICを探す</summary>
-          <div class="input-kind-label"><span class="kind-icon">🔍</span> 自由入力</div>
+          <div class="input-kind-label"><span class="kind-icon">🔍</span> 自由入力（候補を予想変換から選択）</div>
           <input type="text" id="inp-exit-ic" list="ic-list-all"
                  placeholder="IC名で検索" autocomplete="off" class="input-search">
           <div class="input-kind-label"><span class="kind-icon">▾</span> プルダウン</div>
@@ -105,8 +105,8 @@
       </div>
       <ul id="session-log-list" class="session-log-list"></ul>
       <div class="session-totals">
-        <div class="total-line" id="total-deduction">今日の控除合計: <strong>0.0</strong>km</div>
-        <div class="total-line drivable" id="total-drivable">走行可能距離: <strong>365.0</strong>km <span class="formula">(365 + 控除合計)</span></div>
+        <div class="total-line" id="total-deduction">今日の控除距離合計: <strong>0.0</strong>km</div>
+        <div class="total-line drivable" id="total-drivable">走行可能距離: <strong>365.0</strong>km <span class="formula">(365 + 控除距離合計)</span></div>
       </div>
       <button id="btn-clear-log" type="button" class="btn-clear-log">今日のログを消去</button>
     </section>

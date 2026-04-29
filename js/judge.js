@@ -45,14 +45,14 @@ export function computeShutokoPay({ outerRoute, entryIc, isOuter }) {
   return entryIc.boundary_tag === 'company_pay_entry' ? 'company' : 'self';
 }
 
-const OUTER_TRUNK_ROUTES = new Set([
+export const OUTER_TRUNK_ROUTES = new Set([
   'tomei','chuo','kanetsu','tohoku','joban',
   'keiyo','tokan','aqua','tateyama',
   'third_keihin','yokoyoko','yokohane_route','kariba_route','wangan_route',
   'hodogaya_route','hokuseisen_route','kitasen_route'
 ]);
 
-function needsGaikanTransit(outerRoute, entryIc, routes) {
+export function needsGaikanTransit(outerRoute, entryIc, routes) {
   const conf = routes.needs_gaikan_transit[outerRoute];
   if (conf === true) return true;
   if (conf === false) return false;

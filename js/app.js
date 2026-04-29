@@ -1,5 +1,5 @@
 import { loadAllData } from './data-loader.js';
-import { judgeRoute } from './judge.js';
+import { judgeRoute, resolveShutokoStartIcId, lookupDeduction, OUTER_TRUNK_ROUTES } from './judge.js';
 import { createGeoWatcher, findNearestICs, entryGivesCompanyPayDeduction } from './geo.js';
 import { buildSearchEntries, buildValueToIcIdMap } from './search.js';
 import { getOuterRouteOptionsForIc } from './route-options.js';
@@ -203,10 +203,10 @@ function renderSessionLog() {
 
   const total = log.reduce((s, e) => s + e.km, 0);
   document.getElementById('total-deduction').innerHTML =
-    `今日の控除合計: <strong>${total.toFixed(1)}</strong>km`;
+    `今日の控除距離合計: <strong>${total.toFixed(1)}</strong>km`;
   document.getElementById('total-drivable').innerHTML =
     `走行可能距離: <strong>${(DAILY_BASE_KM + total).toFixed(1)}</strong>km ` +
-    `<span class="formula">(365 + 控除合計)</span>`;
+    `<span class="formula">(365 + 控除距離合計)</span>`;
 }
 
 
@@ -428,16 +428,31 @@ function updateOuterRouteOptions() {
 }
 
 function updateShutokoRouteOptions() {
-  const { ics, deduction, shutokoRoutes } = state.data;
+  const { ics, deduction, shutokoRoutes, routes } = state.data;
   const entryIc = ics.find(x => x.id === state.selected.entryIcId);
   const exitIc  = ics.find(x => x.id === state.selected.exitIcId);
   if (!entryIc || !exitIc) return;
 
-  // Compute shutoko start IC (same logic as judge.js resolveShutokoStartIcId)
-  const dir = deduction.directions.find(d => d.id === state.selected.outerRoute);
-  const startIcId = dir ? dir.baseline.ic_id : entryIc.id;
+  const isOuter = OUTER_TRUNK_ROUTES.has(state.selected.outerRoute);
+  const viaGaikan = state.selected.outerRoute === 'gaikan_direct'
+                 || routes.needs_gaikan_transit[state.selected.outerRoute] === true
+                 || (routes.needs_gaikan_transit[state.selected.outerRoute] === 'optional' && state.selected.viaGaikan);
 
-  const pair = shutokoRoutes.pairs.find(p => p.from === startIcId && p.to === exitIc.id);
+  // reverseOuter: 入口が首都高側・出口が外側高速側の逆区間
+  const entryOuterDed = isOuter ? lookupDeduction(deduction, entryIc.id, state.selected.outerRoute) : null;
+  const exitOuterDed  = isOuter ? lookupDeduction(deduction, exitIc.id, state.selected.outerRoute) : null;
+  const reverseOuter = Boolean(isOuter && !entryOuterDed && exitOuterDed);
+
+  const startIcId = resolveShutokoStartIcId({
+    outerRoute: state.selected.outerRoute,
+    entryIc: reverseOuter ? exitIc : entryIc,
+    deduction,
+    viaGaikan
+  });
+  const endIcId = reverseOuter ? entryIc.id : exitIc.id;
+
+  const pair = shutokoRoutes.pairs.find(p =>
+    (p.from === startIcId && p.to === endIcId) || (p.from === endIcId && p.to === startIcId));
   const label = document.getElementById('label-shutoko-route');
   const sel   = document.getElementById('sel-shutoko-route');
   sel.innerHTML = '';
@@ -647,8 +662,8 @@ function renderVerdict(result) {
   else if (paySummary === 'all_self') { main.classList.add('self'); main.textContent = '⚫ 全区間 自己負担'; }
   else { main.classList.add('mixed'); main.textContent = '🔵 区間混在（内訳で確認）'; }
 
-  ded.textContent  = `🛣 控除: 片道 ${deductionKmOneway.toFixed(1)}km / 往復 ${deductionKmRoundtrip.toFixed(1)}km`;
-  dist.textContent = `📏 総距離: 片道 ${distanceKmOneway.toFixed(1)}km / 往復 ${distanceKmRoundtrip.toFixed(1)}km`;
+  ded.textContent  = `🛣 控除距離: 片道 ${deductionKmOneway.toFixed(1)}km / 往復 ${deductionKmRoundtrip.toFixed(1)}km`;
+  dist.textContent = `📏 総走行距離（目安）: 片道 ${distanceKmOneway.toFixed(1)}km / 往復 ${distanceKmRoundtrip.toFixed(1)}km`;
 
   const notesEl = document.getElementById('route-notes');
   const notes = result.totals.notes || [];
@@ -668,7 +683,7 @@ function renderBreakdown(result) {
     const li = document.createElement('li');
     const emoji = seg.pay === 'company' ? '🟢' : '⚫';
     const pay = seg.pay === 'company' ? '会社負担' : '自己負担';
-    li.textContent = `${emoji} ${seg.name} — ${pay} / 距離 ${seg.distanceKm.toFixed(1)}km / 控除 ${seg.deductionKm.toFixed(1)}km`;
+    li.textContent = `${emoji} ${seg.name} — ${pay} / 走行距離 ${seg.distanceKm.toFixed(1)}km / 控除距離 ${seg.deductionKm.toFixed(1)}km`;
     ul.appendChild(li);
   }
 }
