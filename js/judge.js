@@ -222,20 +222,24 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
         distanceKm: round1(Math.abs(physA - physB)),
         note: entryDed.note ?? exitDed.note ?? null,
       });
-      return { segments: segs, totals: aggregate(segs, roundTrip) };
+  const result = { segments: segs, totals: aggregate(segs, roundTrip) };
+  console.log('[judgeRoute] RESULT', JSON.stringify(result));
+  return result;
     }
   }
 
   const entryOuterDed = isOuter ? lookupDeduction(deduction, entryIc.id, outerRoute) : null;
   const exitOuterDed = isOuter ? lookupDeduction(deduction, exitIc.id, outerRoute) : null;
   const reverseOuter = Boolean(isOuter && !entryOuterDed && exitOuterDed);
+  // innerToOuter: 入口ICが首都高内(km=0)で出口ICが外側高速側。首都高→外側高速の順序で計算する。
+  const innerToOuter = Boolean(isOuter && entryOuterDed && entryOuterDed.km === 0 && exitOuterDed && exitOuterDed.km > 0);
   const outerDed = entryOuterDed || exitOuterDed;
   const pushOuterSegment = () => {
     if (!isOuter) return;
-    const controlKm = outerDed?.km ?? 0;
-    // 物理走行距離 = physical_km があればそれ。なければ控除値にフォールバック。
-    // viaGaikan時は本線が外環接続点 (例: 関越→大泉JCT) で分岐するため shorten_km 分を差引く。
-    const physicalBase = outerDed?.physicalKm ?? controlKm;
+    // innerToOuter の場合、outer セグメントの控除・距離は出口側の値を使う
+    const dedSource = innerToOuter ? exitOuterDed : outerDed;
+    const controlKm = dedSource?.km ?? 0;
+    const physicalBase = dedSource?.physicalKm ?? controlKm;
     const shortenKm = viaGaikan ? (routes.via_gaikan_shorten_km?.[outerRoute] ?? 0) : 0;
     segs.push({
       name: routes.labels[outerRoute],
@@ -243,12 +247,12 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
       pay: 'company',
       deductionKm: controlKm,
       distanceKm: Math.max(0, physicalBase - shortenKm),
-      note: outerDed?.note ?? null,
+      note: dedSource?.note ?? null,
     });
   };
 
   if (isOuter) {
-    if (!reverseOuter) pushOuterSegment();
+    if (!reverseOuter && !innerToOuter) pushOuterSegment();
   }
 
   if (viaGaikan) {
@@ -265,8 +269,16 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     });
   }
 
-  const startIcId = resolveShutokoStartIcId({ outerRoute, entryIc, deduction, viaGaikan });
-  const shutokoEndpointIcId = reverseOuter ? entryIc.id : exitIc.id;
+  let startIcId, shutokoEndpointIcId;
+  if (innerToOuter) {
+    const dir = deduction.directions.find(d => d.id === outerRoute);
+    startIcId = entryIc.id;
+    shutokoEndpointIcId = dir?.baseline?.ic_id ?? entryIc.id;
+  } else {
+    startIcId = resolveShutokoStartIcId({ outerRoute, entryIc, deduction, viaGaikan });
+    shutokoEndpointIcId = reverseOuter ? entryIc.id : exitIc.id;
+  }
+
   // 出口IC が本線baseline 自身 (= 首都高に乗り換える必要がない、本線で完結) なら shutokoセグ自体を追加しない。
   // 例: 港北IC→玉川IC は第三京浜内で完結、首都高は通らない。
   const skipShutoko = startIcId === shutokoEndpointIcId;
@@ -284,7 +296,7 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     path: shutokoInfo.path ?? null
   });
 
-  if (reverseOuter) pushOuterSegment();
+  if (reverseOuter || innerToOuter) pushOuterSegment();
 
   if (exitIc.id === 'wangan_kanpachi' &&
       ['aqua','tateyama','third_keihin','yokoyoko','yokohane_route','kariba_route','wangan_route','hodogaya_route','hokuseisen_route','kitasen_route'].includes(outerRoute)) {

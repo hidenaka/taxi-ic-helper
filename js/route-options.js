@@ -11,11 +11,15 @@ const HANEDA_KANAGAWA_PRIORITY = [
   'tomei',
 ];
 const HANEDA_ORIGIN_PRIORITY = [
+  'tomei',
+  'chuo',
   'kitasen_route',
   'hokuseisen_route',
   'wangan_route',
   'yokohane_route',
   'hodogaya_route',
+  'third_keihin',
+  'yokoyoko',
 ];
 
 const BASELINE_ROUTE_OPTIONS = {
@@ -52,6 +56,17 @@ function matchedRoutesForIc(ic, deduction) {
   return matched.length > 0 ? matched : null;
 }
 
+function getExitRouteIds(exitIc, deduction) {
+  if (!exitIc) return new Set();
+  const ids = new Set();
+  for (const dir of deduction.directions) {
+    if (dir.entries.some((e) => e.ic_id === exitIc.id)) {
+      ids.add(dir.id);
+    }
+  }
+  return ids;
+}
+
 export function getOuterRouteOptionsForIc({ ic, exitIc = null, deduction }) {
   if (!ic) return ['none'];
 
@@ -62,9 +77,21 @@ export function getOuterRouteOptionsForIc({ ic, exitIc = null, deduction }) {
     routeSourceIc = exitIc;
   }
 
+  // 入口が首都高内（km=0で登録されている）場合、出口ICが所属するdirectionも候補に追加
+  if (matched && exitIc && HANEDA_ENTRY_IDS.has(ic?.id)) {
+    for (const dir of deduction.directions) {
+      const entry = dir.entries.find((e) => e.ic_id === exitIc.id);
+      const alreadyIn = matched.some((m) => m.id === dir.id);
+      if (entry && !alreadyIn) {
+        matched.push({ id: dir.id, km: entry.km });
+      }
+    }
+  }
+
   if (matched?.length > 0) {
     const isHanedaBound = HANEDA_EXIT_IDS.has(exitIc?.id);
-    const isHanedaOrigin = HANEDA_ENTRY_IDS.has(routeSourceIc?.id);
+    const isHanedaOrigin = HANEDA_ENTRY_IDS.has(routeSourceIc?.id) || HANEDA_ENTRY_IDS.has(ic?.id);
+    const exitRouteIds = getExitRouteIds(exitIc, deduction);
     const directRoute = routeSourceIc.route;
     const wanganFirst = new Set(['tokan', 'wangan_route', 'aqua']);
     matched.sort((a, b) => {
@@ -73,6 +100,11 @@ export function getOuterRouteOptionsForIc({ ic, exitIc = null, deduction }) {
         const bp = priorityIndex(HANEDA_KANAGAWA_PRIORITY, b.id);
         if (ap !== bp) return ap - bp;
       } else if (isHanedaOrigin) {
+        // 出口ICがentriesに存在するdirectionを最優先
+        const aInExit = exitRouteIds.has(a.id);
+        const bInExit = exitRouteIds.has(b.id);
+        if (aInExit !== bInExit) return aInExit ? -1 : 1;
+
         const ap = priorityIndex(HANEDA_ORIGIN_PRIORITY, a.id);
         const bp = priorityIndex(HANEDA_ORIGIN_PRIORITY, b.id);
         if (ap !== bp) return ap - bp;

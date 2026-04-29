@@ -419,9 +419,8 @@ function updateOuterRouteOptions() {
     opt.textContent = labels[optValue] || optValue;
     sel.appendChild(opt);
   }
-  if (options.includes(state.selected.outerRoute)) {
-    sel.value = state.selected.outerRoute;
-  } else {
+  if (options.length > 0) {
+    // 入口/出口IC変更時には常に推奨ルート（options[0]）を選択し直す
     sel.value = options[0];
     state.selected.outerRoute = options[0];
   }
@@ -635,6 +634,7 @@ function update() {
   if (!entryIc || !exitIc) return;
 
   entryIc._viaGaikan = state.selected.viaGaikan;
+  console.log('[app.update] outerRoute=', state.selected.outerRoute, 'entry=', entryIc.id, 'exit=', exitIc.id);
 
   const result = judgeRoute({
     outerRoute: state.selected.outerRoute,
