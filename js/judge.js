@@ -207,10 +207,11 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
 
   // 本線途中下車パターン: entryIc も exitIc も同じ outer 本線の entries に存在する場合
   // 例: 八王子IC→調布IC (両方chuo direction) は abs差分で控除を計算し、首都高経由しない
+  // ※ km=0 の entry は baseline/接続点扱いなので、両方0の場合は途中下車ではない
   if (isOuter) {
     const entryDed = lookupDeduction(deduction, entryIc.id, outerRoute);
     const exitDed = lookupDeduction(deduction, exitIc.id, outerRoute);
-    if (entryDed && exitDed) {
+    if (entryDed && exitDed && (entryDed.km > 0 || exitDed.km > 0)) {
       const physA = entryDed.physicalKm ?? entryDed.km;
       const physB = exitDed.physicalKm ?? exitDed.km;
       const round1 = (n) => Math.round(n * 10) / 10;
@@ -221,6 +222,8 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
         deductionKm: round1(Math.abs(entryDed.km - exitDed.km)),
         distanceKm: round1(Math.abs(physA - physB)),
         note: entryDed.note ?? exitDed.note ?? null,
+        fromName: entryIc.name,
+        toName: exitIc.name,
       });
       return { segments: segs, totals: aggregate(segs, roundTrip) };
     }
@@ -239,6 +242,16 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     const controlKm = dedSource?.km ?? 0;
     const physicalBase = dedSource?.physicalKm ?? controlKm;
     const shortenKm = viaGaikan ? (routes.via_gaikan_shorten_km?.[outerRoute] ?? 0) : 0;
+    const dir = deduction.directions.find(d => d.id === outerRoute);
+    const baselineName = dir?.baseline?.ic_name ?? '';
+    let fromName, toName;
+    if (innerToOuter || reverseOuter) {
+      fromName = baselineName;
+      toName = exitIc.name;
+    } else {
+      fromName = baselineName;
+      toName = entryIc.name;
+    }
     segs.push({
       name: routes.labels[outerRoute],
       route: outerRoute,
@@ -246,6 +259,8 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
       deductionKm: controlKm,
       distanceKm: Math.max(0, physicalBase - shortenKm),
       note: dedSource?.note ?? null,
+      fromName,
+      toName,
     });
   };
 

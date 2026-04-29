@@ -782,7 +782,13 @@ function renderVerdict(result) {
   else if (paySummary === 'all_self') { main.classList.add('self'); main.textContent = '⚫ 全区間 自己負担'; }
   else { main.classList.add('mixed'); main.textContent = '🔵 区間混在（内訳で確認）'; }
 
-  ded.textContent  = `🛣 控除距離: 片道 ${deductionKmOneway.toFixed(1)}km / 往復 ${deductionKmRoundtrip.toFixed(1)}km`;
+  const deductionSegments = result.segments.filter(s => s.deductionKm > 0 && s.pay === 'company');
+  const clean = (n) => n?.replace(/（[^）]*）/g, '').trim() ?? '';
+  const deductionRanges = deductionSegments
+    .map(s => s.fromName && s.toName ? `${clean(s.fromName)}〜${clean(s.toName)}` : s.name)
+    .join('、');
+
+  ded.textContent  = `🛣 控除距離: 片道 ${deductionKmOneway.toFixed(1)}km / 往復 ${deductionKmRoundtrip.toFixed(1)}km${deductionRanges ? ` (${deductionRanges})` : ''}`;
   dist.textContent = `📏 総走行距離（目安）: 片道 ${distanceKmOneway.toFixed(1)}km / 往復 ${distanceKmRoundtrip.toFixed(1)}km`;
 
   const notesEl = document.getElementById('route-notes');
@@ -803,7 +809,9 @@ function renderBreakdown(result) {
     const li = document.createElement('li');
     const emoji = seg.pay === 'company' ? '🟢' : '⚫';
     const pay = seg.pay === 'company' ? '会社負担' : '自己負担';
-    li.textContent = `${emoji} ${seg.name} — ${pay} / 走行距離 ${seg.distanceKm.toFixed(1)}km / 控除距離 ${seg.deductionKm.toFixed(1)}km`;
+    const clean = (n) => n?.replace(/（[^）]*）/g, '').trim() ?? '';
+    const range = seg.fromName && seg.toName ? ` (${clean(seg.fromName)}〜${clean(seg.toName)})` : '';
+    li.textContent = `${emoji} ${seg.name}${range} — ${pay} / 走行距離 ${seg.distanceKm.toFixed(1)}km / 控除距離 ${seg.deductionKm.toFixed(1)}km`;
     ul.appendChild(li);
   }
 }

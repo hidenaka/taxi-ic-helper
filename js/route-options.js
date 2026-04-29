@@ -65,11 +65,20 @@ function isOuterBaseline(ic, deduction) {
 }
 
 /**
+ * ICが外側高速のentriesに存在するか（km=0含む）。
+ * km=0のentryは外側高速の起点/b接続点として機能するIC。
+ */
+function hasAnyOuterEntry(ic, deduction) {
+  if (!ic) return false;
+  return deduction.directions.some((d) => d.entries.some((e) => e.ic_id === ic.id));
+}
+
+/**
  * ICが「純粋な首都高内IC」かどうか。
- * 外側高速のentriesにkm>0で存在せず、baselineでもない。
+ * 外側高速のentriesに存在せず（km=0含む）、baselineでもない。
  */
 function isPureShutokoIc(ic, deduction) {
-  return !hasRealOuterEntry(ic, deduction) && !isOuterBaseline(ic, deduction);
+  return !hasAnyOuterEntry(ic, deduction) && !isOuterBaseline(ic, deduction);
 }
 
 function matchedRoutesForIc(ic, deduction) {
@@ -81,7 +90,8 @@ function matchedRoutesForIc(ic, deduction) {
   const matched = [];
   for (const dir of deduction.directions) {
     const entry = dir.entries.find((e) => e.ic_id === ic.id);
-    if (entry && entry.km > 0) matched.push({ id: dir.id, km: entry.km });
+    // km=0 の entry も外側高速の起点/接続点として機能するICとして扱う
+    if (entry && entry.km >= 0) matched.push({ id: dir.id, km: entry.km });
   }
   return matched.length > 0 ? matched : null;
 }
@@ -107,11 +117,6 @@ export function getOuterRouteOptionsForIc({ ic, exitIc = null, deduction }) {
 
   // 入口がBASELINE（外側高速の起点IC）→ そのままBASELINE_ROUTE_OPTIONSを使う
   if (BASELINE_ROUTE_OPTIONS[ic.id]) {
-    // 出口も首都高内IC → 首都高内完結（BASELINEでも首都高内への移動は可能）
-    if (exitIc && isPureShutokoIc(exitIc, deduction)) {
-      return ['none'];
-    }
-
     let matched = BASELINE_ROUTE_OPTIONS[ic.id].map((id, index) => ({ id, km: index }));
 
     // 出口マッチングの優先順位ソート
@@ -165,19 +170,25 @@ export function getOuterRouteOptionsForIc({ ic, exitIc = null, deduction }) {
 
   // 入口が首都高内IC → 出口ICに応じてouterRouteを決定
   if (isPureShutokoIc(ic, deduction)) {
+    const resultSet = new Set();
+
     // 出口が外側高速のbaseline → そのdirection
     for (const dir of deduction.directions) {
       if (dir.baseline.ic_id === exitIc.id) {
-        return [dir.id];
+        resultSet.add(dir.id);
       }
     }
 
-    // 出口が外側高速の途中IC → そのdirection
+    // 出口が外側高速の途中IC → そのdirection（km>=0で登録されていれば接続可能）
     for (const dir of deduction.directions) {
-      const entry = dir.entries.find((e) => e.ic_id === exitIc.id && e.km > 0);
+      const entry = dir.entries.find((e) => e.ic_id === exitIc.id);
       if (entry) {
-        return [dir.id];
+        resultSet.add(dir.id);
       }
+    }
+
+    if (resultSet.size > 0) {
+      return Array.from(resultSet);
     }
 
     // 出口が湾岸環八/空港中央など → 複数候補

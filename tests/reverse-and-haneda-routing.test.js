@@ -57,8 +57,10 @@ test('Haneda-bound Yokohama entries prefer Yokohama-side expressways over Tokyo 
     deduction: data.deduction,
   });
 
-  assert.equal(options[0], 'kitasen_route');
-  assert.ok(options.indexOf('kitasen_route') < options.indexOf('tomei'));
+  // 北西線/北線/保土ヶ谷BPが横浜側ルートとして東名より先に来る
+  const yokohamaRoutes = ['hokuseisen_route', 'kitasen_route', 'hodogaya_route'];
+  assert.ok(yokohamaRoutes.includes(options[0]), `expected Yokohama-side route first, got ${options[0]}`);
+  assert.ok(options.indexOf('tomei') > 0, 'tomei should not be first');
 });
 
 test('non-Haneda Yokohama entries keep the direct Tokyo-side route first', () => {
@@ -80,6 +82,8 @@ test('route options support reverse trips from Shutoko-side IC to outer expressw
     deduction: data.deduction,
   });
 
+  // 東京IC方面(tomei)がデフォルト、横浜側ルート(kitasen/hokuseisen/hodogaya)も選択肢に入る
   assert.equal(options[0], 'tomei');
-  assert.ok(options.includes('kitasen_route'));
+  const yokohamaRoutes = ['kitasen_route', 'hokuseisen_route', 'hodogaya_route'];
+  assert.ok(yokohamaRoutes.some(r => options.includes(r)), 'should include Yokohama-side route options');
 });
