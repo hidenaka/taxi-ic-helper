@@ -433,7 +433,7 @@
         <div class="setting-row">
           <label for="break-count-min">休憩カウント</label>
           <div class="hm-input">
-            <input type="number" id="break-count-min" min="1" max="60" step="1" inputmode="numeric">
+            <input type="number" id="break-count-min" min="0" max="60" step="1" inputmode="numeric">
             <span>分</span>
           </div>
         </div>
@@ -523,7 +523,7 @@ function loadState() {
         continuousDriveMin: (typeof parsed.continuousDriveMin === 'number' && parsed.continuousDriveMin > 0) ? parsed.continuousDriveMin : 360,
         shiftStartAt: typeof parsed.shiftStartAt === 'number' ? parsed.shiftStartAt : null,
         lastResetSnapshot: (parsed.lastResetSnapshot && typeof parsed.lastResetSnapshot === 'object') ? parsed.lastResetSnapshot : null,
-        breakCountMin: (typeof parsed.breakCountMin === 'number' && parsed.breakCountMin >= 1) ? parsed.breakCountMin : 11
+        breakCountMin: (typeof parsed.breakCountMin === 'number' && parsed.breakCountMin >= 0) ? parsed.breakCountMin : 11
       };
   } catch (e) {
     return defaults;
@@ -598,7 +598,7 @@ function renderContinuousDrive() {
 }
 
 function renderBreakCount() {
-  const m = Math.max(1, Math.floor(state.breakCountMin));
+  const m = Math.max(0, Math.floor(state.breakCountMin));
   $('break-count-min').value = m;
 }
 
@@ -809,7 +809,7 @@ $('continuous-drive-min').addEventListener('change', onContinuousDriveChange);
 
 function onBreakCountChange() {
   const v = parseInt($('break-count-min').value, 10);
-  state.breakCountMin = Number.isFinite(v) && v >= 1 ? v : 11;
+  state.breakCountMin = Number.isFinite(v) && v >= 0 ? v : 11;
   saveState(state);
   renderAll();
 }
