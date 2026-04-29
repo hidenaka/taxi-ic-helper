@@ -1,5 +1,4 @@
 const HANEDA_EXIT_IDS = new Set(['kukou_chuou', 'wangan_kanpachi']);
-const HANEDA_ENTRY_IDS = new Set(['kukou_chuou', 'wangan_kanpachi']);
 const HANEDA_KANAGAWA_PRIORITY = [
   'hokuseisen_route',
   'kitasen_route',
@@ -189,11 +188,6 @@ export function getOuterRouteOptionsForIc({ ic, exitIc = null, deduction }) {
 
     if (resultSet.size > 0) {
       return Array.from(resultSet);
-    }
-
-    // 出口が湾岸環八/空港中央など → 複数候補
-    if (HANEDA_ENTRY_IDS.has(exitIc.id)) {
-      return ['wangan_route', 'yokohane_route', 'kitasen_route'];
     }
 
     return ['none'];
