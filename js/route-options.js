@@ -42,46 +42,45 @@ function priorityIndex(list, routeId) {
 }
 
 /**
- * ICが外側高速のentriesにkm>0で存在するかチェック。
- * km=0の場合（首都高内ICとしての登録）は無視する。
- * BASELINE_ROUTE_OPTIONSは起点ICの候補だが、km>0のentriesがあるか別途確認。
+ * ICの分類を判定する。
+ * - OUTER_BASELINE: いずれかのdirectionのbaseline（外側高速の起点）
+ * - OUTER_TRANSIT: 外側高速のentriesにkm>0で存在（外側高速の途中IC）
+ * - CONNECTOR: 外側高速のentriesにkm=0のみ存在（首都高内だが外側高速接続点）
+ * - PURE_SHUTOKO: 外側高速のentriesに存在せず、baselineでもない（純粋な首都高内IC）
  */
-function hasRealOuterEntry(ic, deduction) {
-  if (!ic) return false;
+function classifyIc(ic, deduction) {
+  if (!ic) return 'PURE_SHUTOKO';
+
+  // 1. OUTER_BASELINE チェック
+  for (const dir of deduction.directions) {
+    if (dir.baseline.ic_id === ic.id) return 'OUTER_BASELINE';
+  }
+
+  // 2. entriesを走査してkm>0かkm=0かを判定
+  let hasKmGt0 = false;
+  let hasKmZero = false;
   for (const dir of deduction.directions) {
     const entry = dir.entries.find((e) => e.ic_id === ic.id);
-    if (entry && entry.km > 0) return true;
+    if (entry) {
+      if (entry.km > 0) hasKmGt0 = true;
+      else if (entry.km === 0) hasKmZero = true;
+    }
   }
-  return false;
+
+  if (hasKmGt0) return 'OUTER_TRANSIT';
+  if (hasKmZero) return 'CONNECTOR';
+  return 'PURE_SHUTOKO';
 }
 
 /**
- * ICが外側高速のbaselineであるかチェック。
+ * 指定ICにマッチするdirectionとkmを返す。
+ * OUTER_BASELINEの場合はBASELINE_ROUTE_OPTIONSから、
+ * それ以外はdeduction.directions.entriesから取得。
+ * CONNECTOR（km=0）も含む。
  */
-function isOuterBaseline(ic, deduction) {
-  if (!ic) return false;
-  return deduction.directions.some((d) => d.baseline.ic_id === ic.id);
-}
-
-/**
- * ICが外側高速のentriesに存在するか（km=0含む）。
- * km=0のentryは外側高速の起点/b接続点として機能するIC。
- */
-function hasAnyOuterEntry(ic, deduction) {
-  if (!ic) return false;
-  return deduction.directions.some((d) => d.entries.some((e) => e.ic_id === ic.id));
-}
-
-/**
- * ICが「純粋な首都高内IC」かどうか。
- * 外側高速のentriesに存在せず（km=0含む）、baselineでもない。
- */
-function isPureShutokoIc(ic, deduction) {
-  return !hasAnyOuterEntry(ic, deduction) && !isOuterBaseline(ic, deduction);
-}
-
 function matchedRoutesForIc(ic, deduction) {
   if (!ic) return null;
+
   if (BASELINE_ROUTE_OPTIONS[ic.id]) {
     return BASELINE_ROUTE_OPTIONS[ic.id].map((id, index) => ({ id, km: index }));
   }
@@ -89,12 +88,16 @@ function matchedRoutesForIc(ic, deduction) {
   const matched = [];
   for (const dir of deduction.directions) {
     const entry = dir.entries.find((e) => e.ic_id === ic.id);
-    // km=0 の entry も外側高速の起点/接続点として機能するICとして扱う
-    if (entry && entry.km >= 0) matched.push({ id: dir.id, km: entry.km });
+    if (entry && entry.km >= 0) {
+      matched.push({ id: dir.id, km: entry.km });
+    }
   }
   return matched.length > 0 ? matched : null;
 }
 
+/**
+ * 出口ICがentriesにkm>0で存在するdirection IDセットを返す。
+ */
 function getExitRouteIds(exitIc, deduction) {
   if (!exitIc) return new Set();
   const ids = new Set();
@@ -106,93 +109,81 @@ function getExitRouteIds(exitIc, deduction) {
   return ids;
 }
 
+/**
+ * ルート候補をソートして返す共通処理。
+ */
+function sortAndMapRoutes(matched, { isHanedaBound, directRoute, exitRouteIds, wanganFirst }) {
+  matched.sort((a, b) => {
+    if (isHanedaBound) {
+      const ap = priorityIndex(HANEDA_KANAGAWA_PRIORITY, a.id);
+      const bp = priorityIndex(HANEDA_KANAGAWA_PRIORITY, b.id);
+      if (ap !== bp) return ap - bp;
+    } else if (exitRouteIds) {
+      // 出口ICがentriesに存在するdirectionを最優先
+      const aInExit = exitRouteIds.has(a.id);
+      const bInExit = exitRouteIds.has(b.id);
+      if (aInExit !== bInExit) return aInExit ? -1 : 1;
+    }
+
+    if (directRoute !== undefined) {
+      const ad = a.id === directRoute;
+      const bd = b.id === directRoute;
+      if (ad !== bd) return ad ? -1 : 1;
+    }
+
+    const aw = wanganFirst.has(a.id);
+    const bw = wanganFirst.has(b.id);
+    if (aw !== bw) return aw ? -1 : 1;
+
+    return a.km - b.km;
+  });
+  return matched.map((m) => m.id);
+}
+
 export function getOuterRouteOptionsForIc({ ic, exitIc = null, deduction }) {
   if (!ic) return ['none'];
 
-  // 両方が首都高内IC → 首都高内のみ
-  if (isPureShutokoIc(ic, deduction) && (!exitIc || isPureShutokoIc(exitIc, deduction))) {
-    return ['none'];
-  }
+  const icClass = classifyIc(ic, deduction);
+  const exitClass = classifyIc(exitIc, deduction);
 
-  // 入口がBASELINE（外側高速の起点IC）→ そのままBASELINE_ROUTE_OPTIONSを使う
-  if (BASELINE_ROUTE_OPTIONS[ic.id]) {
-    let matched = BASELINE_ROUTE_OPTIONS[ic.id].map((id, index) => ({ id, km: index }));
+  const wanganFirst = new Set(['tokan', 'wangan_route', 'aqua']);
+  const isHanedaBound = HANEDA_EXIT_IDS.has(exitIc?.id);
+  const directRoute = ic.route;
+  const exitRouteIds = getExitRouteIds(exitIc, deduction);
 
-    // 出口マッチングの優先順位ソート
-    const exitRouteIds = getExitRouteIds(exitIc, deduction);
-    const isHanedaBound = HANEDA_EXIT_IDS.has(exitIc?.id);
-    const directRoute = ic.route;
-    const wanganFirst = new Set(['tokan', 'wangan_route', 'aqua']);
-
-    matched.sort((a, b) => {
-      if (isHanedaBound) {
-        const ap = priorityIndex(HANEDA_KANAGAWA_PRIORITY, a.id);
-        const bp = priorityIndex(HANEDA_KANAGAWA_PRIORITY, b.id);
-        if (ap !== bp) return ap - bp;
-      } else {
-        // 出口ICがentriesに存在するdirectionを最優先
-        const aInExit = exitRouteIds.has(a.id);
-        const bInExit = exitRouteIds.has(b.id);
-        if (aInExit !== bInExit) return aInExit ? -1 : 1;
-
-        const ad = a.id === directRoute, bd = b.id === directRoute;
-        if (ad !== bd) return ad ? -1 : 1;
-      }
-      const aw = wanganFirst.has(a.id), bw = wanganFirst.has(b.id);
-      if (aw !== bw) return aw ? -1 : 1;
-      return a.km - b.km;
-    });
-    return matched.map((m) => m.id);
-  }
-
-  // 入口が外側高速の途中IC → そのdirectionのみ
-  let matched = matchedRoutesForIc(ic, deduction);
-  if (matched?.length > 0) {
-    const isHanedaBound = HANEDA_EXIT_IDS.has(exitIc?.id);
-    const directRoute = ic.route;
-    const wanganFirst = new Set(['tokan', 'wangan_route', 'aqua']);
-    matched.sort((a, b) => {
-      if (isHanedaBound) {
-        const ap = priorityIndex(HANEDA_KANAGAWA_PRIORITY, a.id);
-        const bp = priorityIndex(HANEDA_KANAGAWA_PRIORITY, b.id);
-        if (ap !== bp) return ap - bp;
-      } else {
-        const ad = a.id === directRoute, bd = b.id === directRoute;
-        if (ad !== bd) return ad ? -1 : 1;
-      }
-      const aw = wanganFirst.has(a.id), bw = wanganFirst.has(b.id);
-      if (aw !== bw) return aw ? -1 : 1;
-      return a.km - b.km;
-    });
-    return matched.map((m) => m.id);
-  }
-
-  // 入口が首都高内IC → 出口ICに応じてouterRouteを決定
-  if (isPureShutokoIc(ic, deduction)) {
-    const resultSet = new Set();
-
-    // 出口が外側高速のbaseline → そのdirection
-    for (const dir of deduction.directions) {
-      if (dir.baseline.ic_id === exitIc.id) {
-        resultSet.add(dir.id);
-      }
-    }
-
-    // 出口が外側高速の途中IC → そのdirection（km>=0で登録されていれば接続可能）
-    for (const dir of deduction.directions) {
-      const entry = dir.entries.find((e) => e.ic_id === exitIc.id);
-      if (entry) {
-        resultSet.add(dir.id);
-      }
-    }
-
-    if (resultSet.size > 0) {
-      return Array.from(resultSet);
+  // =========================================
+  // 入口が外側高速IC（BASELINE または TRANSIT）
+  // =========================================
+  // 外側高速から首都高へ入る場合も、外側高速区間の控除計算のため
+  // 入口ICのdirection候補を返す必要がある。
+  if (icClass === 'OUTER_BASELINE' || icClass === 'OUTER_TRANSIT') {
+    let matched = matchedRoutesForIc(ic, deduction);
+    if (matched?.length > 0) {
+      return sortAndMapRoutes(matched, { isHanedaBound, directRoute, exitRouteIds, wanganFirst });
     }
 
     return ['none'];
   }
 
+  // =========================================
+  // 入口が首都高内IC（CONNECTOR または PURE_SHUTOKO）
+  // =========================================
+  if (icClass === 'CONNECTOR' || icClass === 'PURE_SHUTOKO') {
+    // 出口が首都高内（CONNECTOR or PURE_SHUTOKO）→ 首都高内完結
+    if (exitClass === 'CONNECTOR' || exitClass === 'PURE_SHUTOKO') {
+      return ['none'];
+    }
+
+    // 出口が外側高速（BASELINE or TRANSIT）→ 出口ICのdirection候補を返す
+    let matched = matchedRoutesForIc(exitIc, deduction);
+    if (matched?.length > 0) {
+      return sortAndMapRoutes(matched, { isHanedaBound, directRoute, exitRouteIds, wanganFirst });
+    }
+
+    return ['none'];
+  }
+
+  // フォールバック
   if (ic.boundary_tag === 'gaikan') return ['gaikan_direct'];
   return ['none'];
 }

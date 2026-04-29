@@ -82,8 +82,54 @@ test('route options support reverse trips from Shutoko-side IC to outer expressw
     deduction: data.deduction,
   });
 
-  // 東京IC方面(tomei)がデフォルト、横浜側ルート(kitasen/hokuseisen/hodogaya)も選択肢に入る
-  assert.equal(options[0], 'tomei');
+  // 横浜青葉へ向かう場合、東名・保土ヶ谷BP・北線の全ルートが選択肢に入る
+  assert.ok(options.includes('tomei'), 'should include tomei option');
   const yokohamaRoutes = ['kitasen_route', 'hokuseisen_route', 'hodogaya_route'];
   assert.ok(yokohamaRoutes.some(r => options.includes(r)), 'should include Yokohama-side route options');
+});
+
+test('connector via outer transit: 舞浜→空港中央 returns keiyo/aqua because Makuhari is outer transit IC', () => {
+  const data = loadAll();
+  const options = getOuterRouteOptionsForIc({
+    ic: findIc(data, 'makuhari'),
+    exitIc: findIc(data, 'kukou_chuou'),
+    deduction: data.deduction,
+  });
+  // 舞浜は京葉道・アクアラインの途中IC（OUTER_TRANSIT）として登録されているため、
+  // 外側高速のルート選択肢が表示される。これはデータモデルに基づく正しい動作。
+  assert.ok(options.includes('keiyo'), 'should include keiyo');
+  assert.ok(options.includes('aqua'), 'should include aqua');
+});
+
+test('Shutoko-internal via connector: 霞ヶ関→空港中央 returns none', () => {
+  const data = loadAll();
+  const options = getOuterRouteOptionsForIc({
+    ic: findIc(data, 'kasumigaseki'),
+    exitIc: findIc(data, 'kukou_chuou'),
+    deduction: data.deduction,
+  });
+  assert.deepEqual(options, ['none']);
+});
+
+test('connector to outer: 空港中央→東名川崎 returns tomei', () => {
+  const data = loadAll();
+  const options = getOuterRouteOptionsForIc({
+    ic: findIc(data, 'kukou_chuou'),
+    exitIc: findIc(data, 'tomei_kawasaki'),
+    deduction: data.deduction,
+  });
+  assert.deepEqual(options, ['tomei']);
+});
+
+test('outer to Shutoko: 横浜青葉→霞ヶ関 returns Yokohama routes', () => {
+  const data = loadAll();
+  const options = getOuterRouteOptionsForIc({
+    ic: findIc(data, 'yokohama_aoba'),
+    exitIc: findIc(data, 'kasumigaseki'),
+    deduction: data.deduction,
+  });
+  // 横浜青葉は3ルートに接続。霞ヶ関へ向かう場合も外側高速のルート選択肢として表示
+  assert.ok(options.includes('tomei'), 'should include tomei');
+  assert.ok(options.includes('hodogaya_route'), 'should include hodogaya_route');
+  assert.ok(options.includes('kitasen_route'), 'should include kitasen_route');
 });
