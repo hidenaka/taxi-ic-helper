@@ -1,4 +1,5 @@
 const HANEDA_EXIT_IDS = new Set(['kukou_chuou', 'wangan_kanpachi']);
+const HANEDA_ENTRY_IDS = new Set(['kukou_chuou', 'wangan_kanpachi']);
 const HANEDA_KANAGAWA_PRIORITY = [
   'hokuseisen_route',
   'kitasen_route',
@@ -8,6 +9,13 @@ const HANEDA_KANAGAWA_PRIORITY = [
   'third_keihin',
   'yokoyoko',
   'tomei',
+];
+const HANEDA_ORIGIN_PRIORITY = [
+  'kitasen_route',
+  'hokuseisen_route',
+  'wangan_route',
+  'yokohane_route',
+  'hodogaya_route',
 ];
 
 const BASELINE_ROUTE_OPTIONS = {
@@ -21,6 +29,8 @@ const BASELINE_ROUTE_OPTIONS = {
   ukishima_jct: ['aqua'],
   kisarazu_jct: ['tateyama'],
   tamagawa_ic: ['third_keihin', 'yokoyoko'],
+  kukou_chuou: ['wangan_route', 'kitasen_route', 'hokuseisen_route', 'yokohane_route', 'hodogaya_route'],
+  wangan_kanpachi: ['wangan_route', 'kitasen_route', 'hokuseisen_route', 'yokohane_route', 'hodogaya_route'],
 };
 
 function priorityIndex(list, routeId) {
@@ -54,12 +64,17 @@ export function getOuterRouteOptionsForIc({ ic, exitIc = null, deduction }) {
 
   if (matched?.length > 0) {
     const isHanedaBound = HANEDA_EXIT_IDS.has(exitIc?.id);
+    const isHanedaOrigin = HANEDA_ENTRY_IDS.has(routeSourceIc?.id);
     const directRoute = routeSourceIc.route;
     const wanganFirst = new Set(['tokan', 'wangan_route', 'aqua']);
     matched.sort((a, b) => {
       if (isHanedaBound) {
         const ap = priorityIndex(HANEDA_KANAGAWA_PRIORITY, a.id);
         const bp = priorityIndex(HANEDA_KANAGAWA_PRIORITY, b.id);
+        if (ap !== bp) return ap - bp;
+      } else if (isHanedaOrigin) {
+        const ap = priorityIndex(HANEDA_ORIGIN_PRIORITY, a.id);
+        const bp = priorityIndex(HANEDA_ORIGIN_PRIORITY, b.id);
         if (ap !== bp) return ap - bp;
       } else {
         const ad = a.id === directRoute, bd = b.id === directRoute;
