@@ -334,8 +334,8 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
         segDistanceKm = Math.max(0, segDistanceKm - shortenKm);
       }
       // 関越道の場合、練馬で降りて中台から乗り直す
+      // outerセグメントのtoNameは分割点（練馬）のまま、shutoko開始点はnakadai（中台）で別途設定
       if (outerRoute === 'kanetsu' && splitPoint.icId === 'nerima' && !viaGaikan) {
-        toName = '中台';
         segDistanceKm = controlKm;
       }
     } else {
