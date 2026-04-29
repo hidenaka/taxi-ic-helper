@@ -430,6 +430,13 @@
             <span>分</span>
           </div>
         </div>
+        <div class="setting-row">
+          <label for="break-count-min">休憩カウント</label>
+          <div class="hm-input">
+            <input type="number" id="break-count-min" min="0" max="60" step="1" inputmode="numeric">
+            <span>分</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -503,20 +510,21 @@ function addMinutes(date, minutes) {
 const STORAGE_KEY = 'taxi-timer-v1';
 
 function loadState() {
-  const defaults = { shiftStart: '07:00', records: [], runningStartedAt: null, targetBreakMin: 180, continuousDriveMin: 360, shiftStartAt: null, lastResetSnapshot: null };
+  const defaults = { shiftStart: '07:00', records: [], runningStartedAt: null, targetBreakMin: 180, continuousDriveMin: 360, shiftStartAt: null, lastResetSnapshot: null, breakCountMin: 11 };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaults;
     const parsed = JSON.parse(raw);
-    return {
-      shiftStart: parsed.shiftStart || '07:00',
-      records: Array.isArray(parsed.records) ? parsed.records : [],
-      runningStartedAt: typeof parsed.runningStartedAt === 'number' ? parsed.runningStartedAt : null,
-      targetBreakMin: (typeof parsed.targetBreakMin === 'number' && parsed.targetBreakMin >= 0) ? parsed.targetBreakMin : 180,
-      continuousDriveMin: (typeof parsed.continuousDriveMin === 'number' && parsed.continuousDriveMin > 0) ? parsed.continuousDriveMin : 360,
-      shiftStartAt: typeof parsed.shiftStartAt === 'number' ? parsed.shiftStartAt : null,
-      lastResetSnapshot: (parsed.lastResetSnapshot && typeof parsed.lastResetSnapshot === 'object') ? parsed.lastResetSnapshot : null
-    };
+      return {
+        shiftStart: parsed.shiftStart || '07:00',
+        records: Array.isArray(parsed.records) ? parsed.records : [],
+        runningStartedAt: typeof parsed.runningStartedAt === 'number' ? parsed.runningStartedAt : null,
+        targetBreakMin: (typeof parsed.targetBreakMin === 'number' && parsed.targetBreakMin >= 0) ? parsed.targetBreakMin : 180,
+        continuousDriveMin: (typeof parsed.continuousDriveMin === 'number' && parsed.continuousDriveMin > 0) ? parsed.continuousDriveMin : 360,
+        shiftStartAt: typeof parsed.shiftStartAt === 'number' ? parsed.shiftStartAt : null,
+        lastResetSnapshot: (parsed.lastResetSnapshot && typeof parsed.lastResetSnapshot === 'object') ? parsed.lastResetSnapshot : null,
+        breakCountMin: (typeof parsed.breakCountMin === 'number' && parsed.breakCountMin >= 0) ? parsed.breakCountMin : 11
+      };
   } catch (e) {
     return defaults;
   }
@@ -529,7 +537,8 @@ function saveState(state) {
     targetBreakMin: state.targetBreakMin,
     continuousDriveMin: state.continuousDriveMin,
     shiftStartAt: state.shiftStartAt,
-    lastResetSnapshot: state.lastResetSnapshot
+    lastResetSnapshot: state.lastResetSnapshot,
+    breakCountMin: state.breakCountMin
   };
   if (state.stopwatch.running && state.stopwatch.startedAt) {
     data.runningStartedAt = state.stopwatch.startedAt;
@@ -550,6 +559,7 @@ const state = {
   continuousDriveMin: _loaded.continuousDriveMin,
   shiftStartAt: _loaded.shiftStartAt,
   lastResetSnapshot: _loaded.lastResetSnapshot,
+  breakCountMin: _loaded.breakCountMin,
   stopwatch: _loaded.runningStartedAt
     ? { running: true, startedAt: _loaded.runningStartedAt, elapsedMs: 0 }
     : { running: false, startedAt: null, elapsedMs: 0 }
@@ -587,6 +597,11 @@ function renderContinuousDrive() {
   $('continuous-drive-min').value = m % 60;
 }
 
+function renderBreakCount() {
+  const m = Math.max(0, Math.floor(state.breakCountMin));
+  $('break-count-min').value = m;
+}
+
 function renderStopwatch() {
   const ms = currentStopwatchMs();
   $('stopwatch-display').textContent = fmtStopwatch(ms / 1000);
@@ -602,7 +617,7 @@ function renderButtons() {
   const ms = currentStopwatchMs();
   const running = state.stopwatch.running;
   $('btn-start').disabled = running;
-  $('btn-record').disabled = !running || ms < 11 * 60 * 1000;
+  $('btn-record').disabled = !running || ms < state.breakCountMin * 60 * 1000;
   $('btn-discard').disabled = !running;
 }
 
@@ -717,6 +732,7 @@ function renderAll() {
   renderShiftStart();
   renderTargetBreak();
   renderContinuousDrive();
+  renderBreakCount();
   renderStopwatch();
   renderButtons();
   renderMetrics();
@@ -746,7 +762,7 @@ $('btn-discard').addEventListener('click', () => {
 
 $('btn-record').addEventListener('click', () => {
   const ms = currentStopwatchMs();
-  if (ms < 11 * 60 * 1000) return; // 二重防御
+  if (ms < state.breakCountMin * 60 * 1000) return; // 二重防御
   const record = {
     recordedAt: new Date().toISOString(),
     durationSec: Math.floor(ms / 1000)
@@ -790,6 +806,14 @@ function onContinuousDriveChange() {
 }
 $('continuous-drive-hour').addEventListener('change', onContinuousDriveChange);
 $('continuous-drive-min').addEventListener('change', onContinuousDriveChange);
+
+function onBreakCountChange() {
+  const v = parseInt($('break-count-min').value, 10);
+  state.breakCountMin = Number.isFinite(v) && v >= 0 ? v : 11;
+  saveState(state);
+  renderAll();
+}
+$('break-count-min').addEventListener('change', onBreakCountChange);
 
 $('btn-settings-toggle').addEventListener('click', () => {
   const content = $('settings-content');
