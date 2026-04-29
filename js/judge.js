@@ -39,6 +39,54 @@ export function judgeDeduction(icA, icB, deductionData, roundTrip) {
   return roundTrip ? oneWay * 2 : oneWay;
 }
 
+/**
+ * 外側高速の途中ICから首都高に向かう場合、outerセグメントの分割点を見つける。
+ * entriesを走査し、入口ICより手前（kmが小さい）にあるJCT/baseline/接続点のうち、
+ * 最もkmが大きいものを返す。
+ * ただし、入口ICから分割点までの距離差が10km以内の場合のみ分割する（遠距離入口では分割しない）。
+ * shutokoGraphのノードとして存在するICも分割点とする（首都高接続点）。
+ */
+function findSplitPoint(entryIcId, outerRoute, deduction, ics, shutokoGraph) {
+  const dir = deduction.directions.find(d => d.id === outerRoute);
+  if (!dir) return null;
+  
+  const entryDed = lookupDeduction(deduction, entryIcId, outerRoute);
+  if (!entryDed || entryDed.km <= 0) return null;
+  
+  const SHUTOKO_ROUTE_CODES = new Set(['C1','1','2','3','4','5','6','7','9','10','11','B','C2','S1','K1','K5','K7','K7_hokusei']);
+  const shutokoConnectionNodes = new Set(
+    shutokoGraph?.nodes?.filter(n => n.routes?.some(r => SHUTOKO_ROUTE_CODES.has(r)))?.map(n => n.id) ?? []
+  );
+  const MAX_SPLIT_DISTANCE = 10.0; // 入口ICから分割点までの最大距離差
+  
+  // entriesをkm降順でソート
+  const sortedEntries = [...dir.entries]
+    .filter(e => e.km < entryDed.km)
+    .sort((a, b) => b.km - a.km);
+  
+  for (const e of sortedEntries) {
+    const distanceFromEntry = entryDed.km - e.km;
+    // 遠すぎる分割点は無視（横浜町田→横浜青葉は6.4kmでOK、御殿場→横浜青葉は70kmでNG）
+    if (distanceFromEntry > MAX_SPLIT_DISTANCE) continue;
+    
+    const ic = ics.find(x => x.id === e.ic_id);
+    const isShutokoConnection = shutokoConnectionNodes.has(e.ic_id);
+    // baseline自身、またはJCT、または外環接続点、または首都高グラフに存在するICは分割点として機能する
+    if (e.ic_id === dir.baseline.ic_id) {
+      return { icId: e.ic_id, name: e.name, km: e.km, entry: e };
+    }
+    if (ic && (ic.entry_type === 'jct' || ic.boundary_tag === 'gaikan')) {
+      return { icId: e.ic_id, name: e.name, km: e.km, entry: e };
+    }
+    // 首都高の路線を持つノード（東名→北西線接続点など）も分割点とする
+    if (isShutokoConnection && e.km > 0) {
+      return { icId: e.ic_id, name: e.name, km: e.km, entry: e };
+    }
+  }
+  
+  return null;
+}
+
 export function computeShutokoPay({ outerRoute, entryIc, isOuter }) {
   if (isOuter) return 'company';
   if (outerRoute === 'gaikan_direct') return 'self';
@@ -203,6 +251,7 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
   const isOuter = OUTER_TRUNK_ROUTES.has(outerRoute);
   const viaGaikan = outerRoute === 'gaikan_direct'
                  || needsGaikanTransit(outerRoute, entryIc, routes);
+  const dir = isOuter ? deduction.directions.find(d => d.id === outerRoute) : null;
   const segs = [];
 
   // 本線途中下車パターン: entryIc も exitIc も同じ outer 本線の entries に存在する場合
@@ -235,6 +284,12 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
   // innerToOuter: 入口ICが首都高内(km=0)で出口ICが外側高速側。首都高→外側高速の順序で計算する。
   const innerToOuter = Boolean(isOuter && entryOuterDed && entryOuterDed.km === 0 && exitOuterDed && exitOuterDed.km > 0);
   const outerDed = entryOuterDed || exitOuterDed;
+  
+  // 外側高速途中IC→首都高の場合、outerセグメントを途中JCTで分割する
+  const splitPoint = isOuter && entryOuterDed && entryOuterDed.km > 0 && !exitOuterDed
+    ? findSplitPoint(entryIc.id, outerRoute, deduction, deps.ics, shutokoGraph)
+    : null;
+  
   const pushOuterSegment = () => {
     if (!isOuter) return;
     // innerToOuter の場合、outer セグメントの控除・距離は出口側の値を使う
@@ -244,26 +299,41 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     const shortenKm = viaGaikan ? (routes.via_gaikan_shorten_km?.[outerRoute] ?? 0) : 0;
     const dir = deduction.directions.find(d => d.id === outerRoute);
     const baselineName = dir?.baseline?.ic_name ?? '';
-    let fromName, toName;
+    let fromName, toName, segDeductionKm, segDistanceKm;
     if (reverseOuter) {
       // 首都高→外側高速: 基準点→出口IC
       fromName = baselineName;
       toName = exitIc.name;
+      segDeductionKm = controlKm;
+      segDistanceKm = Math.max(0, physicalBase - shortenKm);
     } else if (innerToOuter) {
       // 首都高内(km=0)→外側高速: 出口IC→基準点
       fromName = exitIc.name;
       toName = baselineName;
+      segDeductionKm = controlKm;
+      segDistanceKm = Math.max(0, physicalBase - shortenKm);
+    } else if (splitPoint) {
+      // 外側高速途中IC→首都高: 入口IC→分割点JCT
+      // 表示上は分割点までの区間とするが、控除距離は元の entry.km（入口→baseline）を維持
+      fromName = entryIc.name;
+      toName = splitPoint.name;
+      segDeductionKm = controlKm;
+      const physA = entryOuterDed.physicalKm ?? entryOuterDed.km;
+      const physB = splitPoint.entry.physical_km ?? splitPoint.km;
+      segDistanceKm = Math.round(Math.abs(physA - physB) * 10) / 10;
     } else {
       // 外側高速→首都高: 入口IC→基準点
       fromName = entryIc.name;
       toName = baselineName;
+      segDeductionKm = controlKm;
+      segDistanceKm = Math.max(0, physicalBase - shortenKm);
     }
     segs.push({
       name: routes.labels[outerRoute],
       route: outerRoute,
       pay: 'company',
-      deductionKm: controlKm,
-      distanceKm: Math.max(0, physicalBase - shortenKm),
+      deductionKm: segDeductionKm,
+      distanceKm: segDistanceKm,
       note: dedSource?.note ?? null,
       fromName,
       toName,
@@ -276,6 +346,11 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
 
   if (viaGaikan) {
     const gaikanPay = isOuter ? 'company' : 'self';
+    // gaikan区間のfrom/to: outer側接続点 → 首都高側接続点
+    const gaikanFromId = splitPoint ? splitPoint.icId : (innerToOuter ? exitIc.id : (dir?.baseline?.ic_id ?? entryIc.id));
+    const gaikanToId = VIA_GAIKAN_SHUTOKO_ENTRY[outerRoute] ?? entryIc.id;
+    const gaikanFromIc = deps.ics.find(x => x.id === gaikanFromId);
+    const gaikanToIc = deps.ics.find(x => x.id === gaikanToId);
     segs.push({
       name: '外環道',
       route: 'gaikan',
@@ -285,6 +360,8 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
       note: gaikanPay === 'self'
         ? '外環道区間は控除対象外。外環道から乗ると外環道の区間は自己負担になります。'
         : null,
+      fromName: gaikanFromIc?.name ?? gaikanFromId,
+      toName: gaikanToIc?.name ?? gaikanToId,
     });
   }
 
@@ -293,6 +370,10 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     const dir = deduction.directions.find(d => d.id === outerRoute);
     startIcId = entryIc.id;
     shutokoEndpointIcId = dir?.baseline?.ic_id ?? entryIc.id;
+  } else if (splitPoint) {
+    // 外側高速途中IC→首都高: 分割点JCTから首都高を開始
+    startIcId = splitPoint.icId;
+    shutokoEndpointIcId = exitIc.id;
   } else {
     startIcId = resolveShutokoStartIcId({ outerRoute, entryIc, deduction, viaGaikan });
     shutokoEndpointIcId = reverseOuter ? entryIc.id : exitIc.id;

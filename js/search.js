@@ -14,8 +14,21 @@ export function buildSearchEntries(groups) {
         ? `／${ic.aliases.join('・')}`
         : '';
       const value = `${displayName}${aliasInline}`;
-      entries.push({ value, icId: ic.id });
+      entries.push({ value, icId: ic.id, groupLabel: grp.label });
     }
+  }
+  // 同じ value で異なる icId を指す衝突があれば、方面名を付加して解消
+  const valueToIcIds = new Map();
+  for (const e of entries) {
+    const set = valueToIcIds.get(e.value) || new Set();
+    set.add(e.icId);
+    valueToIcIds.set(e.value, set);
+  }
+  for (const e of entries) {
+    if (valueToIcIds.get(e.value).size > 1) {
+      e.value = `${e.value}（${e.groupLabel}）`;
+    }
+    delete e.groupLabel;
   }
   return entries;
 }
