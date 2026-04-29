@@ -245,12 +245,18 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     const dir = deduction.directions.find(d => d.id === outerRoute);
     const baselineName = dir?.baseline?.ic_name ?? '';
     let fromName, toName;
-    if (innerToOuter || reverseOuter) {
+    if (reverseOuter) {
+      // 首都高→外側高速: 基準点→出口IC
       fromName = baselineName;
       toName = exitIc.name;
+    } else if (innerToOuter) {
+      // 首都高内(km=0)→外側高速: 出口IC→基準点
+      fromName = exitIc.name;
+      toName = baselineName;
     } else {
-      fromName = baselineName;
-      toName = entryIc.name;
+      // 外側高速→首都高: 入口IC→基準点
+      fromName = entryIc.name;
+      toName = baselineName;
     }
     segs.push({
       name: routes.labels[outerRoute],
@@ -300,14 +306,20 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     startIcId, exitIcId: shutokoEndpointIcId, shutokoRouteId
   });
 
-  if (!skipShutoko) segs.push({
-    name: shutokoInfo.routeLabel ? `首都高（${shutokoInfo.routeLabel}）` : '首都高',
-    route: 'shutoko',
-    pay: computeShutokoPay({ outerRoute, entryIc, isOuter }),
-    deductionKm: 0,
-    distanceKm: shutokoInfo.km,
-    path: shutokoInfo.path ?? null
-  });
+  if (!skipShutoko) {
+    const startIc = deps.ics.find(x => x.id === startIcId);
+    const endIc = deps.ics.find(x => x.id === shutokoEndpointIcId);
+    segs.push({
+      name: shutokoInfo.routeLabel ? `首都高（${shutokoInfo.routeLabel}）` : '首都高',
+      route: 'shutoko',
+      pay: computeShutokoPay({ outerRoute, entryIc, isOuter }),
+      deductionKm: 0,
+      distanceKm: shutokoInfo.km,
+      path: shutokoInfo.path ?? null,
+      fromName: startIc?.name ?? startIcId,
+      toName: endIc?.name ?? shutokoEndpointIcId,
+    });
+  }
 
   if (reverseOuter || innerToOuter) pushOuterSegment();
 

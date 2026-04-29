@@ -48,7 +48,11 @@
     { "id": "ryogoku_jct",     "routes": ["6_mukojima", "7"] },
     { "id": "shinozaki",       "routes": ["7"] },
     { "id": "takaya_jct",      "routes": ["B", "tokan"] },
-    { "id": "kisarazu_jct",    "routes": ["aqua"] }
+    { "id": "kisarazu_jct",    "routes": ["aqua"] },
+    { "id": "yokohama_aoba",   "routes": ["K7_hokusei", "tomei"] },
+    { "id": "yokohama_kohoku", "routes": ["K7_hokusei", "K7"] },
+    { "id": "namamugi",        "routes": ["K7", "K5"] },
+    { "id": "daikoku_jct",     "routes": ["K5", "B"] }
   ],
   "edges": [
 
@@ -121,6 +125,11 @@
     { "from": "kosuge_jct",   "to": "hakozaki",        "km": 9.7,  "route": "6_mukojima" },
     { "from": "kosuge_jct",   "to": "yotsugi",         "km": 2.1,  "route": "C2" },
 
-    { "from": "shioiri",      "to": "kukou_chuou",     "km": 8.5,  "route": "K1", "approx": true }
+    { "from": "shioiri",      "to": "kukou_chuou",     "km": 8.5,  "route": "K1", "approx": true },
+
+    { "from": "yokohama_aoba", "to": "yokohama_kohoku", "km": 7.1,  "route": "K7_hokusei" },
+    { "from": "yokohama_kohoku", "to": "namamugi",      "km": 8.2,  "route": "K7" },
+    { "from": "namamugi",      "to": "daikoku_jct",   "km": 4.6,  "route": "K5" },
+    { "from": "daikoku_jct",   "to": "kukou_chuou",   "km": 16.4, "route": "B" }
   ]
 }
