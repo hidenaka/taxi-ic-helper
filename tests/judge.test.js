@@ -10,10 +10,11 @@ test('lookupDeduction: 東名川崎 は 7.7km', () => {
   assert.strictEqual(entry?.direction, 'tomei');
 });
 
-test('lookupDeduction: 基準点自体（東京IC）は null', () => {
+test('lookupDeduction: 基準点自体（東京IC）は km=0', () => {
   const deduction = loadJson('data/deduction.json');
   const entry = lookupDeduction(deduction, 'tokyo_ic');
-  assert.strictEqual(entry, null);
+  assert.strictEqual(entry?.km, 0);
+  assert.strictEqual(entry?.direction, 'tomei');
 });
 
 test('lookupDeduction: 存在しないICは null', () => {
@@ -133,16 +134,18 @@ test('lookupDeduction: 浦賀 は yokoyoko / 54.0km', () => {
   assert.strictEqual(e?.km, 54.0);
 });
 
-test('lookupDeduction: 基準点 高井戸IC は null', () => {
+test('lookupDeduction: 基準点 高井戸IC は km=0', () => {
   const deduction = loadJson('data/deduction.json');
   const e = lookupDeduction(deduction, 'takaido');
-  assert.strictEqual(e, null);
+  assert.strictEqual(e?.km, 0);
+  assert.strictEqual(e?.direction, 'chuo');
 });
 
-test('lookupDeduction: 基準点 川口JCT は null', () => {
+test('lookupDeduction: 基準点 川口JCT は km=0', () => {
   const deduction = loadJson('data/deduction.json');
   const e = lookupDeduction(deduction, 'kawaguchi_jct');
-  assert.strictEqual(e, null);
+  assert.strictEqual(e?.km, 0);
+  assert.strictEqual(e?.direction, 'tohoku');
 });
 
 test('lookupDeduction: 基準点 木更津JCT は aqua エントリ (tateyama の基準点)', () => {

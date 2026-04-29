@@ -9,7 +9,15 @@ export function lookupDeduction(deductionData, icId, directionId = null) {
     : deductionData.directions;
 
   for (const dir of directions) {
-    if (dir.baseline.ic_id === icId) return null;
+    if (dir.baseline.ic_id === icId) {
+      return {
+        direction: dir.id,
+        name: dir.baseline.ic_name,
+        km: 0,
+        physicalKm: null,
+        note: null,
+      };
+    }
     const entry = dir.entries.find(e => e.ic_id === icId);
     if (entry) {
       return {
@@ -321,6 +329,15 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
       const physA = entryOuterDed.physicalKm ?? entryOuterDed.km;
       const physB = splitPoint.entry.physical_km ?? splitPoint.km;
       segDistanceKm = Math.round(Math.abs(physA - physB) * 10) / 10;
+      // viaGaikan時はshortenKmを適用
+      if (viaGaikan) {
+        segDistanceKm = Math.max(0, segDistanceKm - shortenKm);
+      }
+      // 関越道の場合、練馬で降りて中台から乗り直す
+      if (outerRoute === 'kanetsu' && splitPoint.icId === 'nerima' && !viaGaikan) {
+        toName = '中台';
+        segDistanceKm = controlKm;
+      }
     } else {
       // 外側高速→首都高: 入口IC→基準点
       fromName = entryIc.name;
@@ -372,7 +389,16 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     shutokoEndpointIcId = dir?.baseline?.ic_id ?? entryIc.id;
   } else if (splitPoint) {
     // 外側高速途中IC→首都高: 分割点JCTから首都高を開始
-    startIcId = splitPoint.icId;
+    if (viaGaikan) {
+      // viaGaikan時は外環接続点を起点にする
+      startIcId = VIA_GAIKAN_SHUTOKO_ENTRY[outerRoute] ?? splitPoint.icId;
+    } else {
+      startIcId = splitPoint.icId;
+      // 関越道の場合、練馬で降りて中台から乗り直す
+      if (outerRoute === 'kanetsu' && startIcId === 'nerima') {
+        startIcId = 'nakadai';
+      }
+    }
     shutokoEndpointIcId = exitIc.id;
   } else {
     startIcId = resolveShutokoStartIcId({ outerRoute, entryIc, deduction, viaGaikan });
