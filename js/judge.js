@@ -222,7 +222,7 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
         distanceKm: round1(Math.abs(physA - physB)),
         note: entryDed.note ?? exitDed.note ?? null,
       });
-  return { segments: segs, totals: aggregate(segs, roundTrip) };
+      return { segments: segs, totals: aggregate(segs, roundTrip) };
     }
   }
 

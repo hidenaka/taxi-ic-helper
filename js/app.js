@@ -674,6 +674,32 @@ function renderJctDetails(result, entryIc, exitIc) {
   wrap.hidden = false;
 }
 
+function calculateAllRoutes(entryIc, exitIc) {
+  const outerOptions = getOuterRouteOptions(entryIc);
+  const routes = [];
+  
+  for (const outerRoute of outerOptions) {
+    const result = judgeRoute({
+      outerRoute,
+      entryIc, exitIc,
+      roundTrip: true,
+      shutokoRouteId: state.selected.shutokoRouteId
+    }, state.data);
+    
+    const t = result.totals;
+    routes.push({
+      outerRoute,
+      result,
+      // スコア：小さい方が良い（昇順ソート用）
+      totalDist: t.distanceKmOneway,
+      deduction: t.deductionKmOneway,
+      netDist: t.distanceKmOneway - t.deductionKmOneway,
+    });
+  }
+  
+  return routes;
+}
+
 function update() {
   const icById = (id) => state.data.ics.find(x => x.id === id);
   const entryIc = icById(state.selected.entryIcId);
@@ -682,17 +708,65 @@ function update() {
 
   entryIc._viaGaikan = state.selected.viaGaikan;
 
-  const result = judgeRoute({
-    outerRoute: state.selected.outerRoute,
-    entryIc, exitIc,
-    roundTrip: true,
-    shutokoRouteId: state.selected.shutokoRouteId
-  }, state.data);
+  const allRoutes = calculateAllRoutes(entryIc, exitIc);
+  state.allRouteResults = allRoutes;
+  
+  // 現在選択中のouterRouteの結果を表示
+  const current = allRoutes.find(r => r.outerRoute === state.selected.outerRoute) || allRoutes[0];
+  state.lastResult = current.result;
+  
+  renderVerdict(current.result);
+  renderBreakdown(current.result);
+  renderRoutePath(current.result);
+  renderRouteComparison(allRoutes);
+}
 
-  state.lastResult = result;
-  renderVerdict(result);
-  renderBreakdown(result);
-  renderRoutePath(result);
+function renderRouteComparison(allRoutes) {
+  const section = document.getElementById('route-comparison-section');
+  const tabsContainer = document.getElementById('route-tabs');
+  tabsContainer.innerHTML = '';
+
+  if (allRoutes.length <= 1) {
+    section.hidden = true;
+    return;
+  }
+
+  section.hidden = false;
+
+  // 上位3つを選出（総距離が短い順）
+  const top3 = allRoutes
+    .filter(r => r.totalDist > 0)
+    .sort((a, b) => a.totalDist - b.totalDist)
+    .slice(0, 3);
+
+  // 現在選択中のouterRouteが含まれていなければ、先頭を選択
+  const hasCurrent = top3.some(r => r.outerRoute === state.selected.outerRoute);
+  if (!hasCurrent && top3.length > 0) {
+    state.selected.outerRoute = top3[0].outerRoute;
+    document.getElementById('sel-outer-route').value = top3[0].outerRoute;
+  }
+
+  top3.forEach((route, index) => {
+    const tab = document.createElement('button');
+    tab.className = 'route-tab' + (route.outerRoute === state.selected.outerRoute ? ' active' : '');
+    tab.type = 'button';
+
+    const label = state.data.routes.labels[route.outerRoute] || route.outerRoute;
+    tab.innerHTML = `
+      <div class="tab-title">${index + 1}. ${label}</div>
+      <div class="tab-dist">総距離 ${route.totalDist.toFixed(1)}km</div>
+      <div class="tab-ded">控除 ${route.deduction.toFixed(1)}km</div>
+      <div class="tab-net">実質 ${route.netDist.toFixed(1)}km</div>
+    `;
+
+    tab.addEventListener('click', () => {
+      state.selected.outerRoute = route.outerRoute;
+      document.getElementById('sel-outer-route').value = route.outerRoute;
+      update();
+    });
+
+    tabsContainer.appendChild(tab);
+  });
 }
 
 function renderVerdict(result) {

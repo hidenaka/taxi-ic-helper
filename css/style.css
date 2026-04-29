@@ -264,3 +264,34 @@ button:active { background: var(--muted); }
   border-top: 1px solid var(--border);
 }
 .jct-seg-header:first-child { border-top: none; margin-top: 0; }
+
+/* Route comparison tabs */
+.route-comparison { padding: 12px 16px; }
+.route-comparison-label {
+  font-size: 15px; font-weight: 600; margin-bottom: 8px;
+}
+.route-tabs {
+  display: flex; gap: 6px; overflow-x: auto;
+  padding-bottom: 8px; margin-bottom: 8px;
+}
+.route-tab {
+  flex: 1; min-width: 100px; padding: 10px 8px;
+  background: var(--surface); border: 2px solid var(--border);
+  border-radius: 10px; cursor: pointer; text-align: center;
+  transition: all 0.15s;
+}
+.route-tab.active {
+  border-color: var(--self-ded); background: rgba(52, 152, 219, 0.15);
+}
+.route-tab .tab-title {
+  font-size: 13px; font-weight: 700; margin-bottom: 4px;
+}
+.route-tab .tab-dist {
+  font-size: 12px; color: var(--muted);
+}
+.route-tab .tab-ded {
+  font-size: 12px; color: var(--company); font-weight: 600;
+}
+.route-tab .tab-net {
+  font-size: 11px; color: var(--muted);
+}
