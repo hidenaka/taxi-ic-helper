@@ -9,10 +9,11 @@ export function buildSearchEntries(groups) {
   const entries = [];
   for (const grp of groups) {
     for (const { ic } of grp.ics) {
+      const displayName = ic.name.replace(/（[^）]*）/g, '').trim();
       const aliasInline = (ic.aliases && ic.aliases.length)
         ? `／${ic.aliases.join('・')}`
         : '';
-      const value = `${ic.name}${aliasInline}`;
+      const value = `${displayName}${aliasInline}`;
       entries.push({ value, icId: ic.id });
     }
   }

@@ -245,3 +245,22 @@ button:active { background: var(--muted); }
   border: 1px solid var(--border); min-height: 36px; font-size: 13px;
 }
 .btn-clear-log:active { background: var(--border); color: var(--text); }
+
+/* Swap button */
+.swap-field { display: flex; justify-content: center; padding: 4px 0; }
+.btn-swap {
+  background: var(--surface); color: var(--self-ded);
+  border: 1px solid var(--self-ded); border-radius: 8px;
+  min-height: 40px; padding: 8px 20px; font-size: 15px; font-weight: 600;
+  cursor: pointer; width: 100%; max-width: 280px;
+}
+.btn-swap:active { background: var(--self-ded); color: #fff; }
+
+/* JCT segment headers */
+.jct-seg-header {
+  display: block; width: 100%;
+  padding: 6px 0; margin-top: 8px;
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+.jct-seg-header:first-child { border-top: none; margin-top: 0; }

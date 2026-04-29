@@ -222,9 +222,7 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
         distanceKm: round1(Math.abs(physA - physB)),
         note: entryDed.note ?? exitDed.note ?? null,
       });
-  const result = { segments: segs, totals: aggregate(segs, roundTrip) };
-  console.log('[judgeRoute] RESULT', JSON.stringify(result));
-  return result;
+  return { segments: segs, totals: aggregate(segs, roundTrip) };
     }
   }
 

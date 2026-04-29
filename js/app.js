@@ -339,7 +339,8 @@ function populateAllIcSelects() {
     const ogE = document.createElement('optgroup'); ogE.label = ogLabel;
     const ogX = document.createElement('optgroup'); ogX.label = ogLabel;
     for (const { ic } of grp.ics) {
-      const txt = `${emoji} ${ic.name}`;
+      const displayName = ic.name.replace(/（[^）]*）/g, '').trim();
+      const txt = `${emoji} ${displayName}`;
       const e = document.createElement('option'); e.value = ic.id; e.textContent = txt;
       const x = document.createElement('option'); x.value = ic.id; x.textContent = txt;
       ogE.appendChild(e); ogX.appendChild(x);
@@ -375,7 +376,7 @@ function setEntryIc(icId) {
   document.getElementById('sel-entry-ic').value = icId;
 
   const hint = document.getElementById('entry-ic-hint');
-  hint.textContent = ic.route_name || '';
+  hint.textContent = (ic.route_name || '').replace(/（[^）]*）/g, '').trim();
   hint.className = 'hint';
 
   toggleGaikanCheckbox();
@@ -395,7 +396,7 @@ function setExitIc(icId) {
   allSel.value = icId;
 
   const hint = document.getElementById('exit-ic-hint');
-  hint.textContent = ic.route_name || '';
+  hint.textContent = (ic.route_name || '').replace(/（[^）]*）/g, '').trim();
   hint.className = 'hint';
 
   updateOuterRouteOptions();
@@ -545,6 +546,16 @@ function wireEvents() {
   exitInput.addEventListener('change', resolveExitFromSearch);
   exitInput.addEventListener('input',  resolveExitFromSearch);
 
+  // ---- Swap entry/exit ----
+  document.getElementById('btn-swap-ic').addEventListener('click', () => {
+    const entryId = state.selected.entryIcId;
+    const exitId = state.selected.exitIcId;
+    if (!entryId || !exitId) return;
+    setEntryIc(exitId);
+    setExitIc(entryId);
+    update();
+  });
+
   // ---- Session log buttons ----
   document.getElementById('btn-save-oneway').addEventListener('click', () => addLogEntry('oneway'));
   document.getElementById('btn-save-roundtrip').addEventListener('click', () => addLogEntry('roundtrip'));
@@ -577,7 +588,8 @@ function renderRoutePath(result) {
   // Segments from judgeRoute
   for (const seg of result.segments) {
     nodes.push({ type: 'arrow', text: '→' });
-    nodes.push({ type: 'seg', text: seg.name, pay: seg.pay });
+    const cleanName = seg.name.replace(/（[^）]*）/g, '').trim();
+    nodes.push({ type: 'seg', text: cleanName, pay: seg.pay });
   }
 
   nodes.push({ type: 'arrow', text: '→' });
@@ -601,29 +613,64 @@ function renderJctDetails(result, entryIc, exitIc) {
   const wrap = document.getElementById('route-jct-details');
   const list = document.getElementById('route-jct-list');
   list.innerHTML = '';
-  const shutokoSeg = result.segments.find(s => s.route === 'shutoko');
-  const path = shutokoSeg?.path;
-  if (!path || path.length < 2) { wrap.hidden = true; return; }
 
   const ics = state.data.ics;
-  const fullPath = path[0] === entryIc.id ? path.slice() : [entryIc.id, ...path];
-  if (fullPath[fullPath.length - 1] !== exitIc.id) fullPath.push(exitIc.id);
+  let hasAnyPath = false;
 
-  for (let i = 0; i < fullPath.length; i++) {
-    const id = fullPath[i];
-    const ic = ics.find(x => x.id === id);
-    const span = document.createElement('span');
-    const isJct = id.includes('jct') || (ic?.name || '').includes('JCT');
-    span.className = isJct ? 'jct-node jct-is-jct' : 'jct-node jct-is-ic';
-    span.textContent = ic ? ic.name : id;
-    list.appendChild(span);
-    if (i < fullPath.length - 1) {
-      const arrow = document.createElement('span');
-      arrow.className = 'jct-arrow';
-      arrow.textContent = '→';
-      list.appendChild(arrow);
+  // 全セグメントのpathを統合して表示
+  for (const seg of result.segments) {
+    if (seg.path && seg.path.length >= 2) {
+      hasAnyPath = true;
+      // セグメント名をヘッダとして表示
+      const header = document.createElement('div');
+      header.className = 'jct-seg-header';
+      header.textContent = `▼ ${seg.name.replace(/（[^）]*）/g, '').trim()}`;
+      list.appendChild(header);
+
+      for (let i = 0; i < seg.path.length; i++) {
+        const id = seg.path[i];
+        const ic = ics.find(x => x.id === id);
+        const span = document.createElement('span');
+        const isJct = id.includes('jct') || id.includes('JCT') || (ic?.name || '').includes('JCT');
+        span.className = isJct ? 'jct-node jct-is-jct' : 'jct-node jct-is-ic';
+        span.textContent = ic ? ic.name.replace(/（[^）]*）/g, '').trim() : id;
+        list.appendChild(span);
+        if (i < seg.path.length - 1) {
+          const arrow = document.createElement('span');
+          arrow.className = 'jct-arrow';
+          arrow.textContent = '→';
+          list.appendChild(arrow);
+        }
+      }
     }
   }
+
+  // 従来のshutoko pathフォールバック
+  if (!hasAnyPath) {
+    const shutokoSeg = result.segments.find(s => s.route === 'shutoko');
+    const path = shutokoSeg?.path;
+    if (!path || path.length < 2) { wrap.hidden = true; return; }
+
+    const fullPath = path[0] === entryIc.id ? path.slice() : [entryIc.id, ...path];
+    if (fullPath[fullPath.length - 1] !== exitIc.id) fullPath.push(exitIc.id);
+
+    for (let i = 0; i < fullPath.length; i++) {
+      const id = fullPath[i];
+      const ic = ics.find(x => x.id === id);
+      const span = document.createElement('span');
+      const isJct = id.includes('jct') || (ic?.name || '').includes('JCT');
+      span.className = isJct ? 'jct-node jct-is-jct' : 'jct-node jct-is-ic';
+      span.textContent = ic ? ic.name.replace(/（[^）]*）/g, '').trim() : id;
+      list.appendChild(span);
+      if (i < fullPath.length - 1) {
+        const arrow = document.createElement('span');
+        arrow.className = 'jct-arrow';
+        arrow.textContent = '→';
+        list.appendChild(arrow);
+      }
+    }
+  }
+
   wrap.hidden = false;
 }
 
@@ -634,7 +681,6 @@ function update() {
   if (!entryIc || !exitIc) return;
 
   entryIc._viaGaikan = state.selected.viaGaikan;
-  console.log('[app.update] outerRoute=', state.selected.outerRoute, 'entry=', entryIc.id, 'exit=', exitIc.id);
 
   const result = judgeRoute({
     outerRoute: state.selected.outerRoute,
