@@ -15,7 +15,7 @@ export const DRIVING_DETOUR_FACTOR = 1.3;
 export function findNearestICs(pos, ics, { n = 5, filter } = {}) {
   if (!pos) return [];
   return ics
-    .filter((ic) => ic.gps && (!filter || filter(ic)))
+    .filter((ic) => ic.gps && ic.entry_type !== 'transit_only' && (!filter || filter(ic)))
     .map((ic) => ({
       ic,
       distKm: haversineKm(pos, ic.gps) * DRIVING_DETOUR_FACTOR,

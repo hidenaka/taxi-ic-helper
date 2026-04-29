@@ -203,18 +203,19 @@ test('D-INT-B 外環道IC gaikan_direct: 4 hub (美女木/川口/三郷/高谷) 
   // 各IC が外環kp ベースで最寄り首都高接続点経由になっていることを確認
   const cases = [
     // [entryId, expected total km, expected shutoko hub keyword]
-    ['oizumi_jct',          30.8, '5号'],          // bijogi 経由 (kp 0)
-    ['wako_gaikan',         25.3, '5号'],          // bijogi 経由 (kp 5.5)
-    ['bijogi_jct',          23.0, '5号'],          // 自身 (kp 7.8)
-    ['toda_higashi',        26.2, '5号'],          // bijogi 経由 (kp 11)
-    ['kawaguchi_chuo',      16.7, 'S1'],           // kawaguchi 経由 (kp 12.7)
-    ['kawaguchi_jct',       15.0, 'S1'],           // 自身 (kp 14.4)
-    ['gaikan_misato_nishi', 20.0, '6号'],          // misato 経由 (kp 19.5)
-    ['misato_jct',          18.0, '6号'],          // 自身 (kp 21.5)
-    ['misato_minami',       19.5, '6号'],          // misato 経由 (kp 23)
-    ['matsudo_gaikan',      22.5, '京葉道'],        // takaya 経由 (kp 29)
-    ['ichikawa_minami',     17.0, '京葉道'],        // takaya 経由 (kp 34.5)
-    ['takaya_jct',          16.0, '京葉道'],        // 自身 (kp 35.5)
+    // 2026-04-27: shutoko_routes をDijkstra実走km(graph v3)に更新したため total を再計算
+    ['oizumi_jct',          33.7, '5号'],          // bijogi 経由 (kp 0)
+    ['wako_gaikan',         28.2, '5号'],          // bijogi 経由 (kp 5.5)
+    ['bijogi_jct',          25.9, '5号'],          // 自身 (kp 7.8)
+    ['toda_higashi',        29.1, '5号'],          // bijogi 経由 (kp 11)
+    ['kawaguchi_chuo',      33.7, 'S1'],           // kawaguchi 経由 (kp 12.7)
+    ['kawaguchi_jct',       32.0, 'S1'],           // 自身 (kp 14.4)
+    ['gaikan_misato_nishi', 28.1, '6号'],          // misato 経由 (kp 19.5)
+    ['misato_jct',          26.1, '6号'],          // 自身 (kp 21.5)
+    ['misato_minami',       27.6, '6号'],          // misato 経由 (kp 23)
+    ['matsudo_gaikan',      32.6, '京葉道'],        // takaya 経由 (kp 29)
+    ['ichikawa_minami',     27.1, '京葉道'],        // takaya 経由 (kp 34.5)
+    ['takaya_jct',          26.1, '京葉道'],        // 自身 (kp 35.5)
   ];
   for (const [eId, expectedKm, hubKey] of cases) {
     const ic = find(eId);

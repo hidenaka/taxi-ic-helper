@@ -145,12 +145,17 @@ const SHUTOKO_DETOUR_FACTOR = 1.3;
 
 function resolveShutokoDistance({ shutokoRoutes, shutokoDist, shutokoGraph, ics, startIcId, exitIcId, shutokoRouteId }) {
   // 1. explicit pair from shutoko_routes.json (user-curated accurate values)
-  const pair = shutokoRoutes?.pairs.find(p => p.from === startIcId && p.to === exitIcId);
+  const pair = shutokoRoutes?.pairs.find(p =>
+    (p.from === startIcId && p.to === exitIcId) || (p.from === exitIcId && p.to === startIcId));
   if (pair) {
     const opt = shutokoRouteId
       ? pair.options.find(o => o.id === shutokoRouteId)
       : (pair.options.find(o => o.default) || pair.options[0]);
-    if (opt) return { km: opt.km, routeId: opt.id, routeLabel: opt.label, path: opt.path ?? null };
+    if (opt) {
+      const reversed = pair.from === exitIcId && pair.to === startIcId;
+      const path = reversed && opt.path ? [...opt.path].reverse() : (opt.path ?? null);
+      return { km: opt.km, routeId: opt.id, routeLabel: opt.label, path };
+    }
   }
 
   // 2. graph-based Dijkstra (preferred accurate source)
@@ -221,12 +226,16 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     }
   }
 
-  if (isOuter) {
-    const ded = lookupDeduction(deduction, entryIc.id, outerRoute);
-    const controlKm = ded?.km ?? 0;
+  const entryOuterDed = isOuter ? lookupDeduction(deduction, entryIc.id, outerRoute) : null;
+  const exitOuterDed = isOuter ? lookupDeduction(deduction, exitIc.id, outerRoute) : null;
+  const reverseOuter = Boolean(isOuter && !entryOuterDed && exitOuterDed);
+  const outerDed = entryOuterDed || exitOuterDed;
+  const pushOuterSegment = () => {
+    if (!isOuter) return;
+    const controlKm = outerDed?.km ?? 0;
     // 物理走行距離 = physical_km があればそれ。なければ控除値にフォールバック。
     // viaGaikan時は本線が外環接続点 (例: 関越→大泉JCT) で分岐するため shorten_km 分を差引く。
-    const physicalBase = ded?.physicalKm ?? controlKm;
+    const physicalBase = outerDed?.physicalKm ?? controlKm;
     const shortenKm = viaGaikan ? (routes.via_gaikan_shorten_km?.[outerRoute] ?? 0) : 0;
     segs.push({
       name: routes.labels[outerRoute],
@@ -234,8 +243,12 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
       pay: 'company',
       deductionKm: controlKm,
       distanceKm: Math.max(0, physicalBase - shortenKm),
-      note: ded?.note ?? null,
+      note: outerDed?.note ?? null,
     });
+  };
+
+  if (isOuter) {
+    if (!reverseOuter) pushOuterSegment();
   }
 
   if (viaGaikan) {
@@ -253,12 +266,13 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
   }
 
   const startIcId = resolveShutokoStartIcId({ outerRoute, entryIc, deduction, viaGaikan });
+  const shutokoEndpointIcId = reverseOuter ? entryIc.id : exitIc.id;
   // 出口IC が本線baseline 自身 (= 首都高に乗り換える必要がない、本線で完結) なら shutokoセグ自体を追加しない。
   // 例: 港北IC→玉川IC は第三京浜内で完結、首都高は通らない。
-  const skipShutoko = startIcId === exitIc.id;
+  const skipShutoko = startIcId === shutokoEndpointIcId;
   const shutokoInfo = skipShutoko ? null : resolveShutokoDistance({
     shutokoRoutes, shutokoDist, shutokoGraph, ics: deps.ics,
-    startIcId, exitIcId: exitIc.id, shutokoRouteId
+    startIcId, exitIcId: shutokoEndpointIcId, shutokoRouteId
   });
 
   if (!skipShutoko) segs.push({
@@ -269,6 +283,8 @@ export function judgeRoute({ outerRoute, entryIc, exitIc, roundTrip, shutokoRout
     distanceKm: shutokoInfo.km,
     path: shutokoInfo.path ?? null
   });
+
+  if (reverseOuter) pushOuterSegment();
 
   if (exitIc.id === 'wangan_kanpachi' &&
       ['aqua','tateyama','third_keihin','yokoyoko','yokohane_route','kariba_route','wangan_route','hodogaya_route','hokuseisen_route','kitasen_route'].includes(outerRoute)) {

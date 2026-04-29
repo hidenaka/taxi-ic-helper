@@ -2,6 +2,7 @@ import { loadAllData } from './data-loader.js';
 import { judgeRoute } from './judge.js';
 import { createGeoWatcher, findNearestICs, entryGivesCompanyPayDeduction } from './geo.js';
 import { buildSearchEntries, buildValueToIcIdMap } from './search.js';
+import { getOuterRouteOptionsForIc } from './route-options.js';
 
 const state = {
   data: null,
@@ -262,7 +263,9 @@ const DIRECTION_LABELS = {
 };
 
 function buildIcGrouping(data) {
-  const { ics, deduction } = data;
+  const { deduction } = data;
+  // transit_only ノード(JCT通過点) は IC 選択肢に出さない
+  const ics = data.ics.filter(ic => ic.entry_type !== 'transit_only');
   const assignment = new Map();
 
   for (const dir of deduction.directions) {
@@ -395,50 +398,13 @@ function setExitIc(icId) {
   hint.textContent = ic.route_name || '';
   hint.className = 'hint';
 
+  updateOuterRouteOptions();
   updateShutokoRouteOptions();
 }
 
 function getOuterRouteOptions(ic) {
-  if (!ic) return ['none'];
-
-  // Baseline ICs (首都高と外側本線の境界) → fix their direction
-  const baselineMap = {
-    'tokyo_ic':         ['tomei'],
-    'takaido':          ['chuo'],
-    'nerima':           ['kanetsu'],
-    'kawaguchi_jct':    ['tohoku'],
-    'misato_jct':       ['joban'],
-    'shinozaki':        ['keiyo'],
-    'wangan_ichikawa':  ['tokan'],
-    'ukishima_jct':     ['aqua'],
-    'kisarazu_jct':     ['tateyama'],
-    'tamagawa_ic':      ['third_keihin', 'yokoyoko']
-  };
-  if (baselineMap[ic.id]) return baselineMap[ic.id];
-
-  // Data-driven: check which directions contain this IC as an entry.
-  // 複数方面に登録されている場合、湾岸線経由 (tokan/wangan_route/aqua) を
-  // 優先デフォルトにする。それ以外は km 昇順で残す（候補は全部表示）。
-  const WANGAN_FIRST = new Set(['tokan', 'wangan_route', 'aqua']);
-  const matched = [];
-  for (const dir of state.data.deduction.directions) {
-    const entry = dir.entries.find(e => e.ic_id === ic.id);
-    if (entry) matched.push({ id: dir.id, km: entry.km });
-  }
-  if (matched.length > 0) {
-    matched.sort((a, b) => {
-      const aw = WANGAN_FIRST.has(a.id), bw = WANGAN_FIRST.has(b.id);
-      if (aw !== bw) return aw ? -1 : 1;
-      return a.km - b.km;
-    });
-    return matched.map(m => m.id);
-  }
-
-  // Gaikan direct-entry IC
-  if (ic.boundary_tag === 'gaikan') return ['gaikan_direct'];
-
-  // 首都高内 IC (都心側 / 8入口) — no external trunk
-  return ['none'];
+  const exitIc = state.data.ics.find(x => x.id === state.selected.exitIcId);
+  return getOuterRouteOptionsForIc({ ic, exitIc, deduction: state.data.deduction });
 }
 
 function updateOuterRouteOptions() {
