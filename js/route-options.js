@@ -45,10 +45,10 @@ function priorityIndex(list, routeId) {
 /**
  * ICが外側高速のentriesにkm>0で存在するかチェック。
  * km=0の場合（首都高内ICとしての登録）は無視する。
+ * BASELINE_ROUTE_OPTIONSは起点ICの候補だが、km>0のentriesがあるか別途確認。
  */
 function hasRealOuterEntry(ic, deduction) {
   if (!ic) return false;
-  if (BASELINE_ROUTE_OPTIONS[ic.id]) return true;
   for (const dir of deduction.directions) {
     const entry = dir.entries.find((e) => e.ic_id === ic.id);
     if (entry && entry.km > 0) return true;
@@ -100,19 +100,19 @@ function getExitRouteIds(exitIc, deduction) {
 export function getOuterRouteOptionsForIc({ ic, exitIc = null, deduction }) {
   if (!ic) return ['none'];
 
+  // 両方が首都高内IC → 首都高内のみ
+  if (isPureShutokoIc(ic, deduction) && (!exitIc || isPureShutokoIc(exitIc, deduction))) {
+    return ['none'];
+  }
+
   // 入口がBASELINE（外側高速の起点IC）→ そのままBASELINE_ROUTE_OPTIONSを使う
   if (BASELINE_ROUTE_OPTIONS[ic.id]) {
-    let matched = BASELINE_ROUTE_OPTIONS[ic.id].map((id, index) => ({ id, km: index }));
-
-    // 出口が首都高内ICで、かつ外側高速のentriesにkm>0で存在する場合、そのdirectionも追加
+    // 出口も首都高内IC → 首都高内完結（BASELINEでも首都高内への移動は可能）
     if (exitIc && isPureShutokoIc(exitIc, deduction)) {
-      for (const dir of deduction.directions) {
-        const entry = dir.entries.find((e) => e.ic_id === exitIc.id && e.km > 0);
-        if (entry && !matched.some((m) => m.id === dir.id)) {
-          matched.push({ id: dir.id, km: entry.km });
-        }
-      }
+      return ['none'];
     }
+
+    let matched = BASELINE_ROUTE_OPTIONS[ic.id].map((id, index) => ({ id, km: index }));
 
     // 出口マッチングの優先順位ソート
     const exitRouteIds = getExitRouteIds(exitIc, deduction);
@@ -165,11 +165,6 @@ export function getOuterRouteOptionsForIc({ ic, exitIc = null, deduction }) {
 
   // 入口が首都高内IC → 出口ICに応じてouterRouteを決定
   if (isPureShutokoIc(ic, deduction)) {
-    // 出口も首都高内IC → 首都高内のみ
-    if (!exitIc || isPureShutokoIc(exitIc, deduction)) {
-      return ['none'];
-    }
-
     // 出口が外側高速のbaseline → そのdirection
     for (const dir of deduction.directions) {
       if (dir.baseline.ic_id === exitIc.id) {
