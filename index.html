@@ -168,10 +168,20 @@
       font-size: 13px;
       color: #8a8a92;
       font-variant-numeric: tabular-nums;
-      margin: 0 0 22px;
+      margin: 0 0 4px;
       min-height: 18px;
       letter-spacing: 0.3px;
     }
+    .provisional-break {
+      font-size: 15px;
+      color: #7cb8ff;
+      font-variant-numeric: tabular-nums;
+      margin: 0 0 22px;
+      min-height: 20px;
+      letter-spacing: 0.3px;
+      font-weight: 600;
+    }
+    .provisional-break:empty { display: none; }
     .buttons {
       display: flex;
       gap: 10px;
@@ -379,6 +389,7 @@
     <section class="stopwatch">
       <div id="stopwatch-display">00:00:00</div>
       <div id="stopwatch-started" class="stopwatch-started"></div>
+      <div id="provisional-break" class="provisional-break"></div>
       <div class="buttons">
         <button id="btn-start" type="button">スタート</button>
         <button id="btn-record" type="button" disabled>記録</button>
@@ -618,10 +629,16 @@ function renderStopwatch() {
   const ms = currentStopwatchMs();
   $('stopwatch-display').textContent = fmtStopwatch(ms / 1000);
   const startedEl = $('stopwatch-started');
+  const provisionalEl = $('provisional-break');
   if (state.stopwatch.running && state.stopwatch.startedAt) {
     startedEl.textContent = `開始 ${fmtTime(new Date(state.stopwatch.startedAt))}`;
+    const recordedMin = Math.floor(state.records.reduce((s, r) => s + r.durationSec, 0) / 60);
+    const currentMin = Math.floor(ms / 60000);
+    const provisionalMin = recordedMin + currentMin;
+    provisionalEl.textContent = `暫定休憩 ${fmtMinutesSub(provisionalMin)}（記録済み ${fmtMinutesSub(recordedMin)} + 現在 ${fmtMinutesSub(currentMin)}）`;
   } else {
     startedEl.textContent = '';
+    provisionalEl.textContent = '';
   }
 }
 
