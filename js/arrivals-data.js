@@ -149,3 +149,23 @@ export function minutesSince(isoString) {
   const t = new Date(isoString);
   return Math.floor((Date.now() - t.getTime()) / 60000);
 }
+
+const STALENESS_WARN_MIN = 15;
+const STALENESS_CRITICAL_MIN = 60;
+const SUPPRESS_BEFORE_JST_HOUR = 5;
+
+function jstHour(date) {
+  const jstStr = date.toLocaleString('en-US', { timeZone: 'Asia/Tokyo', hour: 'numeric', hour12: false });
+  return parseInt(jstStr, 10);
+}
+
+export function classifyStaleness(updatedAtIso, now) {
+  if (!updatedAtIso) return { level: 'suppressed', ageMinutes: null };
+  if (jstHour(now) < SUPPRESS_BEFORE_JST_HOUR) {
+    return { level: 'suppressed', ageMinutes: null };
+  }
+  const ageMinutes = Math.floor((now.getTime() - new Date(updatedAtIso).getTime()) / 60000);
+  if (ageMinutes < STALENESS_WARN_MIN) return { level: 'fresh', ageMinutes };
+  if (ageMinutes <= STALENESS_CRITICAL_MIN) return { level: 'warn', ageMinutes };
+  return { level: 'critical', ageMinutes };
+}
