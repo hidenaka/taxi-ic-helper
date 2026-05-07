@@ -132,16 +132,18 @@ function buildOdptItem([fno, operator, from, terminal, sched, status, aircraft, 
     'owl:sameAs': `urn:uuid:mock-${idx}`,
     'dc:date': '2026-04-25T11:30:00+09:00',
     'odpt:operator': `odpt.Operator:${operator}`,
-    'odpt:airline': `odpt.Airline:${operator}`,
+    'odpt:airline': `odpt.Operator:${operator}`,
     'odpt:flightNumber': [fno],
-    'odpt:departureAirport': `odpt.Airport:${from}`,
-    'odpt:terminal': `odpt.AirportTerminal:HND.${terminal}`,
-    'odpt:scheduledTime': sched,
+    'odpt:originAirport': `odpt.Airport:${from}`,
+    'odpt:arrivalAirport': 'odpt.Airport:HND',
+    'odpt:arrivalAirportTerminal': `odpt.AirportTerminal:HND.Terminal${terminal.replace('T', '')}`,
+    'odpt:scheduledArrivalTime': sched,
     'odpt:flightStatus': `odpt.FlightStatus:${status}`,
-    'odpt:aircraftModel': aircraft
+    'odpt:aircraftType': aircraft
   };
-  if (estimated) item['odpt:estimatedTime'] = estimated;
-  else item['odpt:estimatedTime'] = sched;
+  if (estimated) {
+    item['odpt:estimatedArrivalTime'] = estimated;
+  }
   return item;
 }
 

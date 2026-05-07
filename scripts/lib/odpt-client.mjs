@@ -19,7 +19,7 @@ export async function fetchHndArrivals(token) {
       }
       const data = await res.json();
       const hndOnly = data.filter(item => {
-        const t = item['odpt:terminal'];
+        const t = item['odpt:arrivalAirportTerminal'];
         return typeof t === 'string' && t.includes('HND');
       });
       all.push(...hndOnly);

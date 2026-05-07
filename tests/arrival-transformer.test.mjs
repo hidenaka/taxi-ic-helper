@@ -66,20 +66,20 @@ test('国際空港は isInternational=true、stats に internationalFlights を�
     {
       "@type": "odpt:FlightInformationArrival",
       "odpt:flightNumber": ["JL027"],
-      "odpt:departureAirport": "odpt.Airport:JFK",
-      "odpt:terminal": "odpt.AirportTerminal:HND.T3",
-      "odpt:scheduledTime": "11:00",
+      "odpt:originAirport": "odpt.Airport:JFK",
+      "odpt:arrivalAirportTerminal": "odpt.AirportTerminal:HND.Terminal3",
+      "odpt:scheduledArrivalTime": "11:00",
       "odpt:flightStatus": "odpt.FlightStatus:OnTime",
-      "odpt:aircraftModel": "B789"
+      "odpt:aircraftType": "B789"
     },
     {
       "@type": "odpt:FlightInformationArrival",
       "odpt:flightNumber": ["NH001"],
-      "odpt:departureAirport": "odpt.Airport:OKA",
-      "odpt:terminal": "odpt.AirportTerminal:HND.T2",
-      "odpt:scheduledTime": "10:00",
+      "odpt:originAirport": "odpt.Airport:OKA",
+      "odpt:arrivalAirportTerminal": "odpt.AirportTerminal:HND.Terminal2",
+      "odpt:scheduledArrivalTime": "10:00",
       "odpt:flightStatus": "odpt.FlightStatus:OnTime",
-      "odpt:aircraftModel": "B772"
+      "odpt:aircraftType": "B772"
     }
   ];
   const r = transformArrivals(intlSample, seatsMaster, factorsMaster);

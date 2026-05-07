@@ -66,8 +66,8 @@ function extractAirportCode(odptValue) {
 
 function extractTerminal(odptValue) {
   if (!odptValue) return null;
-  const m = odptValue.match(/HND\.(T\d)/);
-  return m ? m[1] : null;
+  const m = odptValue.match(/HND\.Terminal(\d)/);
+  return m ? `T${m[1]}` : null;
 }
 
 function extractAirline(odptValue) {
@@ -93,9 +93,9 @@ export function transformArrivals(odptResponse, seatsMaster, factorsMaster, taxi
     const flightNumber = Array.isArray(item['odpt:flightNumber'])
       ? item['odpt:flightNumber'][0]
       : item['odpt:flightNumber'];
-    const from = extractAirportCode(item['odpt:departureAirport']);
-    const terminal = extractTerminal(item['odpt:terminal']);
-    const aircraftCode = item['odpt:aircraftModel'] ?? null;
+    const from = extractAirportCode(item['odpt:originAirport']);
+    const terminal = extractTerminal(item['odpt:arrivalAirportTerminal']);
+    const aircraftCode = item['odpt:aircraftType'] ?? null;
     const status = STATUS_MAP[item['odpt:flightStatus']] ?? '不明';
     const pax = estimatePax({ aircraftCode, from }, seatsMaster, factorsMaster);
     const baseFields = {
@@ -105,9 +105,9 @@ export function transformArrivals(odptResponse, seatsMaster, factorsMaster, taxi
       fromName: AIRPORT_NAMES[from] ?? from,
       terminal,
       isInternational: classifyDomestic(from),
-      scheduledTime: item['odpt:scheduledTime'] ?? null,
-      estimatedTime: item['odpt:estimatedTime'] ?? null,
-      actualTime: item['odpt:actualTime'] ?? null,
+      scheduledTime: item['odpt:scheduledArrivalTime'] ?? null,
+      estimatedTime: item['odpt:estimatedArrivalTime'] ?? item['odpt:scheduledArrivalTime'] ?? null,
+      actualTime: item['odpt:actualArrivalTime'] ?? null,
       status,
       aircraftCode,
       ...pax
