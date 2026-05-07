@@ -164,6 +164,34 @@ export function renderWeatherBanner(container, weather) {
   container.classList.remove('is-active', 'is-recovery');
 }
 
+export function renderStaleBanner(container, classification) {
+  if (!container) return;
+  if (!classification || classification.level === 'fresh' || classification.level === 'suppressed') {
+    container.innerHTML = '';
+    container.hidden = true;
+    container.classList.remove('is-warn', 'is-critical');
+    return;
+  }
+  const { level, ageMinutes } = classification;
+  container.hidden = false;
+  if (level === 'warn') {
+    container.classList.add('is-warn');
+    container.classList.remove('is-critical');
+    container.innerHTML = `
+      <span class="stale-icon">⚠</span>
+      <span class="stale-msg">データが <strong>${ageMinutes}分前</strong>。更新が遅延している可能性があります。</span>
+    `;
+    return;
+  }
+  // critical
+  container.classList.add('is-critical');
+  container.classList.remove('is-warn');
+  container.innerHTML = `
+    <span class="stale-icon">⚠</span>
+    <span class="stale-msg">データが <strong>${ageMinutes}分前</strong>。API 停止の可能性があるため参考程度にしてください。</span>
+  `;
+}
+
 export function renderFlightList(container, flights) {
   container.innerHTML = '';
   if (flights.length === 0) {
