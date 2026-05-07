@@ -1,5 +1,5 @@
-import { loadArrivals, filterByTerminals, filterByTimeWindow, aggregateHeatmapClient, summarizeFlights, detectTopics } from './arrivals-data.js';
-import { renderHeatmap, renderFlightList, renderUpdatedAt, renderSummary, renderLegend, renderTopics, renderWeatherBanner } from './arrivals-render.js';
+import { loadArrivals, filterByTerminals, filterByTimeWindow, aggregateHeatmapClient, summarizeFlights, detectTopics, classifyStaleness } from './arrivals-data.js';
+import { renderHeatmap, renderFlightList, renderUpdatedAt, renderSummary, renderLegend, renderTopics, renderWeatherBanner, renderStaleBanner } from './arrivals-render.js';
 
 const TAB_TERMINALS = {
   'T1': ['T1'],
@@ -31,6 +31,10 @@ function render() {
   const summary = summarizeFlights(visible, summaryOpts);
   const topics = detectTopics(all);
   renderWeatherBanner(document.getElementById('weather-banner'), state.arrivals.weather ?? null);
+  renderStaleBanner(
+    document.getElementById('stale-banner'),
+    classifyStaleness(state.arrivals.updatedAt, new Date())
+  );
   renderTopics(document.getElementById('topics'), topics);
   renderSummary(document.getElementById('summary'), summary);
   const heatmapEl = document.getElementById('heatmap');
