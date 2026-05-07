@@ -358,7 +358,7 @@ mock データの `updatedAt` を手で書き換えて検証:
 node -e '
   const fs = require("fs");
   const j = JSON.parse(fs.readFileSync("./data/arrivals.json", "utf8"));
-  const past = new Date(Date.now() - 30 * 60 * 1000).toISOString().replace("Z", "+09:00").replace(/\.\d+/, "");
+  const past = new Date(Date.now() - 30 * 60 * 1000 + 9 * 3600 * 1000).toISOString().replace("Z", "+09:00").replace(/\.\d+/, "");
   j.updatedAt = past;
   fs.writeFileSync("./data/arrivals.json", JSON.stringify(j, null, 2));
   console.log("updatedAt set to 30 minutes ago:", past);
@@ -375,7 +375,7 @@ npm run serve
 node -e '
   const fs = require("fs");
   const j = JSON.parse(fs.readFileSync("./data/arrivals.json", "utf8"));
-  const past = new Date(Date.now() - 90 * 60 * 1000).toISOString().replace("Z", "+09:00").replace(/\.\d+/, "");
+  const past = new Date(Date.now() - 90 * 60 * 1000 + 9 * 3600 * 1000).toISOString().replace("Z", "+09:00").replace(/\.\d+/, "");
   j.updatedAt = past;
   fs.writeFileSync("./data/arrivals.json", JSON.stringify(j, null, 2));
   console.log("updatedAt set to 90 minutes ago:", past);
@@ -532,7 +532,7 @@ npm run serve
 node -e '
   const fs = require("fs");
   const j = JSON.parse(fs.readFileSync("./data/arrivals.json", "utf8"));
-  const past = new Date(Date.now() - 30 * 60 * 1000).toISOString().replace("Z", "+09:00").replace(/\.\d+/, "");
+  const past = new Date(Date.now() - 30 * 60 * 1000 + 9 * 3600 * 1000).toISOString().replace("Z", "+09:00").replace(/\.\d+/, "");
   j.updatedAt = past;
   fs.writeFileSync("./data/arrivals.json", JSON.stringify(j, null, 2));
 '
