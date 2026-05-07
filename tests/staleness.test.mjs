@@ -46,6 +46,16 @@ test('classifyStaleness: 180 分前 → critical', () => {
   assert.equal(r.ageMinutes, 180);
 });
 
+test('classifyStaleness: JST 05:00 ちょうど → 抑制解除 (境界、< 5)', () => {
+  const fiveAmJst = new Date('2026-05-07T05:00:00+09:00');
+  const r = classifyStaleness(
+    new Date(fiveAmJst.getTime() - 0).toISOString(),
+    fiveAmJst
+  );
+  assert.equal(r.level, 'fresh');
+  assert.equal(r.ageMinutes, 0);
+});
+
 test('classifyStaleness: JST 04:30 時点で 8 時間前 → suppressed (朝5時前は抑制)', () => {
   const earlyMorningJst = new Date('2026-05-07T04:30:00+09:00');
   const r = classifyStaleness(
