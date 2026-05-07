@@ -197,3 +197,44 @@ mock 生成スクリプトは `transformArrivals` を経由してから書き出
 - 手で `updatedAt` を古くした検証で `warn` / `critical` バナーが正しい色と文言で出る
 - `npm test` が全件グリーン
 - README が v0.7 表記に更新されている
+
+---
+
+## 補遺: ODPT 現行 API スキーマと事前想定の差分 (2026-05-07 発見)
+
+ローカル実データ検証 (Task 6 相当) を進めた際、既存の `scripts/lib/odpt-client.mjs` と `scripts/lib/arrival-transformer.mjs` が想定していた ODPT スキーマと、現行 API の応答が大きく異なることが判明した。本セッション内で 2 つの追加改修を行ったため、その変更内容を記録する。
+
+### 追加改修 1: フィールド名の移行
+
+| 旧 (削除) | 新 (採用) |
+|---|---|
+| `odpt:terminal` | `odpt:arrivalAirportTerminal` |
+| `odpt:departureAirport` | `odpt:originAirport` |
+| `odpt:scheduledTime` | `odpt:scheduledArrivalTime` |
+| `odpt:estimatedTime` | (応答に無し → `scheduledArrivalTime` で fallback) |
+| `odpt:actualTime` | `odpt:actualArrivalTime` |
+| `odpt:aircraftModel` | `odpt:aircraftType` |
+| ターミナル: `HND.T1` | ターミナル: `HND.Terminal1` (派生 `Terminal1.SouthWing` `Terminal1.NorthWing` も含む) |
+
+`extractTerminal` の正規表現を `/HND\.Terminal(\d)/` に変更することで `Terminal1.SouthWing` / `Terminal1.NorthWing` / `Terminal1` / `Terminal2` / `Terminal3` のすべてが `T1` / `T2` / `T3` に正しく抽出されるようになった。
+
+旧スキーマのフォールバックは残さず完全廃止 (ODPT は単一ソース)。`tests/fixtures/odpt-arrival-sample.json` と `scripts/generate-mock-arrivals.mjs` も新スキーマで再構築。
+
+### 追加改修 2: aircraftType エイリアスマッピング
+
+ODPT は `aircraftType` を IATA 派生コード (`77W`, `351`, `789`, `73H`, `78P`, `722`, `32S` 等) で返すが、`data/aircraft-seats.json` のキーは ICAO 風 (`B77W`, `A35K`, `B789`, `B738` 等)。コード体系の不一致により、改修前は **7 オペレータ 540 便のうちほぼ全便で `seatCount: null` (= 機材不明)** となり、UI 上 ヒートマップが「0人 (N便) 機材不明N」表示となって到着便ビューワーが事実上「0」に見える状態だった。
+
+`scripts/lib/pax-estimator.mjs` に `AIRCRAFT_CODE_ALIASES` (Boeing 777/787/767/737, Airbus A350/A320, Embraer, ANA 内部コードを含む 24 エントリ) と `resolveAircraftKey` を追加。`flight.aircraftCode` 出力フィールド自体は元コードのまま透過 (フロントの「機材不明」判定不変)。
+
+`data/aircraft-seats.json` には `B763` (Boeing 767-300, JAL 国内線標準 270 席) を 1 エントリ追加。
+
+これにより known rate が 91.5% (494/540) に改善。残 46 件の機材不明は ODPT 側で `aircraftType` が未登録の便で、対処不可の正当な欠損。
+
+### 想定外スコープに踏み込んだ理由
+
+設計時点では「既存パイプラインがそのまま動く」前提だったため、これらの作業は当初の non-goal だった。しかし実データ取得の最初の試行で:
+
+1. `transformArrivals` の出力 (フロントが消費するスキーマ) を実データで埋めるには transformer の入力側を新スキーマに合わせる必要がある (機能的必須)
+2. aircraftType マッピング不在による 9 割超の `estimatedPax: null` 状態は、UI の使いやすさ以前に「実データ運用の意味が無い」レベルの劣化を生む
+
+の 2 点が判明したため、Task 6 を完了させるための追加改修として両方をスコープに含めた。係数の本格再校正 (reachRate / taxiBucket / heatmap 閾値) は引き続き別タスク扱い。
