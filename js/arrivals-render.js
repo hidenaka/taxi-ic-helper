@@ -166,6 +166,7 @@ export function renderWeatherBanner(container, weather) {
 
 export function renderStaleBanner(container, classification) {
   if (!container) return;
+  // suppressed (JST 5時前 or updatedAt 欠損) は fresh と同じく非表示
   if (!classification || classification.level === 'fresh' || classification.level === 'suppressed') {
     container.innerHTML = '';
     container.hidden = true;
