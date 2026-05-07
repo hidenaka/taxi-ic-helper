@@ -16,34 +16,34 @@ test('classifyStaleness: 0 分前 → fresh', () => {
   assert.equal(r.ageMinutes, 0);
 });
 
-test('classifyStaleness: 14 分前 → fresh (境界手前)', () => {
-  const r = classifyStaleness(minutesAgoIso(14), noon);
+test('classifyStaleness: 29 分前 → fresh (境界手前)', () => {
+  const r = classifyStaleness(minutesAgoIso(29), noon);
   assert.equal(r.level, 'fresh');
-  assert.equal(r.ageMinutes, 14);
+  assert.equal(r.ageMinutes, 29);
 });
 
-test('classifyStaleness: 15 分前 → warn (境界)', () => {
-  const r = classifyStaleness(minutesAgoIso(15), noon);
+test('classifyStaleness: 30 分前 → warn (境界)', () => {
+  const r = classifyStaleness(minutesAgoIso(30), noon);
   assert.equal(r.level, 'warn');
-  assert.equal(r.ageMinutes, 15);
+  assert.equal(r.ageMinutes, 30);
 });
 
-test('classifyStaleness: 60 分前 → warn (境界)', () => {
-  const r = classifyStaleness(minutesAgoIso(60), noon);
+test('classifyStaleness: 90 分前 → warn (境界)', () => {
+  const r = classifyStaleness(minutesAgoIso(90), noon);
   assert.equal(r.level, 'warn');
-  assert.equal(r.ageMinutes, 60);
+  assert.equal(r.ageMinutes, 90);
 });
 
-test('classifyStaleness: 61 分前 → critical', () => {
-  const r = classifyStaleness(minutesAgoIso(61), noon);
+test('classifyStaleness: 91 分前 → critical', () => {
+  const r = classifyStaleness(minutesAgoIso(91), noon);
   assert.equal(r.level, 'critical');
-  assert.equal(r.ageMinutes, 61);
+  assert.equal(r.ageMinutes, 91);
 });
 
-test('classifyStaleness: 180 分前 → critical', () => {
-  const r = classifyStaleness(minutesAgoIso(180), noon);
+test('classifyStaleness: 240 分前 → critical', () => {
+  const r = classifyStaleness(minutesAgoIso(240), noon);
   assert.equal(r.level, 'critical');
-  assert.equal(r.ageMinutes, 180);
+  assert.equal(r.ageMinutes, 240);
 });
 
 test('classifyStaleness: JST 05:00 ちょうど → 抑制解除 (境界、< 5)', () => {

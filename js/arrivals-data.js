@@ -158,8 +158,8 @@ export function minutesSince(isoString) {
   return Math.floor((Date.now() - t.getTime()) / 60000);
 }
 
-const STALENESS_WARN_MIN = 15;
-const STALENESS_CRITICAL_MIN = 60;
+const STALENESS_WARN_MIN = 30;
+const STALENESS_CRITICAL_MIN = 90;
 const SUPPRESS_BEFORE_JST_HOUR = 5;
 
 function jstHour(date) {
