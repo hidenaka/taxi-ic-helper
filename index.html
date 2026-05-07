@@ -28,6 +28,14 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    /* Back link to daily report */
+    .back-link {
+      display: block; padding: 8px 14px; background: #1a1a24;
+      border-bottom: 1px solid rgba(255,255,255,0.08); color: #8a8a92;
+      text-decoration: none; font-size: 13px;
+    }
+    .back-link:hover { color: #f0f0f0; background: #22222e; }
+
     /* Top tabs (shared with index.html) */
     .app-tabs {
       display: flex; position: sticky; top: 0; z-index: 10;
@@ -356,6 +364,7 @@
   </style>
 </head>
 <body>
+  <a href="https://hidenaka.github.io/taxi-daily-report/" class="back-link">← タクシー日報に戻る</a>
   <nav class="app-tabs" role="tablist" aria-label="アプリ切替">
     <a href="./" class="app-tab active" aria-current="page">⏱ 乗務タイマー</a>
     <a href="ic.html" class="app-tab">🛣 IC判定</a>
