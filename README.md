@@ -136,3 +136,4 @@ GitHub Actions が JST 5:00-24:00 の間、5分ごとに ODPT API を叩き
 - **v0.4**: 羽田到着便ビューワー（ODPT API + 国交省統計、GitHub Actions 5分更新）
 - **v0.5**: タクシー候補数推定（経験則ベース時間帯×ターミナル分担率＋終電到達率＋遅延ブースト＋ODPT京急/モノレール運行情報リアルタイム連携）
 - **v0.6**: 雷解除ブースト（Open-Meteo で羽田上空の雷活動を検出、解除から60分の滞留便ラッシュ需要を補正。深夜帯は対象外）
+- **v0.7**: ODPT 実データ運用切替（`ODPT_TOKEN` Secrets 経由）+ updatedAt 鮮度警告バナー（15分超で warn / 60分超で critical）。`generate-mock-arrivals.mjs` はオフライン開発・テスト用フィクスチャに役割変更
