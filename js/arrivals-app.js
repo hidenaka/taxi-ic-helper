@@ -1,4 +1,4 @@
-import { loadArrivals, filterByTerminals, filterByTimeWindow, aggregateHeatmapClient, summarizeFlights, detectTopics, classifyStaleness } from './arrivals-data.js';
+import { loadArrivals, filterByTerminals, filterByTimeWindow, aggregateHeatmapClient, summarizeFlights, detectTopics, classifyStaleness, sortFlightsByTime } from './arrivals-data.js';
 import { renderHeatmap, renderFlightList, renderUpdatedAt, renderSummary, renderLegend, renderTopics, renderWeatherBanner, renderStaleBanner } from './arrivals-render.js';
 
 const TAB_TERMINALS = {
@@ -44,7 +44,7 @@ function render() {
   if (title) title.textContent = state.heatmapMode === 'taxi'
     ? '時間帯別 タクシー候補数（30分単位）'
     : '時間帯別 推定降客数（30分単位）';
-  renderFlightList(document.getElementById('flight-list'), visible);
+  renderFlightList(document.getElementById('flight-list'), sortFlightsByTime(visible));
   renderUpdatedAt(
     document.getElementById('arrivals-footer'),
     state.arrivals.updatedAt,

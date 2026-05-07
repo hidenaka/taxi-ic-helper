@@ -114,3 +114,42 @@ test('detectTopics: 到着済み便はトピックから除外', () => {
   const topics = detectTopics(flights);
   assert.equal(topics.length, 0);
 });
+
+import { sortFlightsByTime } from '../js/arrivals-data.js';
+
+test('sortFlightsByTime: estimatedTime 昇順に並べ替える', () => {
+  const flights = [
+    { flightNumber: 'B', scheduledTime: '18:30', estimatedTime: '18:30' },
+    { flightNumber: 'A', scheduledTime: '17:00', estimatedTime: '17:00' },
+    { flightNumber: 'C', scheduledTime: '20:00', estimatedTime: '20:00' }
+  ];
+  const sorted = sortFlightsByTime(flights);
+  assert.deepEqual(sorted.map(f => f.flightNumber), ['A', 'B', 'C']);
+});
+
+test('sortFlightsByTime: estimatedTime が無ければ scheduledTime で並べる', () => {
+  const flights = [
+    { flightNumber: 'X', scheduledTime: '19:00' },
+    { flightNumber: 'Y', scheduledTime: '17:30' }
+  ];
+  assert.deepEqual(sortFlightsByTime(flights).map(f => f.flightNumber), ['Y', 'X']);
+});
+
+test('sortFlightsByTime: 元配列を破壊しない', () => {
+  const flights = [
+    { flightNumber: 'B', estimatedTime: '20:00' },
+    { flightNumber: 'A', estimatedTime: '17:00' }
+  ];
+  const original = flights.slice();
+  sortFlightsByTime(flights);
+  assert.deepEqual(flights, original);
+});
+
+test('sortFlightsByTime: 時刻情報なし便は末尾に', () => {
+  const flights = [
+    { flightNumber: 'C' },
+    { flightNumber: 'A', estimatedTime: '18:00' },
+    { flightNumber: 'B', estimatedTime: '19:00' }
+  ];
+  assert.deepEqual(sortFlightsByTime(flights).map(f => f.flightNumber), ['A', 'B', 'C']);
+});

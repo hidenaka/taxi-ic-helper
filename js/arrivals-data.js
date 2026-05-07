@@ -116,6 +116,14 @@ function timeToMinutes(hhmm) {
   return h * 60 + m;
 }
 
+export function sortFlightsByTime(flights) {
+  return [...flights].sort((a, b) => {
+    const ta = timeToMinutes(a.estimatedTime ?? a.scheduledTime) ?? Infinity;
+    const tb = timeToMinutes(b.estimatedTime ?? b.scheduledTime) ?? Infinity;
+    return ta - tb;
+  });
+}
+
 export function detectTopics(flights) {
   const topics = [];
   for (const f of flights) {
