@@ -52,7 +52,7 @@ ODPT トークンを入手したため、フロント側のデータソースを
 4. **`arrivals.html`**: `<div id="stale-banner">` を `#weather-banner` の直後に追加
 5. **`js/arrivals-app.js`**: `render()` 内で staleness 判定→`renderStaleBanner` 呼び出し
 6. **`js/arrivals-render.js`**: `renderStaleBanner(el, updatedAtIso, nowDate)` 関数を追加 (既存 `renderWeatherBanner` と同じ作法)
-7. **`tests/staleness.test.js`** (新規): staleness 判定純粋関数のユニットテスト
+7. **`tests/staleness.test.mjs`** (新規): staleness 判定純粋関数のユニットテスト
 
 ## Staleness 警告仕様
 
@@ -150,7 +150,7 @@ mock 生成スクリプトは `transformArrivals` を経由してから書き出
 
 ## テスト計画
 
-### 新規ユニットテスト (`tests/staleness.test.js`)
+### 新規ユニットテスト (`tests/staleness.test.mjs`)
 
 `classifyStaleness` 純粋関数に対して以下のケース:
 
