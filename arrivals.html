@@ -100,6 +100,11 @@
     #weather-banner.is-recovery { background: linear-gradient(90deg, #2a3a18, #3a4d20); color: #fff3a0; border-color: #5a6e2a; }
     #weather-banner .weather-icon { font-size: 18px; }
     #weather-banner strong { color: #fff; font-weight: 700; }
+    #stale-banner { padding: 10px 12px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #2a2a35; }
+    #stale-banner.is-warn { background: linear-gradient(90deg, #3a3208, #4a3f10); color: #ffe88a; border-color: #6b5a20; }
+    #stale-banner.is-critical { background: linear-gradient(90deg, #4a2010, #5a2818); color: #ffc89a; border-color: #6b3520; }
+    #stale-banner .stale-icon { font-size: 18px; }
+    #stale-banner strong { color: #fff; font-weight: 700; }
     .flight-line2 { display: flex; gap: 8px; color: var(--sub); font-size: 12px; padding-left: 50px; }
     .flight-row.is-delayed { background: rgba(255, 184, 77, 0.08); }
     .flight-row.is-delayed .status { color: var(--warn); }
@@ -128,6 +133,8 @@
   <div id="arrivals-error" hidden></div>
 
   <div id="weather-banner" hidden></div>
+
+  <div id="stale-banner" hidden></div>
 
   <div id="topics" hidden></div>
 
