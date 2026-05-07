@@ -93,6 +93,12 @@ test("aircraftCode が null → seatCount = null", () => {
   assert.equal(r.estimatedPax, null);
 });
 
+test("ODPT alias '722' → B772: 405席 × 0.70 = 284 (推定マッピング)", () => {
+  const r = estimatePax({ aircraftCode: '722', from: 'XXX' }, fullSeatsMaster, factorsMaster);
+  assert.equal(r.seatCount, 405);
+  assert.equal(r.estimatedPax, Math.round(405 * 0.70)); // 284
+});
+
 test("ICAO コード 'B789' 直接渡し → alias 経由しなくても seats が取れる", () => {
   const r = estimatePax({ aircraftCode: 'B789', from: 'XXX' }, fullSeatsMaster, factorsMaster);
   assert.equal(r.seatCount, 246);

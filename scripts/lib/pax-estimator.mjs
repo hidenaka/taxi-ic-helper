@@ -25,9 +25,9 @@ const AIRCRAFT_CODE_ALIASES = {
   '76W': 'B763',  // JAL 767 winglets
   // Boeing 737
   '73H': 'B738',  // 737-800 with winglets
-  '73D': 'B738',
-  '73L': 'B738',
-  '73S': 'B738',
+  '73D': 'B738',  // ANA 737-800 派生
+  '73L': 'B738',  // ANA 737-800 派生
+  '73S': 'B738',  // ANA 737-800 short-range 派生
   '738': 'B738',
   // Airbus A350
   '359': 'A359',
