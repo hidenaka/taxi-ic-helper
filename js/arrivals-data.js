@@ -1,5 +1,6 @@
 export async function loadArrivals() {
-  const res = await fetch('./data/arrivals.json', { cache: 'no-store' });
+  // GitHub Pages の CDN キャッシュもバイパスするため URL に時刻クエリを付与
+  const res = await fetch(`./data/arrivals.json?t=${Date.now()}`, { cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
