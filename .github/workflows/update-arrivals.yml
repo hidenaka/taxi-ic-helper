@@ -44,7 +44,17 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add data/arrivals.json
             git commit -m "chore(arrivals): auto-update $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')"
-            git push
+            # arrivals/weather 同時起動時の race 吸収: pull --rebase してから push を 3 回まで再試行
+            for i in 1 2 3; do
+              git pull --rebase origin main || true
+              if git push; then
+                exit 0
+              fi
+              echo "push failed (attempt $i), retrying..."
+              sleep $((i * 5))
+            done
+            echo "push failed after 3 retries"
+            exit 1
           else
             echo "No change. Skipping commit."
           fi
