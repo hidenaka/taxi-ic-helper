@@ -1,6 +1,6 @@
 /**
  * 搭乗者数推定（純関数）
- * @param {{aircraftCode: string|null, flightNumber: string, from: string}} flight
+ * @param {{aircraftCode: string|null, flightNumber?: string|null, from: string}} flight
  * @param {Object} seatsMaster - aircraft-seats.json の中身
  * @param {{default: number, routes: Object}} factorsMaster - load-factors.json の中身
  * @param {{byFlightNumber: Object, byRoute: Object}} [aircraftFallback] - 機材不明便のフォールバック辞書
@@ -49,7 +49,13 @@ function resolveAircraftKey(rawCode) {
   return AIRCRAFT_CODE_ALIASES[rawCode] ?? rawCode;
 }
 
-function resolveSeats(seatsMaster, code) {
+/**
+ * code が seatsMaster に存在するかを検証し、存在すればそのキーを、なければ null を返す。
+ * @param {Object} seatsMaster
+ * @param {string|null|undefined} code
+ * @returns {string|null} 検証済みコード or null
+ */
+function validateAircraftCode(seatsMaster, code) {
   if (!code) return null;
   return seatsMaster[code] ? code : null;
 }
@@ -58,16 +64,16 @@ export function estimatePax(flight, seatsMaster, factorsMaster, aircraftFallback
   const { aircraftCode, flightNumber, from } = flight;
 
   // 1. 通常パス: AIRCRAFT_CODE_ALIASES → seatsMaster
-  let resolvedCode = resolveSeats(seatsMaster, resolveAircraftKey(aircraftCode));
+  let resolvedCode = validateAircraftCode(seatsMaster, resolveAircraftKey(aircraftCode));
 
   // 2. フォールバック: 便番号辞書
   if (!resolvedCode && aircraftFallback?.byFlightNumber && flightNumber) {
-    resolvedCode = resolveSeats(seatsMaster, aircraftFallback.byFlightNumber[flightNumber]);
+    resolvedCode = validateAircraftCode(seatsMaster, aircraftFallback.byFlightNumber[flightNumber]);
   }
 
   // 3. フォールバック: 路線辞書
   if (!resolvedCode && aircraftFallback?.byRoute && from) {
-    resolvedCode = resolveSeats(seatsMaster, aircraftFallback.byRoute[from]);
+    resolvedCode = validateAircraftCode(seatsMaster, aircraftFallback.byRoute[from]);
   }
 
   if (!resolvedCode) {
