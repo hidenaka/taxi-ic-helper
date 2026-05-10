@@ -8,6 +8,45 @@
 
 判断: 進行可。User-Agent に bot 識別子 + GitHub URL を明記して 15 分間隔で取得開始。運営から連絡があれば即停止する運用で安全。
 
+## 運用形態: ローカル launchd (GeoIP 制約のため)
+
+GitHub Actions runner (Azure US) から ttc.taxi-inf.jp:443 への TCP 接続が
+`UND_ERR_CONNECT_TIMEOUT` で失敗する (海外 IP 拒否)。日本国内 IP からは正常に
+取得できるため、ローカル Mac の launchd で観測ジョブを動かす運用に切り替え。
+
+### 起動手順
+
+```bash
+cd "/Users/hideakimacbookair/Library/Mobile Documents/com~apple~CloudDocs/タクシー乗務アプリ/乗務地図関係"
+./scripts/install-observe-launchd.sh install
+```
+
+15 分間隔 (`StartInterval: 900`) で `scripts/observe-tick-local.sh` が起動し、
+画像取得 → 解析 → jsonl 追記 → git push を行う。
+
+### 状態確認
+
+```bash
+./scripts/install-observe-launchd.sh status
+```
+
+`launchctl list | grep jp.taxi-ic-helper.observe` で PID と最終 exit ステータスを表示。
+ログは `.local/observe-stdout.log` / `.local/observe-stderr.log` (gitignore)。
+
+### 停止・再開
+
+```bash
+./scripts/install-observe-launchd.sh uninstall  # 停止
+./scripts/install-observe-launchd.sh install    # 再開
+./scripts/install-observe-launchd.sh run-once   # 1 回だけ手動実行 (デバッグ)
+```
+
+### 制約と前提
+
+- Mac がスリープ / 電源 OFF 中は観測されない (データ欠損)
+- 14 日連続観測の網羅率は実際の Mac 稼働時間に依存
+- 14 日経過後の Phase B 分析時に `tick_seq` の連続性で欠損を集計し、データ品質を判定する
+
 ## 前提
 
 Phase A で `data/taxi-pool-history.jsonl` に 14 日分 (約 4,032 tick) のデータが
