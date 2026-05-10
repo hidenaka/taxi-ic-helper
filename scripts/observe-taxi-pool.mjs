@@ -90,6 +90,9 @@ async function main() {
     ]);
   } catch (e) {
     console.error(`[observe] image fetch failed: ${e.message}`);
+    if (e.cause) {
+      console.error(`[observe] cause: ${e.cause.code ?? ''} ${e.cause.message ?? e.cause}`);
+    }
     console.error('[observe] skipping this tick (no jsonl append)');
     process.exit(0);
   }
