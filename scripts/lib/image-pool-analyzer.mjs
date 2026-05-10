@@ -8,7 +8,7 @@ const BLACK_THRESHOLD = 60; // RGB 各値が 60 未満なら「黒」扱い (タ
  *
  * @param {Buffer} buffer - 解析対象の画像 (JPEG/PNG)
  * @param {{black_ratio: number}|null} prev - 前 tick の解析結果 (null なら初回)
- * @returns {Promise<{sha256, size_bytes, black_ratio, diff_from_prev}>}
+ * @returns {Promise<{sha256: string, size_bytes: number, black_ratio: number, diff_from_prev: number|null}>}
  */
 export async function analyzePoolImage(buffer, prev = null) {
   const sha256 = createHash('sha256').update(buffer).digest('hex');
@@ -26,7 +26,9 @@ export async function analyzePoolImage(buffer, prev = null) {
       blackCount += 1;
     }
   }
-  const black_ratio = Number((blackCount / totalPixels).toFixed(4));
+  const black_ratio = totalPixels > 0
+    ? Number((blackCount / totalPixels).toFixed(4))
+    : 0;
 
   // 簡素化: 前 tick 画像との pixel diff ではなく、black_ratio の差で「変化量」を表現
   const diff_from_prev = (prev && typeof prev.black_ratio === 'number')
