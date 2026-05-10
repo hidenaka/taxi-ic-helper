@@ -42,6 +42,19 @@ if (envActive) {
   }
 }
 
+let aircraftFallbackMaster = null;
+try {
+  const byFn = JSON.parse(readFileSync('./data/aircraft-by-flight-number.json', 'utf8'));
+  const byRt = JSON.parse(readFileSync('./data/aircraft-by-route.json', 'utf8'));
+  aircraftFallbackMaster = {
+    byFlightNumber: byFn.flights ?? {},
+    byRoute: byRt.routes ?? {}
+  };
+} catch (e) {
+  console.error(`[generate-mock-arrivals] aircraft fallback masters not loaded: ${e.message}`);
+  aircraftFallbackMaster = null;
+}
+
 const railOk = {
   Keikyu: { status: 'OnTime', delayMinutes: 0 },
   TokyoMonorail: { status: 'OnTime', delayMinutes: 0 }
@@ -148,14 +161,20 @@ function buildOdptItem([fno, operator, from, terminal, sched, status, aircraft, 
 }
 
 const odptItems = SCHEDULE.map(buildOdptItem);
-const out = transformArrivals(odptItems, seatsMaster, factorsMaster, {
-  transitShare,
-  routes,
-  egress,
-  railStatus: railOk,
-  dayType,
-  weatherContext
-});
+const out = transformArrivals(
+  odptItems,
+  seatsMaster,
+  factorsMaster,
+  {
+    transitShare,
+    routes,
+    egress,
+    railStatus: railOk,
+    dayType,
+    weatherContext
+  },
+  aircraftFallbackMaster
+);
 
 writeFileSync('./data/arrivals.json', JSON.stringify(out, null, 2), 'utf8');
 console.log(`Wrote mock ${out.flights.length} flights to data/arrivals.json`);

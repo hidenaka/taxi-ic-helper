@@ -32,6 +32,19 @@ try {
   railStatusOperators = { Keikyu: { status: 'OnTime', delayMinutes: 0 }, TokyoMonorail: { status: 'OnTime', delayMinutes: 0 } };
 }
 
+let aircraftFallbackMaster = null;
+try {
+  const byFn = JSON.parse(readFileSync('./data/aircraft-by-flight-number.json', 'utf8'));
+  const byRt = JSON.parse(readFileSync('./data/aircraft-by-route.json', 'utf8'));
+  aircraftFallbackMaster = {
+    byFlightNumber: byFn.flights ?? {},
+    byRoute: byRt.routes ?? {}
+  };
+} catch (e) {
+  console.error(`[fetch-arrivals] aircraft fallback masters not loaded: ${e.message}`);
+  aircraftFallbackMaster = null;
+}
+
 let weatherContext = null;
 try {
   const w = JSON.parse(readFileSync('./data/weather.json', 'utf8'));
@@ -54,14 +67,20 @@ if (odptData.length === 0) {
   process.exit(0);
 }
 
-const out = transformArrivals(odptData, seatsMaster, factorsMaster, {
-  transitShare: transitShareMaster,
-  routes: routesMaster,
-  egress: egressMaster,
-  railStatus: railStatusOperators,
-  dayType,
-  weatherContext
-});
+const out = transformArrivals(
+  odptData,
+  seatsMaster,
+  factorsMaster,
+  {
+    transitShare: transitShareMaster,
+    routes: routesMaster,
+    egress: egressMaster,
+    railStatus: railStatusOperators,
+    dayType,
+    weatherContext
+  },
+  aircraftFallbackMaster
+);
 const outPath = './data/arrivals.json';
 const newJson = JSON.stringify(out, null, 2);
 
