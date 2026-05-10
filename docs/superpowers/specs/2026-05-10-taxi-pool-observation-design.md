@@ -81,7 +81,7 @@ Notifications: Email on failure ON
        - sha256 ハッシュ
        - ファイルサイズ
        - black_ratio (RGB 各値が 60 未満のピクセル割合)
-       - diff_from_prev (前 tick の同名画像との pixel-wise abs diff 平均、初回 tick は null)
+       - diff_from_prev (前 tick の同名画像の black_ratio との絶対差分、初回 tick は null)
   5. data/arrivals.json から stats.totalEstimatedTaxiPax と updatedAt
   6. data/weather.json から current.weatherCode と current.lightningActive
   7. data/taxi-pool-history.jsonl に 1 行 append
@@ -100,14 +100,14 @@ Notifications: Email on failure ON
     "size_bytes": 89647,
     "sha256": "abc1234...",
     "black_ratio": 0.6234,
-    "diff_from_prev": 18.42
+    "diff_from_prev": 0.0314
   },
   "img2": {
     "name": "Real02",
     "size_bytes": 85384,
     "sha256": "def5678...",
     "black_ratio": 0.2841,
-    "diff_from_prev": 7.13
+    "diff_from_prev": 0.0072
   },
   "arrivals_state": {
     "updated_at": "2026-05-10T12:55:30+09:00",
@@ -127,7 +127,7 @@ Notifications: Email on failure ON
 - `tick_seq`: 連番 (1 から開始、休止時は連続性が切れる)。抜けの検出
 - `img*.sha256`: 画像同一判定 (サイトが更新を止めた検出)
 - `img*.black_ratio`: 「絶対量」シグナル (プール充足度)。0.0〜1.0
-- `img*.diff_from_prev`: 「変化量」シグナル (出入りの大きさ)。0〜255、初回 null
+- `img*.diff_from_prev`: 「変化量」シグナル (黒色比率の絶対差分)。0.0〜1.0、初回 null。pixel-wise diff ではなく black_ratio の差で簡素化したのは、Actions runner で前 tick 画像本体を取り直すコストを避けるため
 - `arrivals_state.total_estimated_taxi_pax`: 同時刻の予測 (= 研究の対義語ペア)
 - `arrivals_state.lag_seconds`: arrivals.json の updatedAt と現在 tick の差。15 分以内が標準
 - `weather.code`: WMO weather code (Open-Meteo)。雨/雷との連動分析用
@@ -137,12 +137,14 @@ Notifications: Email on failure ON
 
 ```javascript
 // jimp で読み込んだ Buffer を引数に取り、解析結果を返す純粋関数
-export function analyzePoolImage(buffer, prevBuffer = null) {
+// prev は前 tick の解析結果オブジェクト (jsonl の最終行から復元)
+export async function analyzePoolImage(buffer, prev = null) {
   // → { sha256, size_bytes, black_ratio, diff_from_prev }
+  // diff_from_prev = prev?.black_ratio があれば |black_ratio - prev.black_ratio|、なければ null
 }
 ```
 
-`prevBuffer` が null なら `diff_from_prev` も null。
+`prev` が null なら `diff_from_prev` も null。Actions runner で前 tick 画像本体を取り直すコストを避けるため、pixel-wise diff ではなく前 tick の black_ratio との絶対差分を採用。
 
 純粋関数なのでテスト可能 (`tests/image-pool-analyzer.test.mjs` で固定画像でユニットテスト)。
 
