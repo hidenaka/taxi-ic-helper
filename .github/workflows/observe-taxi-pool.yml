@@ -1,0 +1,63 @@
+name: Observe Taxi Pool
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: observe-taxi-pool
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci --omit=dev || npm install --omit=dev
+
+      - name: Observe and append jsonl
+        run: node scripts/observe-taxi-pool.mjs
+
+      - name: Upload pool images as artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxi-pool-images-${{ github.run_id }}
+          path: /tmp/taxi-pool-*.jpg
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for i in 1 2 3; do
+            if [ -z "$(git status --porcelain data/taxi-pool-history.jsonl)" ]; then
+              echo "No change. Skipping commit."
+              exit 0
+            fi
+            git add data/taxi-pool-history.jsonl
+            git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
+            if git push; then
+              exit 0
+            fi
+            echo "push failed (attempt $i): refresh and re-append"
+            git rebase --abort 2>/dev/null || true
+            git reset --hard origin/main 2>/dev/null || git reset --hard
+            git fetch origin main
+            git reset --hard origin/main
+            node scripts/observe-taxi-pool.mjs
+            sleep $((i * 3))
+          done
+          echo "push failed after 3 retries"
+          exit 1
