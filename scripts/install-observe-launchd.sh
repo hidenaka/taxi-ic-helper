@@ -12,7 +12,9 @@ set -e
 LABEL="jp.taxi-ic-helper.observe"
 PLIST_DIR="$HOME/Library/LaunchAgents"
 PLIST_PATH="$PLIST_DIR/$LABEL.plist"
-REPO="/Users/hideakimacbookair/Library/Mobile Documents/com~apple~CloudDocs/タクシー乗務アプリ/乗務地図関係"
+# REPO はこのスクリプトの親ディレクトリから自動解決 (どの Mac でも動く)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$REPO/.local"
 LAUNCHER="$REPO/scripts/observe-tick-local.sh"
 

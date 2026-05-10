@@ -9,7 +9,9 @@
 
 set +e
 
-REPO="/Users/hideakimacbookair/Library/Mobile Documents/com~apple~CloudDocs/タクシー乗務アプリ/乗務地図関係"
+# REPO はスクリプトの親ディレクトリから自動解決 (どの Mac に移しても動く)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO" || { echo "[observe-tick] cd failed"; exit 0; }
 
 # Node 22 を Homebrew or .nvm から拾う想定

@@ -47,6 +47,49 @@ cd "/Users/hideakimacbookair/Library/Mobile Documents/com~apple~CloudDocs/タク
 - 14 日連続観測の網羅率は実際の Mac 稼働時間に依存
 - 14 日経過後の Phase B 分析時に `tick_seq` の連続性で欠損を集計し、データ品質を判定する
 
+### Mac mini (24h 稼働機) への移設手順
+
+スリープしない Mac (常時稼働の Mac mini など) があれば、欠損率を最小化できる。
+スクリプトはリポジトリ相対パスで自動解決するため、Mac 名や iCloud Drive のマウント先に依存しない。
+
+**移設手順** (macOS 想定):
+
+1. 観測 Mac (現行) で launchd ジョブを停止:
+   ```bash
+   ./scripts/install-observe-launchd.sh uninstall
+   ```
+
+2. Mac mini 側でこのリポジトリをクローン (同じ Apple ID で iCloud Drive 経由なら同期されているので clone 不要):
+   ```bash
+   # 例: GitHub から clone する場合
+   git clone https://github.com/hidenaka/taxi-ic-helper.git ~/repos/taxi-ic-helper
+   cd ~/repos/taxi-ic-helper
+   npm install
+   ```
+
+3. Mac mini で git push 認証を済ませる (HTTPS PAT or SSH key)。一度手動で `git push` を試して通ることを確認。
+
+4. Mac mini で launchd ジョブを install:
+   ```bash
+   ./scripts/install-observe-launchd.sh install
+   ./scripts/install-observe-launchd.sh run-once  # 1 tick 動作確認
+   ./scripts/install-observe-launchd.sh status
+   ```
+
+5. ログを 1 時間後に確認:
+   ```bash
+   tail -f .local/observe-stdout.log
+   ```
+   `[observe] appended tick_seq=N` が 15 分間隔で出ていれば OK。
+
+**重要 — 二重実行の禁止**:
+
+複数の Mac で同時に launchd を install すると、同じ tick で 2 つの行が
+`data/taxi-pool-history.jsonl` に append されて時系列が乱れる。Mac mini に
+移したら必ず元の Mac で `uninstall` する。
+
+**Mac mini ではスリープを抑止する** (省エネ設定 → コンピュータのスリープ「しない」)。Mac mini は標準でディスプレイスリープのみ可能でシステムスリープは起きないので、デフォルトで問題ないことが多い。
+
 ## 前提
 
 Phase A で `data/taxi-pool-history.jsonl` に 14 日分 (約 4,032 tick) のデータが
