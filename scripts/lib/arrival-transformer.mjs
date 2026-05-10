@@ -88,7 +88,7 @@ function nowJstIso() {
   return jst.toISOString().replace('Z', '+09:00').replace(/\.\d+/, '');
 }
 
-export function transformArrivals(odptResponse, seatsMaster, factorsMaster, taxiOpts = null) {
+export function transformArrivals(odptResponse, seatsMaster, factorsMaster, taxiOpts = null, aircraftFallback = null) {
   const flights = odptResponse.map(item => {
     const flightNumber = Array.isArray(item['odpt:flightNumber'])
       ? item['odpt:flightNumber'][0]
@@ -97,7 +97,7 @@ export function transformArrivals(odptResponse, seatsMaster, factorsMaster, taxi
     const terminal = extractTerminal(item['odpt:arrivalAirportTerminal']);
     const aircraftCode = item['odpt:aircraftType'] ?? null;
     const status = STATUS_MAP[item['odpt:flightStatus']] ?? '不明';
-    const pax = estimatePax({ aircraftCode, from }, seatsMaster, factorsMaster);
+    const pax = estimatePax({ aircraftCode, flightNumber, from }, seatsMaster, factorsMaster, aircraftFallback);
     const baseFields = {
       flightNumber,
       airline: extractAirline(item['odpt:airline']),

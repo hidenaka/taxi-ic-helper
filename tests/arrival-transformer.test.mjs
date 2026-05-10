@@ -147,3 +147,45 @@ test('taxi拡張: 引数 taxiOpts なしでも既存挙動を維持', () => {
     assert.equal(f.estimatedTaxiPax, null);
   }
 });
+
+test('aircraftFallback: 機材不明便でも便番号辞書で seatCount が埋まる', () => {
+  const intlSample = [
+    {
+      "@type": "odpt:FlightInformationArrival",
+      "odpt:flightNumber": ["NH109"],
+      "odpt:originAirport": "odpt.Airport:JFK",
+      "odpt:arrivalAirportTerminal": "odpt.AirportTerminal:HND.Terminal2",
+      "odpt:scheduledArrivalTime": "16:00",
+      "odpt:flightStatus": "odpt.FlightStatus:OnTime"
+      // odpt:aircraftType は意図的に省略 (= MISSING)
+    }
+  ];
+  const intlSeats = {
+    ...seatsMaster,
+    'B77W-INT': { name: 'Boeing 777-300ER (国際線仕様)', seats: 264 },
+  };
+  const aircraftFallback = {
+    byFlightNumber: { 'NH109': 'B77W-INT' },
+    byRoute: {}
+  };
+  const r = transformArrivals(intlSample, intlSeats, factorsMaster, null, aircraftFallback);
+  assert.equal(r.flights[0].aircraftCode, null);  // 元コード透過
+  assert.equal(r.flights[0].seatCount, 264);
+  assert.equal(r.flights[0].estimatedPax, Math.round(264 * 0.70));
+});
+
+test('aircraftFallback: 引数なし時は既存動作 (機材不明便で seatCount=null)', () => {
+  const intlSample = [
+    {
+      "@type": "odpt:FlightInformationArrival",
+      "odpt:flightNumber": ["NH109"],
+      "odpt:originAirport": "odpt.Airport:JFK",
+      "odpt:arrivalAirportTerminal": "odpt.AirportTerminal:HND.Terminal2",
+      "odpt:scheduledArrivalTime": "16:00",
+      "odpt:flightStatus": "odpt.FlightStatus:OnTime"
+    }
+  ];
+  const r = transformArrivals(intlSample, seatsMaster, factorsMaster);
+  assert.equal(r.flights[0].seatCount, null);
+  assert.equal(r.flights[0].estimatedPax, null);
+});
