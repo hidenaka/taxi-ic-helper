@@ -1,13 +1,18 @@
 import { iou } from './iou.mjs';
 
 const IOU_THRESHOLD = 0.3;
-const LOST_THRESHOLD = 2; // 2 tick 連続で消えたら lost 確定
+const LOST_THRESHOLD = 2; // LOST_THRESHOLD tick 連続で見えなかったら次tickで lost 確定 (= 計3tick以上の不在)
 
 export function createEmptyState() {
   return { vehicles: {}, nextId: 1, tick: 0 };
 }
 
 export function updateTracker(state, newBboxes) {
+  // Note: greedy oldest-id-first matching. In dense scenes with multiple
+  // vehicles of similar IoU score, ID swaps can occur. This is acceptable for
+  // Phase 1 because departure-detector.mjs (Task 5) only checks "did a
+  // front_row vehicle disappear" — swap誤判定があっても合計出庫数は不変。
+  // Phase 2 で score-sorted greedy / Hungarian アルゴリズムに置換する。
   const currentTick = state.tick + 1;
   const tracked = [];
   const usedBboxIndices = new Set();

@@ -55,3 +55,30 @@ test('updateTracker: 1tick だけ消えても LOST_THRESHOLD 内なら維持', (
   assert.equal(tracked.length, 1);
   assert.equal(tracked[0].id, 1); // 同じIDで継続
 });
+
+test('updateTracker: 2台が並んでいる時、各IDが安定継続する', () => {
+  let state = createEmptyState();
+  // 初回: 左に1台、右に1台
+  ({ state } = updateTracker(state, [[100, 100, 50, 50], [300, 100, 50, 50]]));
+  // 次tick: 両方軽く動く
+  const { tracked } = updateTracker(state, [[102, 101, 50, 50], [302, 101, 50, 50]]);
+  assert.equal(tracked.length, 2);
+  // 位置順で id が1, 2 のまま継続していること
+  const id1 = tracked.find(t => t.bbox[0] < 200);
+  const id2 = tracked.find(t => t.bbox[0] >= 200);
+  assert.equal(id1.id, 1);
+  assert.equal(id2.id, 2);
+});
+
+test('updateTracker: lost確定後の新規車両は次の番号を振る (ID再利用しない)', () => {
+  let state = createEmptyState();
+  ({ state } = updateTracker(state, [[10, 10, 50, 50]])); // id=1 付与
+  // 3 ticks 空にして id=1 を lost にする
+  ({ state } = updateTracker(state, []));
+  ({ state } = updateTracker(state, []));
+  ({ state } = updateTracker(state, []));
+  // 新規車両を投入
+  const { tracked } = updateTracker(state, [[200, 200, 50, 50]]);
+  assert.equal(tracked.length, 1);
+  assert.equal(tracked[0].id, 2); // id=1 は再利用せず、id=2 が振られる
+});
