@@ -2,18 +2,21 @@
 /**
  * タクシープール観測パイプライン (schema v3) のオーケストレーター。
  *
- * 1. ttc.taxi-inf.jp から画像 2 枚取得
- * 2. analyzePoolImage で各画像のメタデータ + ROI 解析を抽出（schema v2 互換）
- * 3. YOLOv8m で車両検出 → ByteTrack 簡略版で ID 追跡 → lane-roi で割当 → 出庫イベント検出 (schema v3)
- * 4. data/arrivals.json / weather.json から状態取得 + arrivals_window 集計
- * 5. data/taxi-pool-history.jsonl に schema_version=3 で append
- * 6. data/.tracker-state.json にトラッカー状態を保存（次 tick で利用）
+ * 統合構成: stall-based 解析 + YOLO/tracker/lane/departure 解析の両方を1tickで記録する。
  *
- * YOLO モデル (models/yolov8m.onnx) が無い場合は schema v2 のフィールドだけ記録して継続。
- * Workflow からは git commit & push の race-safe ロジックで呼ばれる。
+ * 1. ttc.taxi-inf.jp から画像 2 枚取得
+ * 2. analyzePoolImage で各画像のメタデータ + ROI 解析 (schema v2 互換)
+ * 3. analyzeStalls で stall 単位の混雑度推定 (stall-rois.json がある場合のみ)
+ * 4. YOLOv8m + ByteTrack 簡略版 で個別車両追跡 + 出庫イベント検出 (lane-roi.json + yolov8m.onnx がある場合のみ)
+ * 5. data/arrivals.json / weather.json + arrivals_window 集計
+ * 6. data/taxi-pool-history.jsonl に schema v3 で append
+ * 7. data/.tracker-state.json にトラッカー状態を保存
+ *
+ * 各サブシステムは独立して fall back する。img1/img2 と arrivals_* はいずれも最低限記録される。
  */
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
-import { analyzePoolImage } from './lib/image-pool-analyzer.mjs';
+import { Jimp } from 'jimp';
+import { analyzePoolImage, analyzeStalls } from './lib/image-pool-analyzer.mjs';
 import { summarizeArrivalsWindow } from './lib/arrivals-window-summary.mjs';
 import { detectVehicles, loadModel } from './lib/vehicle-detector.mjs';
 import { updateTracker, createEmptyState } from './lib/vehicle-tracker.mjs';
@@ -26,6 +29,7 @@ const USER_AGENT = 'taxi-ic-helper observation bot (https://github.com/hidenaka/
 const HISTORY_PATH = './data/taxi-pool-history.jsonl';
 const TRACKER_STATE_PATH = './data/.tracker-state.json';
 const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
+const STALL_ROIS_PATH = './scripts/lib/stall-rois.json';
 const LANE_CONFIG_PATH = './data/lane-roi.json';
 const MODEL_PATH = './models/yolov8m.onnx';
 const TIMEOUT_MS = 15000;
@@ -58,6 +62,11 @@ function readLastTick() {
   return null;
 }
 
+function readJson(path) {
+  try { return JSON.parse(readFileSync(path, 'utf8')); }
+  catch { return null; }
+}
+
 function readTrackerState() {
   if (!existsSync(TRACKER_STATE_PATH)) return null;
   try { return JSON.parse(readFileSync(TRACKER_STATE_PATH, 'utf8')); }
@@ -66,11 +75,6 @@ function readTrackerState() {
 
 function writeTrackerState(state) {
   writeFileSync(TRACKER_STATE_PATH, JSON.stringify(state));
-}
-
-function readJson(path) {
-  try { return JSON.parse(readFileSync(path, 'utf8')); }
-  catch { return null; }
 }
 
 function readArrivalsState(arrivals) {
@@ -102,7 +106,6 @@ async function runYoloPipeline(buf, camera, prevTracks, trackerState, laneConfig
   }));
 
   // lost車両は「最終位置のbbox」しか持たないので、ここで lane/front_row を判定し直す。
-  // detectDepartures は lost 側の lane 情報で出庫判定するため必須。
   const lostWithLane = lost.map(v => ({
     ...v,
     ...assignLane(v.bbox, camera, laneConfig)
@@ -160,22 +163,30 @@ async function main() {
     process.exit(0);
   }
 
-  const arrivalsJson = readJson('./data/arrivals.json');
-  const arrivalsState = readArrivalsState(arrivalsJson);
-  const arrivalsWindow = arrivalsJson ? summarizeArrivalsWindow(arrivalsJson, new Date()) : null;
-  const weather = readWeather(readJson('./data/weather.json'));
+  // --- stall-based 解析 (stall-rois.json がある時のみ) ---
+  const stallRois = readJson(STALL_ROIS_PATH);
+  let stalls = null;
+  if (stallRois) {
+    try {
+      const jimpImg1 = await Jimp.read(buf1);
+      const jimpImg2 = await Jimp.read(buf2);
+      stalls = await analyzeStalls(
+        { real01_line: jimpImg1, real02: jimpImg2 },
+        stallRois,
+        lastTick?.stalls ?? null
+      );
+    } catch (e) {
+      console.error(`[observe] analyzeStalls failed: ${e.message}`);
+      stalls = null;
+    }
+  }
 
-  // schema v3: YOLO + tracker + lane + departure
+  // --- YOLO + tracker + lane + departure (lane-roi.json + yolov8m.onnx がある時のみ) ---
   let vehicles1 = [], vehicles2 = [], departures = [];
   let laneState = {};
   let yoloOk = false;
-
   const laneConfig = readJson(LANE_CONFIG_PATH);
-  if (!laneConfig) {
-    console.error('[observe] lane-roi.json missing, falling back to schema v2 fields only');
-  } else if (!existsSync(MODEL_PATH)) {
-    console.error(`[observe] ${MODEL_PATH} missing, falling back to schema v2 fields only`);
-  } else {
+  if (laneConfig && existsSync(MODEL_PATH)) {
     try {
       const model = await loadModel(MODEL_PATH);
       const savedTracker = readTrackerState();
@@ -191,13 +202,18 @@ async function main() {
       vehicles2 = r2.trackedWithLane;
       departures = [...r1.departures, ...r2.departures];
       laneState = buildLaneState(laneConfig, vehicles1, vehicles2);
-
       writeTrackerState({ real01_line: r1.newState, real02: r2.newState });
       yoloOk = true;
     } catch (e) {
-      console.error(`[observe] YOLO/tracker pipeline failed: ${e.message}`);
+      console.error(`[observe] YOLO pipeline failed: ${e.message}`);
     }
   }
+
+  // --- arrivals / weather ---
+  const arrivalsJson = readJson('./data/arrivals.json');
+  const arrivalsState = readArrivalsState(arrivalsJson);
+  const arrivalsWindow = arrivalsJson ? summarizeArrivalsWindow(arrivalsJson, new Date()) : null;
+  const weather = readWeather(readJson('./data/weather.json'));
 
   const row = {
     schema_version: SCHEMA_VERSION,
@@ -205,20 +221,26 @@ async function main() {
     tick_seq: tickSeq,
     img1: { name: 'Real01_line', ...img1 },
     img2: { name: 'Real02', ...img2 },
-    arrivals_state: arrivalsState,
-    arrivals_window: arrivalsWindow,
-    weather,
+    stalls,
     vehicles: { real01_line: vehicles1, real02: vehicles2 },
     departures,
-    lane_state: laneState
+    lane_state: laneState,
+    arrivals_state: arrivalsState,
+    arrivals_window: arrivalsWindow,
+    weather
   };
 
   appendFileSync(HISTORY_PATH, JSON.stringify(row) + '\n', 'utf8');
-  console.log(`[observe] appended tick_seq=${tickSeq} ts=${ts} (schema_version=${SCHEMA_VERSION}, yolo=${yoloOk ? 'on' : 'off'})`);
+  console.log(`[observe] appended tick_seq=${tickSeq} ts=${ts} (schema_version=${SCHEMA_VERSION}, yolo=${yoloOk ? 'on' : 'off'}, stalls=${stalls ? 'on' : 'off'})`);
   console.log(`[observe] img1 edge=${img1.roi?.edge_density ?? 'n/a'} black=${img1.black_ratio} lum=${img1.roi?.luminance_mean ?? 'n/a'}`);
   console.log(`[observe] img2 edge=${img2.roi?.edge_density ?? 'n/a'} black=${img2.black_ratio} lum=${img2.roi?.luminance_mean ?? 'n/a'}`);
   if (yoloOk) {
     console.log(`[observe] vehicles real01=${vehicles1.length} real02=${vehicles2.length} departures=${departures.length}`);
+  }
+  if (stalls) {
+    for (const [name, s] of Object.entries(stalls)) {
+      if (s) console.log(`[observe] stall ${name}: occ=${s.occupied_estimate}/${s.capacity} diff=${s.diff_occupied_from_prev}`);
+    }
   }
   if (arrivalsWindow) {
     console.log(`[observe] arrivals_window flights=${arrivalsWindow.flight_count} taxi_pax_sum=${arrivalsWindow.estimated_taxi_pax_sum}`);
