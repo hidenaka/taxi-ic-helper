@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "source": "ttc.taxi-inf.jp の Real01_line.jpg / Real02.jpg を 2026-05-12 時点で手動切り出し。ユーザー指示: 画像最右端の縦列が観測対象、Real01 で上から 8/7/8 台分が第1/2/3乗り場、Real02 右上 8 台が第4乗り場",
+    "image_size": [800, 600],
+    "calibration_note": "1 台あたり画像内縦約 21px (Real01 内、駐車場領域 500px / 23 台)。カメラ斜め撮影なので奥は小さく、手前は大きく見える可能性あり、実装時に微調整"
+  },
+  "stalls": {
+    "stall1": {
+      "source": "real01_line",
+      "capacity": 8,
+      "label": "第1乗り場 (JAL 2番ポール T1)",
+      "roi": { "x": 600, "y": 80, "width": 200, "height": 170 }
+    },
+    "stall2": {
+      "source": "real01_line",
+      "capacity": 7,
+      "label": "第2乗り場 (JAL 18番ポール T1)",
+      "roi": { "x": 600, "y": 250, "width": 200, "height": 150 }
+    },
+    "stall3": {
+      "source": "real01_line",
+      "capacity": 8,
+      "label": "第3乗り場 (ANA 3番ポール T2)",
+      "roi": { "x": 600, "y": 400, "width": 200, "height": 180 }
+    },
+    "stall4": {
+      "source": "real02",
+      "capacity": 8,
+      "label": "第4乗り場 (ANA 19番ポール T2)",
+      "roi": { "x": 400, "y": 0, "width": 400, "height": 250 }
+    }
+  }
+}
