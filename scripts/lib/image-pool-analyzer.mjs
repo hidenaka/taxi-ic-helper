@@ -137,3 +137,47 @@ export async function analyzePoolImage(buffer, prev = null, roi = null) {
 
   return result;
 }
+
+const NORMALIZATION = 0.4; // ROI 満杯時の経験則 black_ratio
+
+/**
+ * 各乗り場の帯状 ROI を解析して状態を返す純粋関数。
+ *
+ * @param {{real01_line?: import('jimp').Jimp, real02?: import('jimp').Jimp}} jimpImagesByName
+ * @param {{stalls: Object}} stallRois - stall-rois.json の中身
+ * @param {Object|null} prevStalls - 前 tick の stalls オブジェクト (v3 以前の tick なら null)
+ * @returns {Object} { stall1, stall2, stall3, stall4 } の各値は { source, capacity, label, occupied_estimate, black_ratio, edge_density, luminance_mean, diff_occupied_from_prev } または null
+ */
+export async function analyzeStalls(jimpImagesByName, stallRois, prevStalls = null) {
+  const result = {};
+  for (const [stallName, def] of Object.entries(stallRois.stalls)) {
+    const img = jimpImagesByName[def.source];
+    if (!img) {
+      result[stallName] = null;
+      continue;
+    }
+    try {
+      const roiData = await analyzeROI(img, def.roi);
+      const raw = roiData.roi_black_ratio / NORMALIZATION * def.capacity;
+      const occupied_estimate = Math.max(0, Math.min(def.capacity, Math.round(raw)));
+      const prevOcc = prevStalls?.[stallName]?.occupied_estimate;
+      const diff_occupied_from_prev = (typeof prevOcc === 'number')
+        ? occupied_estimate - prevOcc
+        : null;
+      result[stallName] = {
+        source: def.source,
+        capacity: def.capacity,
+        label: def.label,
+        occupied_estimate,
+        black_ratio: roiData.roi_black_ratio,
+        edge_density: roiData.edge_density,
+        luminance_mean: roiData.luminance_mean,
+        diff_occupied_from_prev
+      };
+    } catch (e) {
+      console.error(`[analyzeStalls] ${stallName} 解析失敗: ${e.message}`);
+      result[stallName] = null;
+    }
+  }
+  return result;
+}
