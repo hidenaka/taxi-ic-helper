@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 /**
- * タクシープール観測パイプライン (schema v2) のオーケストレーター。
+ * タクシープール観測パイプライン (schema v3) のオーケストレーター。
  * 1. ttc.taxi-inf.jp から画像 2 枚取得
  * 2. analyzePoolImage で各画像のメタデータ + ROI 解析を抽出
  * 3. data/arrivals.json と data/weather.json から状態取得
  * 4. summarizeArrivalsWindow で「現在 -30 〜 +60 分」の便集計
  * 5. data/taxi-pool-history.jsonl の最終行を読み、前 tick メタを取り出して diff 計算
- * 6. 新しい 1 行 (schema_version=2) を append
+ * 6. 新しい 1 行 (schema_version=3) を append
  * 7. /tmp に画像を保存 (workflow が Artifact upload する想定だが、launchd 運用では未使用)
  *
  * Workflow からは git commit & push の race-safe ロジックで呼ばれる。
  */
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
-import { analyzePoolImage } from './lib/image-pool-analyzer.mjs';
+import { Jimp } from 'jimp';
+import { analyzePoolImage, analyzeStalls } from './lib/image-pool-analyzer.mjs';
 import { summarizeArrivalsWindow } from './lib/arrivals-window-summary.mjs';
 
 const REAL01_URL = 'https://ttc.taxi-inf.jp/Real01_line.jpg';
@@ -21,7 +22,8 @@ const USER_AGENT = 'taxi-ic-helper observation bot (https://github.com/hidenaka/
 const HISTORY_PATH = './data/taxi-pool-history.jsonl';
 const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
 const TIMEOUT_MS = 15000;
-const SCHEMA_VERSION = 2;
+const STALL_ROIS_PATH = './scripts/lib/stall-rois.json';
+const SCHEMA_VERSION = 3;
 
 function jstNowIso() {
   const d = new Date();
@@ -96,6 +98,15 @@ function readRoiConfig() {
   }
 }
 
+function readStallRois() {
+  try {
+    return JSON.parse(readFileSync(STALL_ROIS_PATH, 'utf8'));
+  } catch (e) {
+    console.error(`[observe] stall-rois.json read failed: ${e.message}`);
+    return null;
+  }
+}
+
 async function main() {
   const ts = jstNowIso();
 
@@ -136,6 +147,24 @@ async function main() {
     process.exit(0);
   }
 
+  // Stall 別解析 (schema v3)
+  const stallRois = readStallRois();
+  let stalls = null;
+  if (stallRois) {
+    try {
+      const jimpImg1 = await Jimp.read(buf1);
+      const jimpImg2 = await Jimp.read(buf2);
+      stalls = await analyzeStalls(
+        { real01_line: jimpImg1, real02: jimpImg2 },
+        stallRois,
+        lastTick?.stalls ?? null
+      );
+    } catch (e) {
+      console.error(`[observe] analyzeStalls failed: ${e.message}`);
+      stalls = null;
+    }
+  }
+
   const arrivalsJson = readArrivalsJson();
   const arrivalsState = readArrivalsState(arrivalsJson);
   const arrivalsWindow = arrivalsJson
@@ -148,7 +177,8 @@ async function main() {
     ts,
     tick_seq: tickSeq,
     img1: { name: 'Real01_line', ...img1 },
-    img2: { name: 'Real02', ...img2 },
+    img2: { name: 'Real02', ...img2, analysis_disabled: true },
+    stalls,
     arrivals_state: arrivalsState,
     arrivals_window: arrivalsWindow,
     weather
@@ -160,6 +190,13 @@ async function main() {
   console.log(`[observe] img2 edge=${img2.roi?.edge_density ?? 'n/a'} black=${img2.black_ratio} lum=${img2.roi?.luminance_mean ?? 'n/a'}`);
   if (arrivalsWindow) {
     console.log(`[observe] arrivals_window flights=${arrivalsWindow.flight_count} taxi_pax_sum=${arrivalsWindow.estimated_taxi_pax_sum}`);
+  }
+  if (stalls) {
+    for (const [name, s] of Object.entries(stalls)) {
+      if (s) {
+        console.log(`[observe] ${name}: occ=${s.occupied_estimate}/${s.capacity} diff=${s.diff_occupied_from_prev}`);
+      }
+    }
   }
 }
 
