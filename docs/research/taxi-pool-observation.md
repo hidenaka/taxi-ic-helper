@@ -1,5 +1,12 @@
 # タクシープール観測 — Phase B 分析手順
 
+## スキーマ履歴
+
+- **v1** (2026-05-10 〜 2026-05-11、118 行): `img.black_ratio` / `img.diff_from_prev` / `arrivals_state.total_estimated_taxi_pax`
+- **v2** (2026-05-11 〜): `schema_version: 2` フィールドあり。`img.roi.edge_density` / `img.roi.luminance_mean` / `arrivals_window.estimated_taxi_pax_sum` を追加。v1 フィールドは互換のため保持
+
+詳細は `docs/superpowers/specs/2026-05-11-observation-schema-v2-design.md`。
+
 ## 利用規約確認結果 (2026-05-10 時点)
 
 - `https://ttc.taxi-inf.jp/robots.txt` — HTTP 404 (存在しない、明示的禁止なし)
@@ -117,15 +124,31 @@ import pandas as pd
 df = pd.read_json('data/taxi-pool-history.jsonl', lines=True)
 df['ts'] = pd.to_datetime(df['ts'])
 df['hour'] = df['ts'].dt.hour
-df['weekday'] = df['ts'].dt.weekday  # 0=月
+df['weekday'] = df['ts'].dt.weekday
+df['schema'] = df.get('schema_version', pd.Series([None] * len(df))).fillna(1).astype(int)
+
+# v1 互換フィールド (全行で有効)
 df['black_ratio_1'] = df['img1'].apply(lambda x: x['black_ratio'])
 df['black_ratio_2'] = df['img2'].apply(lambda x: x['black_ratio'])
-df['diff_1'] = df['img1'].apply(lambda x: x.get('diff_from_prev'))
-df['diff_2'] = df['img2'].apply(lambda x: x.get('diff_from_prev'))
-df['est_taxi_pax'] = df['arrivals_state'].apply(
-    lambda x: x.get('total_estimated_taxi_pax') if x else None
-)
-df['weather_code'] = df['weather'].apply(lambda x: x.get('code') if x else None)
+
+# v2 専用フィールド (schema_version=2 の行だけ)
+def get_nested(x, *keys):
+    for k in keys:
+        if x is None: return None
+        x = x.get(k) if isinstance(x, dict) else None
+    return x
+
+df['edge_density_1'] = df['img1'].apply(lambda x: get_nested(x, 'roi', 'edge_density'))
+df['edge_density_2'] = df['img2'].apply(lambda x: get_nested(x, 'roi', 'edge_density'))
+df['luminance_mean_1'] = df['img1'].apply(lambda x: get_nested(x, 'roi', 'luminance_mean'))
+df['window_taxi_pax'] = df['arrivals_window'].apply(lambda x: get_nested(x, 'estimated_taxi_pax_sum'))
+df['window_flights'] = df['arrivals_window'].apply(lambda x: get_nested(x, 'flight_count'))
+
+df['weather_code'] = df['weather'].apply(lambda x: get_nested(x, 'code'))
+
+# v2 だけのサブセット
+v2 = df[df['schema'] == 2].copy()
+print(f"v1 行: {(df['schema'] == 1).sum()}, v2 行: {len(v2)}")
 ```
 
 ### 3. 仮説検証
@@ -161,6 +184,24 @@ print(df.groupby('is_rainy')[['est_taxi_pax', 'black_ratio_1']].agg(['mean', 'st
 
 `hour >= 21` でフィルタし、`black_ratio_1` の急変 (`diff_1 > 0.05`) の頻度を見る。
 
+#### H5 (v2 専用): edge_density と window_taxi_pax の相関
+
+ROI エッジ密度 (= 実プールの車両在不在の照度ロバスト指標) と、時間窓予測タクシー
+候補数の Pearson 相関を 1 時間バケットごとに計算。負の相関 (= 予測タクシー多い時
+にプール空く) が見えれば「予測 vs 実」の有意な乖離が観測されたことになる。
+
+```python
+v2_hour = v2.groupby('hour').agg(
+    edge1_mean=('edge_density_1', 'mean'),
+    edge2_mean=('edge_density_2', 'mean'),
+    window_taxi_mean=('window_taxi_pax', 'mean'),
+    n=('ts', 'count')
+)
+print(v2_hour)
+corr = v2[['edge_density_1', 'window_taxi_pax']].corr().iloc[0, 1]
+print(f"edge_density_1 vs window_taxi_pax Pearson r = {corr:.3f}")
+```
+
 ### 4. 出力
 
 `docs/research/taxi-pool-analysis-2026-MM-DD.md` に分析結果を書き、グラフは
@@ -187,3 +228,20 @@ git add -A && git commit -m "chore(observe): archive Phase A jsonl, start fresh 
 - 1 日経過 (≈ 96 行) → jsonl 構造を目視確認、欠落なし
 - 7 日経過 (≈ 672 行) → tick_seq の抜けを `jq -r '.tick_seq' jsonl | awk 'NR>1 && $1!=prev+1 {print prev, $1}; {prev=$1}'` で検出
 - 14 日経過 (≈ 4,032 行) → 観測完了、Phase B 分析セッションへ
+
+### schema_version=2 への移行検証 (実装直後 24 時間)
+
+```bash
+# 24 時間経過後に
+git pull origin main
+jq -r '.schema_version' data/taxi-pool-history.jsonl | sort | uniq -c
+# 期待: v1=118 (旧)、v2 が 24 行以上 (Mac mini 稼働率による)
+
+# v2 の edge_density 分布
+jq -r 'select(.schema_version==2) | "\(.ts) \(.img1.roi.edge_density) \(.img1.roi.luminance_mean)"' data/taxi-pool-history.jsonl | head -30
+# 期待: edge_density が 0.0〜1.0 内、夜間も日中もそれぞれの値域に分散
+
+# arrivals_window が時間帯ごとに動いているか
+jq -r 'select(.schema_version==2) | "\(.ts) \(.arrivals_window.estimated_taxi_pax_sum)"' data/taxi-pool-history.jsonl | head -30
+# 期待: 時間帯で 0 〜 数百の値が変動、14,000 で定数化していない
+```
