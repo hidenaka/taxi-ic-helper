@@ -2,10 +2,15 @@
 
 ## スキーマ履歴
 
-- **v1** (2026-05-10 〜 2026-05-11、118 行): `img.black_ratio` / `img.diff_from_prev` / `arrivals_state.total_estimated_taxi_pax`
-- **v2** (2026-05-11 〜): `schema_version: 2` フィールドあり。`img.roi.edge_density` / `img.roi.luminance_mean` / `arrivals_window.estimated_taxi_pax_sum` を追加。v1 フィールドは互換のため保持
+- **v1** (2026-05-10 〜 2026-05-11、121 行): `img.black_ratio` / `img.diff_from_prev` / `arrivals_state.total_estimated_taxi_pax`
+- **v2** (2026-05-11 〜 2026-05-12、数十行): `schema_version: 2` フィールドあり。`img.roi.edge_density` / `img.roi.luminance_mean` / `arrivals_window.estimated_taxi_pax_sum` を追加。v1 フィールドは互換のため保持
+- **v3** (2026-05-12 〜): `schema_version: 3` フィールドあり。`stalls.stall1` 〜 `stalls.stall4` で 4 乗り場別の `occupied_estimate` / `diff_occupied_from_prev` を追加。`img2.analysis_disabled: true` で Real02 が神奈川車混在で観測対象外であることを明示。取得頻度を 15 分 → 5 分に変更。
 
-詳細は `docs/superpowers/specs/2026-05-11-observation-schema-v2-design.md`。
+詳細は:
+- v2: `docs/superpowers/specs/2026-05-11-observation-schema-v2-design.md`
+- v3: `docs/superpowers/specs/2026-05-12-stall-aware-observation-design.md`
+
+**v3 ROI キャリブレーション課題 (Phase B での宿題)**: 当初の「右端 1 列で 8/7/8 台が縦に積み上がる」という ROI 設計は、カメラ遠近で本体列が画像奥に圧縮されて見えないことが判明。`stall1-3` の ROI 座標は暫定値のまま運用、より精度の高い「**駐車枠ベース検出**」を spec v4 として別途設計予定。v3 の stalls 値は「粗いシグナル」として記録継続、Phase B 分析で「駐車枠版」と比較する。
 
 ## 利用規約確認結果 (2026-05-10 時点)
 
@@ -202,6 +207,65 @@ corr = v2[['edge_density_1', 'window_taxi_pax']].corr().iloc[0, 1]
 print(f"edge_density_1 vs window_taxi_pax Pearson r = {corr:.3f}")
 ```
 
+#### H6 (v3 専用): T1 / T2 別の出庫と arrivals_window の整合
+
+stall1+stall2 (T1) の `diff_occupied_from_prev` の負値合計 = T1 出庫数推定。
+stall3+stall4 (T2) も同様。
+
+```python
+v3 = df[df['schema'] == 3].copy()
+v3['stall1_occ'] = v3['stalls'].apply(lambda x: get_nested(x, 'stall1', 'occupied_estimate'))
+v3['stall2_occ'] = v3['stalls'].apply(lambda x: get_nested(x, 'stall2', 'occupied_estimate'))
+v3['stall3_occ'] = v3['stalls'].apply(lambda x: get_nested(x, 'stall3', 'occupied_estimate'))
+v3['stall4_occ'] = v3['stalls'].apply(lambda x: get_nested(x, 'stall4', 'occupied_estimate'))
+v3['stall1_diff'] = v3['stalls'].apply(lambda x: get_nested(x, 'stall1', 'diff_occupied_from_prev'))
+v3['stall2_diff'] = v3['stalls'].apply(lambda x: get_nested(x, 'stall2', 'diff_occupied_from_prev'))
+v3['stall3_diff'] = v3['stalls'].apply(lambda x: get_nested(x, 'stall3', 'diff_occupied_from_prev'))
+v3['stall4_diff'] = v3['stalls'].apply(lambda x: get_nested(x, 'stall4', 'diff_occupied_from_prev'))
+
+# 出庫数推定 (負の diff を絶対値で合計)
+v3['T1_outflow'] = (-v3[['stall1_diff', 'stall2_diff']].clip(upper=0)).sum(axis=1)
+v3['T2_outflow'] = (-v3[['stall3_diff', 'stall4_diff']].clip(upper=0)).sum(axis=1)
+
+hourly = v3.groupby('hour').agg(
+    T1_outflow=('T1_outflow', 'sum'),
+    T2_outflow=('T2_outflow', 'sum'),
+    window_taxi_pax_mean=('window_taxi_pax', 'mean')
+)
+print(hourly)
+```
+
+#### H7 (v3 専用): 「便ピーク」→「乗り場出庫」のラグ時間
+
+`arrivals_window.estimated_taxi_pax_sum` がピークになる時刻と、stall 出庫の累積が
+ピークになる時刻のラグを 5 分単位で測る。
+
+```python
+v3['ts'] = pd.to_datetime(v3['ts'])
+day = v3[v3['ts'].dt.date == pd.Timestamp('2026-05-13').date()]
+day_resampled = day.set_index('ts').resample('5min').first()
+
+from scipy.signal import correlate
+window = day_resampled['window_taxi_pax'].fillna(0).values
+outflow = (day_resampled['T1_outflow'] + day_resampled['T2_outflow']).fillna(0).values
+xcorr = correlate(outflow, window, mode='full')
+lag = xcorr.argmax() - (len(window) - 1)  # 単位: 5 分
+print(f"ラグ (5 分単位): {lag}, つまり {lag * 5} 分")
+```
+
+#### H8 (v3 専用): 神奈川車混在の影響
+
+Real02 (`img2.analysis_disabled: true`) を分析対象外とした影響を測る。stall4
+(Real02 右上 8 台) と stall1-3 (Real01) の挙動が時間帯ごとに大きく違う場合、
+神奈川車の影響が stall4 にも漏れている可能性がある。
+
+```python
+corr_T2 = v3[['stall3_occ', 'stall4_occ']].corr().iloc[0, 1]
+print(f"stall3 vs stall4 (T2 内) 相関: {corr_T2:.3f}")
+# 期待: > 0.5 (T2 客が両方の乗り場を使うので連動)
+# < 0.2 → stall4 が神奈川車に汚染されている可能性
+```
+
 ### 4. 出力
 
 `docs/research/taxi-pool-analysis-2026-MM-DD.md` に分析結果を書き、グラフは
@@ -245,3 +309,21 @@ jq -r 'select(.schema_version==2) | "\(.ts) \(.img1.roi.edge_density) \(.img1.ro
 jq -r 'select(.schema_version==2) | "\(.ts) \(.arrivals_window.estimated_taxi_pax_sum)"' data/taxi-pool-history.jsonl | head -30
 # 期待: 時間帯で 0 〜 数百の値が変動、14,000 で定数化していない
 ```
+
+### schema_version=3 への移行検証 (実装直後 24 時間)
+
+```bash
+# 24 時間経過後に
+git pull origin main
+jq -r '.schema_version' data/taxi-pool-history.jsonl | sort | uniq -c
+# 期待: v1=121, v2=数十, v3=200+ (5 分間隔 × 24h = 288 が理想)
+
+# stall ごとの occupied_estimate 分布
+jq -r 'select(.schema_version==3) | "\(.ts) s1=\(.stalls.stall1.occupied_estimate) s2=\(.stalls.stall2.occupied_estimate) s3=\(.stalls.stall3.occupied_estimate) s4=\(.stalls.stall4.occupied_estimate)"' data/taxi-pool-history.jsonl | head -30
+# 期待: 各 stall で 0-capacity の範囲で時間帯ごとに変動
+
+# 出庫検出 (diff が負の tick)
+jq -r 'select(.schema_version==3 and .stalls.stall1.diff_occupied_from_prev < 0) | "\(.ts) stall1: \(.stalls.stall1.diff_occupied_from_prev)"' data/taxi-pool-history.jsonl | head -20
+```
+
+注意: v3 の stall ROI は暫定値のため `occupied_estimate` がノイズ気味になる可能性あり。spec v4 の駐車枠ベース検出が完成した時点で再評価する。
