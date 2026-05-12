@@ -14,11 +14,19 @@ export function pointInPolygon(point, polygon) {
 
 export function assignLane(bbox, camera, config) {
   const [x, y, w, h] = bbox;
-  const center = [x + w / 2, y + h / 2];
+  // 車の bbox 上辺中央 = 画像奥側 = 羽田カメラではタクシーのフロント。
+  // 中心点とフロントどちらかが polygon に入っていれば lane に割当。
+  // ユーザー意図: フロントだけ枠に入っている / フロントがはみ出して bbox 全体は中に
+  // 入っているなど、両方のパターンに対応する。
+  const frontCenter = [x + w / 2, y];
+  const bboxCenter = [x + w / 2, y + h / 2];
   for (const lane of config.lanes) {
     if (lane.camera !== camera) continue;
-    if (!pointInPolygon(center, lane.polygon)) continue;
-    const front_row = pointInPolygon(center, lane.front_row_polygon);
+    const inFront = pointInPolygon(frontCenter, lane.polygon);
+    const inCenter = pointInPolygon(bboxCenter, lane.polygon);
+    if (!inFront && !inCenter) continue;
+    const front_row = pointInPolygon(frontCenter, lane.front_row_polygon)
+                    || pointInPolygon(bboxCenter, lane.front_row_polygon);
     return { lane: lane.id, front_row };
   }
   return { lane: null, front_row: false };

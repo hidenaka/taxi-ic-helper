@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Lane ROI Editor</title>
+<style>
+  body { font-family: -apple-system, sans-serif; margin: 16px; background: #1a1a1a; color: #eee; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .controls > * { padding: 6px 10px; }
+  select, input[type=text] { background: #2a2a2a; color: #eee; border: 1px solid #444; border-radius: 4px; }
+  button { background: #3a6fb0; color: #fff; border: 0; border-radius: 4px; cursor: pointer; }
+  button:disabled { background: #555; cursor: not-allowed; }
+  button.danger { background: #b03a3a; }
+  button.success { background: #3aa055; }
+  canvas { display: block; border: 1px solid #555; cursor: crosshair; image-rendering: pixelated; }
+  .legend { display: flex; gap: 16px; margin-top: 8px; font-size: 12px; }
+  .legend span { display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: middle; }
+  .lane-list { margin-top: 12px; background: #2a2a2a; padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto; font-size: 12px; }
+  .lane-list li { padding: 2px 0; }
+  .lane-list .selected { color: #ffd86b; font-weight: bold; }
+  textarea { width: 100%; height: 200px; background: #1a1a1a; color: #eee; border: 1px solid #444; font-family: monospace; font-size: 11px; padding: 8px; margin-top: 8px; }
+  .stats { font-size: 12px; color: #aaa; }
+</style>
+</head>
+<body>
+
+<h2>Lane ROI Editor</h2>
+
+<div class="controls">
+  <label>カメラ:
+    <select id="camera">
+      <option value="real01_line">real01_line</option>
+      <option value="real02">real02</option>
+    </select>
+  </label>
+  <label>Lane id:
+    <input type="text" id="lane-id" placeholder="例: 第一-一般" size="20">
+  </label>
+  <label>Terminal:
+    <select id="terminal">
+      <option value="T1">T1</option>
+      <option value="T2">T2</option>
+    </select>
+  </label>
+  <label>モード:
+    <select id="poly-type">
+      <option value="polygon">polygon (緑)</option>
+      <option value="front_row_polygon">front_row (青)</option>
+    </select>
+  </label>
+  <button id="finish">この polygon を確定</button>
+  <button id="undo">最後の点を取消</button>
+  <button id="clear" class="danger">いまの polygon をクリア</button>
+  <button id="export" class="success">JSON出力</button>
+  <button id="load-existing">既存 JSON 読み込み</button>
+</div>
+
+<div>
+  <span class="stats" id="stats">画像読み込み中...</span>
+</div>
+
+<canvas id="cv" width="800" height="600"></canvas>
+
+<div class="legend">
+  <div><span style="background:#00ff00"></span>polygon (lane全体)</div>
+  <div><span style="background:#0000ff"></span>front_row_polygon (最前列)</div>
+  <div><span style="background:#ffd86b"></span>編集中の点</div>
+</div>
+
+<div>
+  <h3>定義済みLane一覧 (このセッション)</h3>
+  <ul class="lane-list" id="lane-list"></ul>
+</div>
+
+<div>
+  <h3>JSON出力</h3>
+  <textarea id="json-out" placeholder="「JSON出力」を押すとここに data/lane-roi.json 形式が出る"></textarea>
+  <p class="stats">この JSON をコピーして data/lane-roi.json に貼り付けて保存してください。</p>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const stats = document.getElementById('stats');
+const laneList = document.getElementById('lane-list');
+
+// 状態
+const state = {
+  imgs: {},                       // camera => HTMLImageElement
+  lanes: [],                      // [{id, terminal, camera, polygon, front_row_polygon}]
+  currentLaneId: null,
+  currentCamera: 'real01_line',
+  currentPolyType: 'polygon',
+  currentPoints: []              // [[x, y], ...] 編集中の点
+};
+
+// 画像読み込み (相対パス: このHTMLは tools/ にあり画像は ../tests/fixtures/observation/)
+async function loadImage(camera) {
+  if (state.imgs[camera]) return state.imgs[camera];
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => { state.imgs[camera] = img; resolve(img); };
+    img.onerror = reject;
+    const filename = camera === 'real01_line' ? 'sample-real01.jpg' : 'sample-real02.jpg';
+    img.src = `../tests/fixtures/observation/${filename}`;
+  });
+}
+
+function redraw() {
+  const img = state.imgs[state.currentCamera];
+  if (!img) return;
+  ctx.drawImage(img, 0, 0, cv.width, cv.height);
+
+  // 既存 lanes を描画
+  for (const lane of state.lanes) {
+    if (lane.camera !== state.currentCamera) continue;
+    drawPolygon(lane.polygon, '#00ff00', 2);
+    drawPolygon(lane.front_row_polygon, '#0000ff', 2);
+    // ラベル
+    if (lane.polygon.length) {
+      const [lx, ly] = lane.polygon[0];
+      ctx.fillStyle = '#fff';
+      ctx.fillText(lane.id, lx + 4, ly + 12);
+    }
+  }
+
+  // 編集中の点
+  if (state.currentPoints.length > 0) {
+    drawPolygon(state.currentPoints, state.currentPolyType === 'polygon' ? '#a0ffa0' : '#a0a0ff', 3, false);
+    for (const [x, y] of state.currentPoints) {
+      ctx.fillStyle = '#ffd86b';
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  updateStats();
+}
+
+function drawPolygon(points, color, width = 2, closed = true) {
+  if (points.length === 0) return;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i][0], points[i][1]);
+  }
+  if (closed) ctx.closePath();
+  ctx.stroke();
+}
+
+function updateStats() {
+  const camLanes = state.lanes.filter(l => l.camera === state.currentCamera);
+  stats.textContent = `camera=${state.currentCamera} / 定義済み lane: ${camLanes.length} / 編集中の点数: ${state.currentPoints.length}`;
+  laneList.innerHTML = state.lanes.map((l, i) =>
+    `<li><strong>${l.id}</strong> (${l.terminal}, ${l.camera})
+     polygon:${l.polygon.length}点 front_row:${l.front_row_polygon.length}点
+     <button onclick="deleteLane(${i})" style="background:#b03a3a;padding:1px 6px;font-size:10px;margin-left:8px">×</button></li>`
+  ).join('');
+}
+
+window.deleteLane = function(idx) {
+  if (!confirm(`${state.lanes[idx].id} を削除する？`)) return;
+  state.lanes.splice(idx, 1);
+  redraw();
+};
+
+cv.addEventListener('click', (e) => {
+  const rect = cv.getBoundingClientRect();
+  const x = Math.round((e.clientX - rect.left) * cv.width / rect.width);
+  const y = Math.round((e.clientY - rect.top) * cv.height / rect.height);
+  state.currentPoints.push([x, y]);
+  redraw();
+});
+
+document.getElementById('camera').addEventListener('change', async (e) => {
+  state.currentCamera = e.target.value;
+  await loadImage(state.currentCamera);
+  state.currentPoints = []; // カメラ切替時はリセット
+  redraw();
+});
+
+document.getElementById('poly-type').addEventListener('change', (e) => {
+  state.currentPolyType = e.target.value;
+  redraw();
+});
+
+document.getElementById('finish').addEventListener('click', () => {
+  const laneId = document.getElementById('lane-id').value.trim();
+  if (!laneId) { alert('Lane id を入力してください'); return; }
+  if (state.currentPoints.length < 3) { alert('polygon は3点以上必要'); return; }
+
+  let lane = state.lanes.find(l => l.id === laneId && l.camera === state.currentCamera);
+  if (!lane) {
+    lane = {
+      id: laneId,
+      terminal: document.getElementById('terminal').value,
+      camera: state.currentCamera,
+      polygon: [],
+      front_row_polygon: []
+    };
+    state.lanes.push(lane);
+  } else {
+    // terminal を更新
+    lane.terminal = document.getElementById('terminal').value;
+  }
+  lane[state.currentPolyType] = [...state.currentPoints];
+
+  // polygon を確定したら、自動的に front_row_polygon モードに切替
+  if (state.currentPolyType === 'polygon') {
+    document.getElementById('poly-type').value = 'front_row_polygon';
+    state.currentPolyType = 'front_row_polygon';
+    alert(`${laneId} の polygon を確定しました。次に front_row_polygon (最前列) を引いてください。`);
+  } else {
+    alert(`${laneId} の front_row_polygon を確定しました。次の lane に進むか、JSON出力してください。`);
+    document.getElementById('poly-type').value = 'polygon';
+    state.currentPolyType = 'polygon';
+  }
+  state.currentPoints = [];
+  redraw();
+});
+
+document.getElementById('undo').addEventListener('click', () => {
+  state.currentPoints.pop();
+  redraw();
+});
+
+document.getElementById('clear').addEventListener('click', () => {
+  state.currentPoints = [];
+  redraw();
+});
+
+document.getElementById('export').addEventListener('click', () => {
+  const out = {
+    _meta: {
+      image_size: { real01_line: [800, 600], real02: [800, 600] },
+      updated: new Date().toISOString().slice(0, 10),
+      note: "lane-roi-editor.html で手動定義。polygon は画像座標系。第一・第二=T1、第三・第四=T2。"
+    },
+    lanes: state.lanes.map(l => ({
+      id: l.id,
+      terminal: l.terminal,
+      camera: l.camera,
+      polygon: l.polygon,
+      front_row_polygon: l.front_row_polygon
+    }))
+  };
+  document.getElementById('json-out').value = JSON.stringify(out, null, 2);
+});
+
+document.getElementById('load-existing').addEventListener('click', async () => {
+  try {
+    const res = await fetch('../data/lane-roi.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    state.lanes = data.lanes;
+    redraw();
+    alert(`${data.lanes.length} lanes 読み込み完了`);
+  } catch (e) {
+    alert(`読み込み失敗: ${e.message}`);
+  }
+});
+
+// 初期化
+(async () => {
+  await loadImage('real01_line');
+  await loadImage('real02');
+  redraw();
+})();
+</script>
+
+</body>
+</html>
