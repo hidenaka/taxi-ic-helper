@@ -12,6 +12,8 @@
  * JST 02:00 に launchd / cron から呼び出される想定。
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { aggregateDepartures, computeUpdatedRate } from './lib/calibration-math.mjs';
 
 const HISTORY_PATH = './data/taxi-pool-history.jsonl';
@@ -128,6 +130,8 @@ async function main() {
   console.log(`[calibrate] transit-share.json updated. calibratedAt=${updated._meta.calibratedAt}`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// CLI 実行判定: import.meta.url と argv[1] の絶対パス比較 (相対パス渡しでも動く)
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (isMain) {
   main().catch(e => { console.error(e); process.exit(1); });
 }

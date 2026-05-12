@@ -101,7 +101,14 @@ async function runYoloPipeline(buf, camera, prevTracks, trackerState, laneConfig
     ...assignLane(t.bbox, camera, laneConfig)
   }));
 
-  const departures = detectDepartures(prevTracks, trackedWithLane, lost, ts)
+  // lost車両は「最終位置のbbox」しか持たないので、ここで lane/front_row を判定し直す。
+  // detectDepartures は lost 側の lane 情報で出庫判定するため必須。
+  const lostWithLane = lost.map(v => ({
+    ...v,
+    ...assignLane(v.bbox, camera, laneConfig)
+  }));
+
+  const departures = detectDepartures(prevTracks, trackedWithLane, lostWithLane, ts)
     .map(e => ({ ...e, terminal: terminalForLane(e.lane, laneConfig) }));
 
   return { newState, trackedWithLane, departures };

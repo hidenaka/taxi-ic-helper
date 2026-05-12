@@ -1,7 +1,9 @@
 import { iou } from './iou.mjs';
 
 const IOU_THRESHOLD = 0.3;
-const LOST_THRESHOLD = 2; // LOST_THRESHOLD tick 連続で見えなかったら次tickで lost 確定 (= 計3tick以上の不在)
+// 1tick 見えなかったら即 lost 扱い。1分tick + 出庫検出ユースケースでは「短期消失耐性」より
+// 「出庫イベントを取り漏らさない」方が優先。元は 2 だった。
+const LOST_THRESHOLD = 1;
 
 export function createEmptyState() {
   return { vehicles: {}, nextId: 1, tick: 0 };

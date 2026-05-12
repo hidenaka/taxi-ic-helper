@@ -40,8 +40,7 @@ test('updateTracker: 大きく動いたbboxは新ID', () => {
 test('updateTracker: 消えた車両は lost で報告', () => {
   let state = createEmptyState();
   ({ state } = updateTracker(state, [[10, 10, 50, 50]]));
-  // LOST_THRESHOLD (2) 超えるまで lost にならない
-  ({ state } = updateTracker(state, []));
+  // LOST_THRESHOLD (1) を超えると lost: 1tick 空ではまだ維持、2tick 連続で lost 確定。
   ({ state } = updateTracker(state, []));
   const { lost } = updateTracker(state, []);
   assert.deepEqual(lost.map(v => v.id), [1]);
