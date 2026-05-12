@@ -1,23 +1,27 @@
 #!/usr/bin/env node
 /**
- * タクシープール観測パイプライン (Phase A) のオーケストレーター。
+ * タクシープール観測パイプライン (schema v2) のオーケストレーター。
  * 1. ttc.taxi-inf.jp から画像 2 枚取得
- * 2. analyzePoolImage で各画像のメタデータ抽出
- * 3. data/arrivals.json と data/weather.json から同時刻の状態取得
- * 4. data/taxi-pool-history.jsonl の最終行を読み、前 tick メタを取り出して diff 計算
- * 5. 新しい 1 行を append
- * 6. /tmp に画像を保存 (workflow が Artifact upload する)
+ * 2. analyzePoolImage で各画像のメタデータ + ROI 解析を抽出
+ * 3. data/arrivals.json と data/weather.json から状態取得
+ * 4. summarizeArrivalsWindow で「現在 -30 〜 +60 分」の便集計
+ * 5. data/taxi-pool-history.jsonl の最終行を読み、前 tick メタを取り出して diff 計算
+ * 6. 新しい 1 行 (schema_version=2) を append
+ * 7. /tmp に画像を保存 (workflow が Artifact upload する想定だが、launchd 運用では未使用)
  *
  * Workflow からは git commit & push の race-safe ロジックで呼ばれる。
  */
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { analyzePoolImage } from './lib/image-pool-analyzer.mjs';
+import { summarizeArrivalsWindow } from './lib/arrivals-window-summary.mjs';
 
 const REAL01_URL = 'https://ttc.taxi-inf.jp/Real01_line.jpg';
 const REAL02_URL = 'https://ttc.taxi-inf.jp/Real02.jpg';
 const USER_AGENT = 'taxi-ic-helper observation bot (https://github.com/hidenaka/taxi-ic-helper)';
 const HISTORY_PATH = './data/taxi-pool-history.jsonl';
+const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
 const TIMEOUT_MS = 15000;
+const SCHEMA_VERSION = 2;
 
 function jstNowIso() {
   const d = new Date();
@@ -50,20 +54,24 @@ function readLastTick() {
   return null;
 }
 
-function readArrivalsState() {
+function readArrivalsJson() {
   try {
-    const j = JSON.parse(readFileSync('./data/arrivals.json', 'utf8'));
-    const updatedAt = j.updatedAt ?? null;
-    const total = j.stats?.totalEstimatedTaxiPax ?? null;
-    let lagSec = null;
-    if (updatedAt) {
-      lagSec = Math.floor((Date.now() - new Date(updatedAt).getTime()) / 1000);
-    }
-    return { updated_at: updatedAt, total_estimated_taxi_pax: total, lag_seconds: lagSec };
+    return JSON.parse(readFileSync('./data/arrivals.json', 'utf8'));
   } catch (e) {
     console.error(`[observe] arrivals.json read failed: ${e.message}`);
     return null;
   }
+}
+
+function readArrivalsState(arrivals) {
+  if (!arrivals) return null;
+  const updatedAt = arrivals.updatedAt ?? null;
+  const total = arrivals.stats?.totalEstimatedTaxiPax ?? null;
+  let lagSec = null;
+  if (updatedAt) {
+    lagSec = Math.floor((Date.now() - new Date(updatedAt).getTime()) / 1000);
+  }
+  return { updated_at: updatedAt, total_estimated_taxi_pax: total, lag_seconds: lagSec };
 }
 
 function readWeather() {
@@ -75,6 +83,15 @@ function readWeather() {
     };
   } catch (e) {
     console.error(`[observe] weather.json read failed: ${e.message}`);
+    return null;
+  }
+}
+
+function readRoiConfig() {
+  try {
+    return JSON.parse(readFileSync(ROI_CONFIG_PATH, 'utf8'));
+  } catch (e) {
+    console.error(`[observe] roi-config.json read failed: ${e.message}`);
     return null;
   }
 }
@@ -97,7 +114,6 @@ async function main() {
     process.exit(0);
   }
 
-  // /tmp に保存 (workflow が Artifact upload する)
   const tsSafe = ts.replace(/[:+]/g, '-');
   writeFileSync(`/tmp/taxi-pool-${tsSafe}-real01.jpg`, buf1);
   writeFileSync(`/tmp/taxi-pool-${tsSafe}-real02.jpg`, buf2);
@@ -107,31 +123,44 @@ async function main() {
   const prev2 = lastTick?.img2 ?? null;
   const tickSeq = (lastTick?.tick_seq ?? 0) + 1;
 
+  const roiConfig = readRoiConfig();
+  const roi1 = roiConfig?.real01_line ?? null;
+  const roi2 = roiConfig?.real02 ?? null;
+
   let img1, img2;
   try {
-    img1 = await analyzePoolImage(buf1, prev1);
-    img2 = await analyzePoolImage(buf2, prev2);
+    img1 = await analyzePoolImage(buf1, prev1, roi1);
+    img2 = await analyzePoolImage(buf2, prev2, roi2);
   } catch (e) {
     console.error(`[observe] image analyze failed: ${e.message}`);
     process.exit(0);
   }
 
-  const arrivalsState = readArrivalsState();
+  const arrivalsJson = readArrivalsJson();
+  const arrivalsState = readArrivalsState(arrivalsJson);
+  const arrivalsWindow = arrivalsJson
+    ? summarizeArrivalsWindow(arrivalsJson, new Date())
+    : null;
   const weather = readWeather();
 
   const row = {
+    schema_version: SCHEMA_VERSION,
     ts,
     tick_seq: tickSeq,
     img1: { name: 'Real01_line', ...img1 },
     img2: { name: 'Real02', ...img2 },
     arrivals_state: arrivalsState,
+    arrivals_window: arrivalsWindow,
     weather
   };
 
   appendFileSync(HISTORY_PATH, JSON.stringify(row) + '\n', 'utf8');
-  console.log(`[observe] appended tick_seq=${tickSeq} ts=${ts}`);
-  console.log(`[observe] img1 black_ratio=${img1.black_ratio} diff=${img1.diff_from_prev}`);
-  console.log(`[observe] img2 black_ratio=${img2.black_ratio} diff=${img2.diff_from_prev}`);
+  console.log(`[observe] appended tick_seq=${tickSeq} ts=${ts} (schema_version=${SCHEMA_VERSION})`);
+  console.log(`[observe] img1 edge=${img1.roi?.edge_density ?? 'n/a'} black=${img1.black_ratio} lum=${img1.roi?.luminance_mean ?? 'n/a'}`);
+  console.log(`[observe] img2 edge=${img2.roi?.edge_density ?? 'n/a'} black=${img2.black_ratio} lum=${img2.roi?.luminance_mean ?? 'n/a'}`);
+  if (arrivalsWindow) {
+    console.log(`[observe] arrivals_window flights=${arrivalsWindow.flight_count} taxi_pax_sum=${arrivalsWindow.estimated_taxi_pax_sum}`);
+  }
 }
 
 main().catch(e => {
