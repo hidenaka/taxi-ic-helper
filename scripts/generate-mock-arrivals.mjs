@@ -13,6 +13,7 @@
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { transformArrivals } from './lib/arrival-transformer.mjs';
+import { buildHolidaySet, getDayType } from './lib/holiday-check.mjs';
 
 const seatsMaster = JSON.parse(readFileSync('./data/aircraft-seats.json', 'utf8'));
 const factorsMaster = JSON.parse(readFileSync('./data/load-factors.json', 'utf8'));
@@ -60,9 +61,14 @@ const railOk = {
   TokyoMonorail: { status: 'OnTime', delayMinutes: 0 }
 };
 
-const jstNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-const dayOfWeek = jstNow.getDay();
-const dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'holiday' : 'weekday';
+let holidaySet = null;
+try {
+  const h = JSON.parse(readFileSync('./data/holidays.json', 'utf8'));
+  holidaySet = buildHolidaySet(h);
+} catch {
+  holidaySet = null;
+}
+const dayType = getDayType(new Date(), holidaySet);
 
 // [flightNo, operator, from, terminal, sched, status, aircraft, estimated?]
 // status: 'OnTime' | 'Delayed' | 'Arrived' | 'Cancelled'
