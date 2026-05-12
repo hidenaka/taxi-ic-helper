@@ -34,7 +34,7 @@ case "${1:-help}" in
     <string>$LAUNCHER</string>
   </array>
   <key>StartInterval</key>
-  <integer>900</integer>
+  <integer>60</integer>
   <key>RunAtLoad</key>
   <false/>
   <key>StandardOutPath</key>
