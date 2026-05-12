@@ -1,13 +1,22 @@
 #!/bin/bash
-# launchd から 15 分ごとに呼ばれる観測ジョブのエントリポイント。
+# launchd から 5 分ごとに呼ばれる観測ジョブのエントリポイント。
 # 1. リポジトリ最新を pull
 # 2. observe-taxi-pool.mjs で 1 tick 観測
 # 3. data/taxi-pool-history.jsonl に変更があれば commit & push (3 回までリトライ)
 #
-# launchd plist の StartInterval: 900 (15 分) で起動される。
+# launchd plist の StartInterval: 300 (5 分) で起動される。
 # 失敗してもステータス 0 で終了 (launchd の retry を待たず、次の周期で続行)。
+#
+# Phase A 終了日: STOP_DATE 以降は何もせず skip する (uninstall は手動)。
 
 set +e
+
+STOP_DATE="2026-06-01"
+TODAY_JST=$(TZ=Asia/Tokyo date '+%Y-%m-%d')
+if [[ "$TODAY_JST" > "$STOP_DATE" || "$TODAY_JST" == "$STOP_DATE" ]]; then
+  echo "[observe-tick] STOP_DATE=$STOP_DATE reached (today=$TODAY_JST), skip tick. Run './scripts/install-observe-launchd.sh uninstall' to fully stop."
+  exit 0
+fi
 
 # REPO はスクリプトの親ディレクトリから自動解決 (どの Mac に移しても動く)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

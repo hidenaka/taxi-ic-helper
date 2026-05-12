@@ -293,6 +293,8 @@ git add -A && git commit -m "chore(observe): archive Phase A jsonl, start fresh 
 - 7 日経過 (≈ 672 行) → tick_seq の抜けを `jq -r '.tick_seq' jsonl | awk 'NR>1 && $1!=prev+1 {print prev, $1}; {prev=$1}'` で検出
 - 14 日経過 (≈ 4,032 行) → 観測完了、Phase B 分析セッションへ
 
+**実運用上の終了日**: `2026-05-31 23:59 JST`。`scripts/observe-tick-local.sh` の `STOP_DATE=2026-06-01` ガードにより 6/1 00:00 JST 以降の tick は自動 skip される。完全停止は手動 `./scripts/install-observe-launchd.sh uninstall`。
+
 ### schema_version=2 への移行検証 (実装直後 24 時間)
 
 ```bash
