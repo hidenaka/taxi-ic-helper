@@ -86,6 +86,7 @@ npm test         # node --test tests/ (269 tests)
 - **ロビー出口所要時間**: 羽田空港旅客ターミナル公表所要時間。`data/terminal-egress.json`
 - **京急/モノレール 運行情報**: ODPT `odpt:TrainInformation`（5分ごと自動更新、トークン取得後に有効化）。
 - **羽田空港 天候**: Open-Meteo（認証不要・5分ごと自動更新）。WMO weather code 95/96/99 を雷扱い。`data/weather.json`
+- **祝日カレンダー**: 内閣府 [国民の祝日CSV](https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv)（月1回自動更新）。年末年始 (12/29-1/3) を holiday 扱いに追加。`data/holidays.json`。終電パターンの weekday/holiday 判定に使用。
 
 ### タクシー候補数推定
 
