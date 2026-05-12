@@ -40,11 +40,13 @@ git add data/taxi-pool-history.jsonl
 git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
 
 for i in 1 2 3; do
-  if git push origin main 2>&1 | tail -3; then
+  git push origin main 2>&1 | tail -3
+  push_status=${PIPESTATUS[0]}
+  if [ "$push_status" -eq 0 ]; then
     echo "[observe-tick] push ok (attempt $i)"
     exit 0
   fi
-  echo "[observe-tick] push failed (attempt $i), pull-rebase and retry"
+  echo "[observe-tick] push failed (attempt $i, exit=$push_status), pull-rebase and retry"
   git pull --rebase --autostash origin main 2>&1 | tail -3
   sleep $((i * 3))
 done
