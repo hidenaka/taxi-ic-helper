@@ -119,3 +119,63 @@ test('ROI 解析: roi=null を渡すと既存動作 (roi フィールドなし)'
   assert.equal(r.roi, undefined, 'roi=null なら roi フィールドは返さない');
   assert.ok(typeof r.black_ratio === 'number', '既存の black_ratio は計算される');
 });
+
+// --- analyzeStalls (schema v3) ---
+import { analyzeStalls } from '../scripts/lib/image-pool-analyzer.mjs';
+
+const STALL_ROIS_FOR_TEST = {
+  stalls: {
+    stall1: {
+      source: 'real01_line',
+      capacity: 8,
+      label: 'Test stall 1',
+      roi: { x: 0, y: 0, width: 10, height: 10 }
+    }
+  }
+};
+
+test('analyzeStalls: 全黒画像 → occupied_estimate が capacity に近い', async () => {
+  const buf = await blackBuffer();
+  const img = await Jimp.read(buf);
+  const r = await analyzeStalls({ real01_line: img }, STALL_ROIS_FOR_TEST, null);
+  assert.equal(r.stall1.capacity, 8);
+  assert.equal(r.stall1.occupied_estimate, 8, `occupied=${r.stall1.occupied_estimate}`);
+  assert.ok(r.stall1.black_ratio > 0.95);
+  assert.equal(r.stall1.diff_occupied_from_prev, null);
+  assert.equal(r.stall1.source, 'real01_line');
+  assert.equal(r.stall1.label, 'Test stall 1');
+});
+
+test('analyzeStalls: 全白画像 → occupied_estimate = 0', async () => {
+  const buf = await whiteBuffer();
+  const img = await Jimp.read(buf);
+  const r = await analyzeStalls({ real01_line: img }, STALL_ROIS_FOR_TEST, null);
+  assert.equal(r.stall1.occupied_estimate, 0);
+  assert.ok(r.stall1.black_ratio < 0.05);
+});
+
+test('analyzeStalls: prev に同じ stalls を渡す → diff_occupied_from_prev = 0', async () => {
+  const buf = await blackBuffer();
+  const img = await Jimp.read(buf);
+  const prev = await analyzeStalls({ real01_line: img }, STALL_ROIS_FOR_TEST, null);
+  const curr = await analyzeStalls({ real01_line: img }, STALL_ROIS_FOR_TEST, prev);
+  assert.equal(curr.stall1.diff_occupied_from_prev, 0);
+});
+
+test('analyzeStalls: 画像なし stall は null を返す', async () => {
+  // stall4 が real02 を要求するが、real02 を渡さない場合
+  const rois = {
+    stalls: {
+      stall4: {
+        source: 'real02',
+        capacity: 8,
+        label: 'Test stall 4',
+        roi: { x: 0, y: 0, width: 10, height: 10 }
+      }
+    }
+  };
+  const buf = await blackBuffer();
+  const img = await Jimp.read(buf);
+  const r = await analyzeStalls({ real01_line: img }, rois, null);
+  assert.equal(r.stall4, null);
+});
