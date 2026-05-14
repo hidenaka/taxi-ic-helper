@@ -334,6 +334,51 @@ def main() -> None:
     print("[phase-a-mid] hourly outflow summary:")
     print(hourly_flow[["hour", "T1_out_mean", "T2_out_mean", "total_out_mean", "T1_out_sum", "T2_out_sum", "n_ticks", "luminance_mean"]].to_string(index=False))
 
+    # figure 05c: 日別 5 分刻み変化 (4 日分を縦に並べる)
+    flow_for_daily = flow.copy()
+    flow_for_daily["date"] = flow_for_daily["ts"].dt.date
+    dates = sorted(flow_for_daily["date"].unique())
+    if len(dates) > 0:
+        fig, axes = plt.subplots(len(dates), 1, figsize=(13, 2.6 * len(dates)), sharex=False, sharey=True)
+        if len(dates) == 1:
+            axes = [axes]
+        for ax, date in zip(axes, dates):
+            day = flow_for_daily[flow_for_daily["date"] == date]
+            ax.fill_between(day["ts"], 0, day["T1_outflow"], step="post",
+                            color="#48c", alpha=0.45, label="T1 outflow")
+            ax.fill_between(day["ts"], 0, -day["T2_outflow"], step="post",
+                            color="#e84", alpha=0.45, label="T2 outflow (下方向)")
+            ax.axhline(0, color="#000", linewidth=0.4)
+            ax.set_ylabel(f"{date}\nout per 5min")
+            ax.grid(True, alpha=0.3)
+            ax.legend(loc="upper right", fontsize=8)
+            ax.set_title(f"{date}: T1_sum={int(day['T1_outflow'].sum())}, T2_sum={int(day['T2_outflow'].sum())}, ticks={len(day)}",
+                         fontsize=9, loc="left")
+        axes[-1].set_xlabel("ts (JST)")
+        fig.suptitle("Per-day 5min outflow (trusted subset, T1 up / T2 down)", y=1.001)
+        fig.tight_layout()
+        fig.savefig(FIGURES_DIR / "05c-outflow-per-day.png", dpi=120, bbox_inches="tight")
+        plt.close(fig)
+        print(f"[phase-a-mid] wrote {FIGURES_DIR / '05c-outflow-per-day.png'}")
+
+    # figure 05d: 入庫 / 出庫の同時プロット (時間帯別)
+    fig, ax = plt.subplots(figsize=(11, 5))
+    width = 0.35
+    hours_arr = hourly_flow["hour"].to_numpy()
+    inflow_total_mean = (hourly_flow["T1_in_mean"] + hourly_flow["T2_in_mean"])
+    ax.bar(hours_arr - width / 2, hourly_flow["total_out_mean"], width, color="#48c", label="出庫 (T1+T2 mean)")
+    ax.bar(hours_arr + width / 2, inflow_total_mean, width, color="#fb4", label="入庫 (T1+T2 mean)")
+    ax.set_xlabel("hour (JST)")
+    ax.set_ylabel("mean per 5min tick")
+    ax.set_title(f"Inflow vs Outflow by hour (trusted subset, n={len(flow)})")
+    ax.set_xticks(hours_arr)
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis="y")
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "05d-inflow-vs-outflow.png", dpi=120)
+    plt.close(fig)
+    print(f"[phase-a-mid] wrote {FIGURES_DIR / '05d-inflow-vs-outflow.png'}")
+
 
 if __name__ == "__main__":
     main()
