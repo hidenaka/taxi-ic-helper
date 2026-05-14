@@ -102,6 +102,20 @@ def compute_outflow_per_tick(v3: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def compute_h8_stall34_correlation(trusted: pd.DataFrame) -> dict:
+    """stall3 と stall4 の occupied / diff の Pearson 相関を返す (神奈川車混在の影響評価)。"""
+    occ_df = trusted[["stall3_occ", "stall4_occ"]].dropna()
+    diff_df = trusted[["stall3_diff", "stall4_diff"]].dropna()
+    occ_r = float(occ_df.corr().iloc[0, 1]) if len(occ_df) > 1 else None
+    diff_r = float(diff_df.corr().iloc[0, 1]) if len(diff_df) > 1 else None
+    return {
+        "occupied_pearson_r": occ_r,
+        "diff_pearson_r": diff_r,
+        "n_occ": int(len(occ_df)),
+        "n_diff": int(len(diff_df)),
+    }
+
+
 def compute_h6_correlation(flow_df: pd.DataFrame) -> dict:
     """T1/T2 出庫量と window_taxi_pax の時間帯バケット (1 時間粒度) Pearson 相関。
     戻り値: {'T1_pearson_r', 'T2_pearson_r', 'hourly_df', 'n'}。
@@ -181,6 +195,17 @@ assert _expanded["luminance_mean_1"].iloc[0] == 100
 assert _expanded["stall1_occ"].iloc[0] == 5
 assert _expanded["stall3_diff"].iloc[0] == 1
 assert _expanded["hour"].iloc[0] == 12
+
+# inline test: H8 相関
+_h8_test = pd.DataFrame({
+    "stall3_occ": [1, 2, 3, 4, 5],
+    "stall4_occ": [2, 3, 4, 5, 6],  # 完全に同方向
+    "stall3_diff": [0, 1, 1, 1, 1],
+    "stall4_diff": [0, 1, 1, 1, 1],
+})
+_h8_result = compute_h8_stall34_correlation(_h8_test)
+assert abs(_h8_result["occupied_pearson_r"] - 1.0) < 1e-9
+assert abs(_h8_result["diff_pearson_r"] - 1.0) < 1e-9
 
 # inline test: H6 相関の符号と桁
 _h6_test = pd.DataFrame({
@@ -418,6 +443,30 @@ def main() -> None:
     fig.savefig(FIGURES_DIR / "05-h6-correlation.png", dpi=120, bbox_inches="tight")
     plt.close(fig)
     print(f"[phase-a-mid] wrote {FIGURES_DIR / '05-h6-correlation.png'}")
+
+    # --- H8: stall3 vs stall4 相関 (神奈川車混在の影響) ---
+    h8 = compute_h8_stall34_correlation(trusted)
+    occ_r_str = f"{h8['occupied_pearson_r']:.3f}" if h8['occupied_pearson_r'] is not None else "n/a"
+    diff_r_str = f"{h8['diff_pearson_r']:.3f}" if h8['diff_pearson_r'] is not None else "n/a"
+    print(f"[phase-a-mid] H8: stall3 vs stall4 occupied r = {occ_r_str} (n={h8['n_occ']})")
+    print(f"[phase-a-mid] H8: stall3 vs stall4 diff r     = {diff_r_str} (n={h8['n_diff']})")
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5))
+    axes[0].scatter(trusted["stall3_occ"], trusted["stall4_occ"], s=4, alpha=0.3, color="#48c")
+    axes[0].set_xlabel("stall3 occupied_estimate")
+    axes[0].set_ylabel("stall4 occupied_estimate")
+    axes[0].set_title(f"occupied correlation  r={occ_r_str}  (n={h8['n_occ']})")
+    axes[0].grid(True, alpha=0.3)
+    axes[1].scatter(trusted["stall3_diff"], trusted["stall4_diff"], s=8, alpha=0.4, color="#e84")
+    axes[1].set_xlabel("stall3 diff_occupied_from_prev")
+    axes[1].set_ylabel("stall4 diff_occupied_from_prev")
+    axes[1].set_title(f"diff correlation  r={diff_r_str}  (n={h8['n_diff']})")
+    axes[1].grid(True, alpha=0.3)
+    fig.suptitle("H8: stall3-4 sync ( >0.5 sync / <0.2 Kanagawa contamination )", fontsize=10, y=1.02)
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "06-h8-stall3-stall4.png", dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[phase-a-mid] wrote {FIGURES_DIR / '06-h8-stall3-stall4.png'}")
 
     # figure 05d: 入庫 / 出庫の同時プロット (時間帯別)
     fig, ax = plt.subplots(figsize=(11, 5))
