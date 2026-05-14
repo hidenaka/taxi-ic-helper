@@ -58,6 +58,35 @@ def find_ts_reversal(df: pd.DataFrame) -> list[int]:
     return df.index[diff < pd.Timedelta(0)].tolist()
 
 
+def expand_v3_fields(df: pd.DataFrame) -> pd.DataFrame:
+    """v3 stalls / img / arrivals_window の必要フィールドを列に展開した DataFrame を返す。"""
+    out = df.copy()
+    out["luminance_mean_1"] = out["img1"].apply(lambda x: get_nested(x, "roi", "luminance_mean"))
+    out["luminance_std_1"] = out["img1"].apply(lambda x: get_nested(x, "roi", "luminance_std"))
+    out["edge_density_1"] = out["img1"].apply(lambda x: get_nested(x, "roi", "edge_density"))
+    out["window_taxi_pax"] = out["arrivals_window"].apply(lambda x: get_nested(x, "estimated_taxi_pax_sum"))
+    out["weather_code"] = out["weather"].apply(lambda x: get_nested(x, "code"))
+    for n in (1, 2, 3, 4):
+        out[f"stall{n}_occ"] = out["stalls"].apply(lambda x: get_nested(x, f"stall{n}", "occupied_estimate"))
+        out[f"stall{n}_diff"] = out["stalls"].apply(lambda x: get_nested(x, f"stall{n}", "diff_occupied_from_prev"))
+        out[f"stall{n}_cap"] = out["stalls"].apply(lambda x: get_nested(x, f"stall{n}", "capacity"))
+        out[f"stall{n}_lum"] = out["stalls"].apply(lambda x: get_nested(x, f"stall{n}", "luminance_mean"))
+    out["hour"] = out["ts"].dt.hour
+    return out
+
+
+def define_trusted_subset(df: pd.DataFrame) -> pd.DataFrame:
+    """信頼サブセット: schema=3 ∧ luminance_mean_1 >= 30 ∧ ts 順序正常 ∧ stalls 非 null。"""
+    reversals = set(find_ts_reversal(df))
+    mask = (
+        (df["schema_version"] == 3)
+        & (df["luminance_mean_1"] >= NIGHT_LUMINANCE_THRESHOLD)
+        & (~df.index.isin(reversals))
+        & (df["stall1_occ"].notna())
+    )
+    return df[mask].copy()
+
+
 # inline test: 純関数 get_nested の挙動
 assert get_nested({"a": {"b": 1}}, "a", "b") == 1
 assert get_nested({"a": {"b": 1}}, "a", "c") is None
@@ -77,6 +106,30 @@ _test_df_ts = pd.DataFrame({
     ])
 })
 assert find_ts_reversal(_test_df_ts) == [2], f"got {find_ts_reversal(_test_df_ts)}"
+
+# inline test: expand_v3_fields の基本動作
+_test_row = {
+    "schema_version": 3,
+    "ts": "2026-05-14T12:00:00+09:00",
+    "tick_seq": 1,
+    "img1": {"roi": {"luminance_mean": 100, "luminance_std": 40, "edge_density": 0.4}},
+    "img2": {},
+    "stalls": {
+        "stall1": {"occupied_estimate": 5, "diff_occupied_from_prev": -1, "capacity": 8, "luminance_mean": 95},
+        "stall2": {"occupied_estimate": 4, "diff_occupied_from_prev": 0, "capacity": 7, "luminance_mean": 95},
+        "stall3": {"occupied_estimate": 6, "diff_occupied_from_prev": 1, "capacity": 8, "luminance_mean": 95},
+        "stall4": {"occupied_estimate": 7, "diff_occupied_from_prev": 0, "capacity": 8, "luminance_mean": 95},
+    },
+    "arrivals_window": {"estimated_taxi_pax_sum": 200},
+    "weather": {"code": 0},
+}
+_test_df_v3 = pd.DataFrame([_test_row])
+_test_df_v3["ts"] = pd.to_datetime(_test_df_v3["ts"])
+_expanded = expand_v3_fields(_test_df_v3)
+assert _expanded["luminance_mean_1"].iloc[0] == 100
+assert _expanded["stall1_occ"].iloc[0] == 5
+assert _expanded["stall3_diff"].iloc[0] == 1
+assert _expanded["hour"].iloc[0] == 12
 
 
 def main() -> None:
@@ -128,6 +181,64 @@ def main() -> None:
     fig.savefig(FIGURES_DIR / "01-schema-distribution.png", dpi=120)
     plt.close(fig)
     print(f"[phase-a-mid] wrote {FIGURES_DIR / '01-schema-distribution.png'}")
+
+    # --- フィールド展開 + 信頼サブセット定義 ---
+    df = expand_v3_fields(df)
+    v3 = df[df["schema_version"] == 3].copy()
+    trusted = define_trusted_subset(df)
+    print(f"[phase-a-mid] v3 行: {len(v3)} / 信頼サブセット: {len(trusted)} 行")
+
+    # --- 夜間飽和率 ---
+    night = v3[v3["luminance_mean_1"] < NIGHT_LUMINANCE_THRESHOLD].copy()
+    if len(night) > 0:
+        night_saturated = (
+            (night["stall1_occ"] == night["stall1_cap"])
+            & (night["stall2_occ"] == night["stall2_cap"])
+            & (night["stall3_occ"] == night["stall3_cap"])
+        )
+        sat_rate = float(night_saturated.mean())
+        sat_count = int(night_saturated.sum())
+    else:
+        night_saturated = pd.Series([], dtype=bool)
+        sat_rate = float("nan")
+        sat_count = 0
+    print(f"[phase-a-mid] 夜間 tick {len(night)} 件、stall1-3 全満杯 {sat_count} 件 ({sat_rate:.1%})")
+
+    # figure 04: luminance vs occupied 合計 散布図
+    fig, ax = plt.subplots(figsize=(8, 5))
+    occ_sum = v3[["stall1_occ", "stall2_occ", "stall3_occ"]].sum(axis=1)
+    cap_total = int(v3[["stall1_cap", "stall2_cap", "stall3_cap"]].iloc[0].sum()) if len(v3) > 0 else 23
+    ax.scatter(v3["luminance_mean_1"], occ_sum, s=4, alpha=0.4, color="#48c", label="stall1-3 sum")
+    ax.axvline(NIGHT_LUMINANCE_THRESHOLD, color="#e44", linestyle="--", linewidth=1,
+               label=f"night threshold ({NIGHT_LUMINANCE_THRESHOLD})")
+    ax.axhline(cap_total, color="#666", linestyle=":", linewidth=1, label=f"capacity sum ({cap_total})")
+    ax.set_xlabel("img1.roi.luminance_mean")
+    ax.set_ylabel("stall1+2+3 occupied_estimate")
+    ax.set_title(f"Night saturation: night={len(night)} ticks, saturation rate {sat_rate:.1%} (n={len(v3)})")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "04-night-saturation.png", dpi=120)
+    plt.close(fig)
+    print(f"[phase-a-mid] wrote {FIGURES_DIR / '04-night-saturation.png'}")
+
+    # figure 03: stall 別 occupied_estimate の時間帯ヒートマップ (信頼サブセット)
+    if len(trusted) > 0:
+        heat = trusted.groupby("hour")[["stall1_occ", "stall2_occ", "stall3_occ", "stall4_occ"]].mean().T
+        fig, ax = plt.subplots(figsize=(10, 4))
+        im = ax.imshow(heat.values, aspect="auto", cmap="YlOrRd", origin="lower")
+        ax.set_yticks(range(4))
+        ax.set_yticklabels(["stall1", "stall2", "stall3", "stall4"])
+        ax.set_xticks(range(len(heat.columns)))
+        ax.set_xticklabels(heat.columns)
+        ax.set_xlabel("hour (JST)")
+        ax.set_title(f"stall occupied_estimate mean by hour (trusted subset, n={len(trusted)})")
+        fig.colorbar(im, ax=ax, label="mean occupied")
+        fig.tight_layout()
+        fig.savefig(FIGURES_DIR / "03-stall-occupancy-heatmap.png", dpi=120)
+        plt.close(fig)
+        print(f"[phase-a-mid] wrote {FIGURES_DIR / '03-stall-occupancy-heatmap.png'}")
+    else:
+        print("[phase-a-mid] 信頼サブセット 0 行、figure 03 をスキップ")
 
 
 if __name__ == "__main__":
