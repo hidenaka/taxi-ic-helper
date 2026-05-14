@@ -1,11 +1,16 @@
 #!/bin/bash
 # launchd ジョブ jp.taxi-ic-helper.observe を install / uninstall する。
-# 15 分間隔で scripts/observe-tick-local.sh を呼ぶ。
+# 5 分間隔 (StartInterval 300) で scripts/observe-tick-local.sh を呼ぶ。
+# 画像は TAXI_POOL_IMAGE_DIR (デフォルト ~/Library/Application Support/taxi-ic-helper/images)
+# に永続保存される。観測機を再起動しても消えない。
 #
 # 使い方:
 #   ./scripts/install-observe-launchd.sh install   # plist を配置・load
 #   ./scripts/install-observe-launchd.sh uninstall # unload・plist を削除
 #   ./scripts/install-observe-launchd.sh status    # ジョブの状態確認
+#
+# 環境変数:
+#   TAXI_POOL_IMAGE_DIR   画像保存先 (省略時 ~/Library/Application Support/taxi-ic-helper/images)
 
 set -e
 
@@ -17,10 +22,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$REPO/.local"
 LAUNCHER="$REPO/scripts/observe-tick-local.sh"
+IMAGE_DIR="${TAXI_POOL_IMAGE_DIR:-$HOME/Library/Application Support/taxi-ic-helper/images}"
 
 case "${1:-help}" in
   install)
-    mkdir -p "$PLIST_DIR" "$LOG_DIR"
+    mkdir -p "$PLIST_DIR" "$LOG_DIR" "$IMAGE_DIR"
     cat > "$PLIST_PATH" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -45,6 +51,8 @@ case "${1:-help}" in
   <dict>
     <key>PATH</key>
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>TAXI_POOL_IMAGE_DIR</key>
+    <string>$IMAGE_DIR</string>
   </dict>
 </dict>
 </plist>
@@ -52,7 +60,8 @@ EOF
     launchctl unload "$PLIST_PATH" 2>/dev/null || true
     launchctl load "$PLIST_PATH"
     echo "Installed and loaded: $PLIST_PATH"
-    echo "Logs: $LOG_DIR/observe-stdout.log and observe-stderr.log"
+    echo "Logs:   $LOG_DIR/observe-stdout.log and observe-stderr.log"
+    echo "Images: $IMAGE_DIR"
     ;;
   uninstall)
     if [ -f "$PLIST_PATH" ]; then
