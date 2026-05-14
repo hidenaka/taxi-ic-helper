@@ -102,6 +102,37 @@ def compute_outflow_per_tick(v3: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def compute_h9_night_proxy(v3: pd.DataFrame) -> dict:
+    """夜間 (luminance < 30) と昼間 (luminance >= 60) の luminance_std / edge_density 分布を比較。
+    戻り値: 各サブセットの統計と夜間内での arrivals_window との Pearson 相関。
+    """
+    night = v3[v3["luminance_mean_1"] < NIGHT_LUMINANCE_THRESHOLD]
+    day = v3[v3["luminance_mean_1"] >= 60]
+
+    def safe_stats(s: pd.Series) -> dict:
+        s = s.dropna()
+        if len(s) == 0:
+            return {"n": 0, "mean": None, "median": None, "std": None}
+        return {"n": int(len(s)), "mean": float(s.mean()), "median": float(s.median()), "std": float(s.std())}
+
+    def safe_corr(a: pd.Series, b: pd.Series) -> float | None:
+        joined = pd.concat([a, b], axis=1).dropna()
+        if len(joined) < 5:
+            return None
+        return float(joined.iloc[:, 0].corr(joined.iloc[:, 1]))
+
+    return {
+        "night_n": int(len(night)),
+        "day_n": int(len(day)),
+        "luminance_std_night": safe_stats(night["luminance_std_1"]),
+        "luminance_std_day": safe_stats(day["luminance_std_1"]),
+        "edge_density_night": safe_stats(night["edge_density_1"]),
+        "edge_density_day": safe_stats(day["edge_density_1"]),
+        "night_lum_std_vs_window": safe_corr(night["luminance_std_1"], night["window_taxi_pax"]),
+        "night_edge_vs_window": safe_corr(night["edge_density_1"], night["window_taxi_pax"]),
+    }
+
+
 def compute_h8_stall34_correlation(trusted: pd.DataFrame) -> dict:
     """stall3 と stall4 の occupied / diff の Pearson 相関を返す (神奈川車混在の影響評価)。"""
     occ_df = trusted[["stall3_occ", "stall4_occ"]].dropna()
@@ -195,6 +226,18 @@ assert _expanded["luminance_mean_1"].iloc[0] == 100
 assert _expanded["stall1_occ"].iloc[0] == 5
 assert _expanded["stall3_diff"].iloc[0] == 1
 assert _expanded["hour"].iloc[0] == 12
+
+# inline test: H9 統計の基本形
+_h9_test = pd.DataFrame({
+    "luminance_mean_1": [10, 15, 20, 80, 90, 100],
+    "luminance_std_1": [40, 45, 50, 20, 22, 25],
+    "edge_density_1": [0.3, 0.35, 0.4, 0.2, 0.22, 0.25],
+    "window_taxi_pax": [100, 120, 90, 200, 220, 180],
+})
+_h9_result = compute_h9_night_proxy(_h9_test)
+assert _h9_result["night_n"] == 3
+assert _h9_result["day_n"] == 3
+assert _h9_result["luminance_std_night"]["mean"] is not None
 
 # inline test: H8 相関
 _h8_test = pd.DataFrame({
@@ -467,6 +510,39 @@ def main() -> None:
     fig.savefig(FIGURES_DIR / "06-h8-stall3-stall4.png", dpi=120, bbox_inches="tight")
     plt.close(fig)
     print(f"[phase-a-mid] wrote {FIGURES_DIR / '06-h8-stall3-stall4.png'}")
+
+    # --- H9: 夜間代理指標 (行燈方式の予備妥当性) ---
+    h9 = compute_h9_night_proxy(v3)
+    print(f"[phase-a-mid] H9: night n={h9['night_n']} day n={h9['day_n']}")
+    print(f"  luminance_std night = {h9['luminance_std_night']}")
+    print(f"  luminance_std day   = {h9['luminance_std_day']}")
+    print(f"  edge_density night = {h9['edge_density_night']}")
+    print(f"  edge_density day   = {h9['edge_density_day']}")
+    print(f"  night luminance_std vs window_taxi_pax r = {h9['night_lum_std_vs_window']}")
+    print(f"  night edge_density  vs window_taxi_pax r = {h9['night_edge_vs_window']}")
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5))
+    night_v3 = v3[v3["luminance_mean_1"] < NIGHT_LUMINANCE_THRESHOLD]
+    day_v3 = v3[v3["luminance_mean_1"] >= 60]
+    axes[0].hist(day_v3["luminance_std_1"].dropna(), bins=30, alpha=0.5, label=f"day n={h9['day_n']}", color="#fc4")
+    axes[0].hist(night_v3["luminance_std_1"].dropna(), bins=30, alpha=0.5, label=f"night n={h9['night_n']}", color="#48c")
+    axes[0].set_xlabel("img1.roi.luminance_std")
+    axes[0].set_ylabel("tick count")
+    axes[0].set_title("luminance_std distribution (day vs night)")
+    axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
+    axes[1].hist(day_v3["edge_density_1"].dropna(), bins=30, alpha=0.5, label=f"day n={h9['day_n']}", color="#fc4")
+    axes[1].hist(night_v3["edge_density_1"].dropna(), bins=30, alpha=0.5, label=f"night n={h9['night_n']}", color="#48c")
+    axes[1].set_xlabel("img1.roi.edge_density")
+    axes[1].set_ylabel("tick count")
+    axes[1].set_title("edge_density distribution (day vs night)")
+    axes[1].legend()
+    axes[1].grid(True, alpha=0.3)
+    fig.suptitle("H9: night signals - can current metrics detect taxis without daylight?", fontsize=10, y=1.02)
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "07-h9-night-proxy-signals.png", dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[phase-a-mid] wrote {FIGURES_DIR / '07-h9-night-proxy-signals.png'}")
 
     # figure 05d: 入庫 / 出庫の同時プロット (時間帯別)
     fig, ax = plt.subplots(figsize=(11, 5))
