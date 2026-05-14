@@ -14,7 +14,7 @@
  *
  * 各サブシステムは独立して fall back する。img1/img2 と arrivals_* はいずれも最低限記録される。
  */
-import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { Jimp } from 'jimp';
 import { analyzePoolImage, analyzeStalls } from './lib/image-pool-analyzer.mjs';
 import { summarizeArrivalsWindow } from './lib/arrivals-window-summary.mjs';
@@ -34,6 +34,7 @@ const LANE_CONFIG_PATH = './data/lane-roi.json';
 const MODEL_PATH = './models/yolov8m.onnx';
 const TIMEOUT_MS = 15000;
 const SCHEMA_VERSION = 3;
+const IMAGE_DIR = process.env.TAXI_POOL_IMAGE_DIR ?? '/tmp';
 
 function jstNowIso() {
   const d = new Date();
@@ -142,8 +143,9 @@ async function main() {
   }
 
   const tsSafe = ts.replace(/[:+]/g, '-');
-  writeFileSync(`/tmp/taxi-pool-${tsSafe}-real01.jpg`, buf1);
-  writeFileSync(`/tmp/taxi-pool-${tsSafe}-real02.jpg`, buf2);
+  mkdirSync(IMAGE_DIR, { recursive: true });
+  writeFileSync(`${IMAGE_DIR}/taxi-pool-${tsSafe}-real01.jpg`, buf1);
+  writeFileSync(`${IMAGE_DIR}/taxi-pool-${tsSafe}-real02.jpg`, buf2);
 
   const lastTick = readLastTick();
   const prev1Img = lastTick?.img1 ?? null;
