@@ -66,6 +66,7 @@ def expand_v3_fields(df: pd.DataFrame) -> pd.DataFrame:
     out["luminance_std_1"] = out["img1"].apply(lambda x: get_nested(x, "roi", "luminance_std"))
     out["edge_density_1"] = out["img1"].apply(lambda x: get_nested(x, "roi", "edge_density"))
     out["window_taxi_pax"] = out["arrivals_window"].apply(lambda x: get_nested(x, "estimated_taxi_pax_sum"))
+    out["state_total_pax"] = out["arrivals_state"].apply(lambda x: get_nested(x, "total_estimated_taxi_pax"))
     out["weather_code"] = out["weather"].apply(lambda x: get_nested(x, "code"))
     for n in (1, 2, 3, 4):
         out[f"stall{n}_occ"] = out["stalls"].apply(lambda x: get_nested(x, f"stall{n}", "occupied_estimate"))
@@ -101,6 +102,59 @@ def compute_outflow_per_tick(v3: pd.DataFrame) -> pd.DataFrame:
     out["T2_inflow"] = out[["stall3_diff", "stall4_diff"]].clip(lower=0).sum(axis=1)
     out["total_inflow"] = out["T1_inflow"] + out["T2_inflow"]
     return out
+
+
+def compute_lagged_correlation(flow_df: pd.DataFrame,
+                                signal_col: str = "window_taxi_pax",
+                                target_col: str = "total_outflow",
+                                max_lag_ticks: int = 12) -> dict:
+    """5 分刻みグリッドで signal と target の cross-correlation を計算。
+    flow_df は 5 分均等グリッドに再サンプル済みである前提 (信頼サブセット → 5min resample 後)。
+    max_lag_ticks=12 で ±60 分 (5 min × 12)。
+    戻り値: {'lags_minutes': [...], 'pearson_r': [...], 'best_lag_minutes', 'best_r', 'n'}。
+    """
+    s = flow_df[signal_col]
+    t = flow_df[target_col]
+    lags = list(range(-max_lag_ticks, max_lag_ticks + 1))
+    results = []
+    for lag in lags:
+        # lag>0 → signal を未来へずらす (signal が target より早い場合は正の相関)
+        # 等価に: corr(s.shift(lag), t)
+        joined = pd.concat([s.shift(lag), t], axis=1).dropna()
+        if len(joined) < 10:
+            results.append((lag * 5, None, len(joined)))
+            continue
+        r = float(joined.iloc[:, 0].corr(joined.iloc[:, 1]))
+        results.append((lag * 5, r, len(joined)))
+    valid = [(lag, r) for lag, r, n in results if r is not None]
+    if not valid:
+        return {"lags_minutes": [l for l, _, _ in results], "pearson_r": [r for _, r, _ in results],
+                "n_per_lag": [n for _, _, n in results], "best_lag_minutes": None, "best_r": None}
+    # 絶対値最大ではなく、正の相関の最大を best とする (因果方向を保つ)
+    best_lag, best_r = max(valid, key=lambda x: x[1])
+    return {
+        "lags_minutes": [l for l, _, _ in results],
+        "pearson_r": [r for _, r, _ in results],
+        "n_per_lag": [n for _, _, n in results],
+        "best_lag_minutes": best_lag,
+        "best_r": best_r,
+    }
+
+
+def resample_to_5min_grid(flow_df: pd.DataFrame) -> pd.DataFrame:
+    """信頼サブセット (実 tick 間隔は ~5 分だが厳密でない) を 5 分均等グリッドに再サンプル。
+    sum で集約 (outflow/inflow の保存)、mean で arrivals_window/luminance を補間。
+    欠損 grid は NaN で残す (cross-correlation で dropna されるので問題なし)。
+    """
+    f = flow_df.set_index("ts").sort_index()
+    sum_cols = ["T1_outflow", "T2_outflow", "total_outflow", "T1_inflow", "T2_inflow"]
+    mean_cols = ["window_taxi_pax", "state_total_pax", "luminance_mean_1"]
+    agg = {c: "sum" for c in sum_cols if c in f.columns}
+    agg.update({c: "mean" for c in mean_cols if c in f.columns})
+    g = f.resample("5min").agg(agg)
+    if "state_total_pax" in g.columns:
+        g["state_pax_delta"] = g["state_total_pax"].diff()
+    return g.reset_index()
 
 
 def compute_h9_night_proxy(v3: pd.DataFrame) -> dict:
@@ -218,6 +272,7 @@ _test_row = {
         "stall4": {"occupied_estimate": 7, "diff_occupied_from_prev": 0, "capacity": 8, "luminance_mean": 95},
     },
     "arrivals_window": {"estimated_taxi_pax_sum": 200},
+    "arrivals_state": {"total_estimated_taxi_pax": 1234},
     "weather": {"code": 0},
 }
 _test_df_v3 = pd.DataFrame([_test_row])
@@ -227,6 +282,26 @@ assert _expanded["luminance_mean_1"].iloc[0] == 100
 assert _expanded["stall1_occ"].iloc[0] == 5
 assert _expanded["stall3_diff"].iloc[0] == 1
 assert _expanded["hour"].iloc[0] == 12
+
+# inline test: lagged correlation の符号と桁
+# signal が target より 10 分 (= 2 tick) 先行するケース。
+# s.shift(2) で signal を未来へずらす → target と整列 → 強い正相関。よって best_lag = +10 のはず。
+import numpy as np
+_n = 25
+_signal = np.sin(np.linspace(0, 4 * np.pi, _n)) + 1
+_target = np.roll(_signal, 2)  # signal を 2 tick 遅れさせたものが target
+_lag_test = pd.DataFrame({
+    "ts": pd.date_range("2026-05-13 10:00", periods=_n, freq="5min"),
+    "window_taxi_pax": _signal,
+    "total_outflow": _target,
+    "T1_outflow": [0]*_n, "T2_outflow": [0]*_n,
+    "T1_inflow": [0]*_n, "T2_inflow": [0]*_n,
+    "luminance_mean_1": [100]*_n,
+})
+_lag_result = compute_lagged_correlation(_lag_test, max_lag_ticks=5)
+# target = shift(signal, 2) なので s.shift(+2) との相関が最大 → best_lag=+10 min
+assert _lag_result["best_lag_minutes"] == 10, f"got {_lag_result['best_lag_minutes']}"
+assert _lag_result["best_r"] is not None and _lag_result["best_r"] > 0.95, f"got r={_lag_result['best_r']}"
 
 # inline test: H9 統計の基本形
 _h9_test = pd.DataFrame({
@@ -513,6 +588,72 @@ def main() -> None:
     plt.close(fig)
     print(f"[phase-a-mid] wrote {FIGURES_DIR / '06-h8-stall3-stall4.png'}")
 
+    # --- H6+: lagged correlation (5 分均等グリッド) ---
+    grid = resample_to_5min_grid(flow)
+    print(f"[phase-a-mid] resampled to 5min grid: {len(grid)} rows")
+    lag_total = compute_lagged_correlation(grid, "window_taxi_pax", "total_outflow", max_lag_ticks=12)
+    lag_t1    = compute_lagged_correlation(grid, "window_taxi_pax", "T1_outflow",    max_lag_ticks=12)
+    lag_t2    = compute_lagged_correlation(grid, "window_taxi_pax", "T2_outflow",    max_lag_ticks=12)
+    print(f"[phase-a-mid] lagged corr (signal=window_taxi_pax leads target by lag minutes):")
+    print(f"  total: best_lag={lag_total['best_lag_minutes']}min, best_r={lag_total['best_r']}")
+    print(f"  T1:    best_lag={lag_t1['best_lag_minutes']}min, best_r={lag_t1['best_r']}")
+    print(f"  T2:    best_lag={lag_t2['best_lag_minutes']}min, best_r={lag_t2['best_r']}")
+
+    fig, ax = plt.subplots(figsize=(11, 5))
+    for label, res, color in [("total", lag_total, "#222"), ("T1", lag_t1, "#48c"), ("T2", lag_t2, "#e84")]:
+        ax.plot(res["lags_minutes"], res["pearson_r"], marker="o", markersize=4, label=label, color=color)
+        if res["best_lag_minutes"] is not None:
+            ax.axvline(res["best_lag_minutes"], color=color, linestyle="--", alpha=0.3, linewidth=0.8)
+    ax.axvline(0, color="#666", linewidth=0.5)
+    ax.axhline(0, color="#666", linewidth=0.5)
+    ax.set_xlabel("lag (minutes; signal=arrivals_window leads target by lag)")
+    ax.set_ylabel("Pearson r")
+    ax.set_title(f"Lagged cross-correlation: arrivals_window x outflow (5min grid, n={len(grid)})")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "08-lagged-correlation.png", dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[phase-a-mid] wrote {FIGURES_DIR / '08-lagged-correlation.png'}")
+
+    # --- H6+ B: 累積予測値 state_total_pax の 5 分変化分と出庫の相関 ---
+    lag_state_total = compute_lagged_correlation(grid, "state_pax_delta", "total_outflow", max_lag_ticks=12)
+    lag_state_t1    = compute_lagged_correlation(grid, "state_pax_delta", "T1_outflow",    max_lag_ticks=12)
+    lag_state_t2    = compute_lagged_correlation(grid, "state_pax_delta", "T2_outflow",    max_lag_ticks=12)
+    print(f"[phase-a-mid] state_pax_delta lagged corr (signal leads target by lag minutes):")
+    print(f"  total: best_lag={lag_state_total['best_lag_minutes']}min, best_r={lag_state_total['best_r']}")
+    print(f"  T1:    best_lag={lag_state_t1['best_lag_minutes']}min, best_r={lag_state_t1['best_r']}")
+    print(f"  T2:    best_lag={lag_state_t2['best_lag_minutes']}min, best_r={lag_state_t2['best_r']}")
+
+    # 散布図: state_pax_delta vs total_outflow (best lag 適用)
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    for label, res, color in [("total", lag_state_total, "#222"), ("T1", lag_state_t1, "#48c"), ("T2", lag_state_t2, "#e84")]:
+        axes[0].plot(res["lags_minutes"], res["pearson_r"], marker="o", markersize=4, label=label, color=color)
+        if res["best_lag_minutes"] is not None:
+            axes[0].axvline(res["best_lag_minutes"], color=color, linestyle="--", alpha=0.3, linewidth=0.8)
+    axes[0].axvline(0, color="#666", linewidth=0.5)
+    axes[0].axhline(0, color="#666", linewidth=0.5)
+    axes[0].set_xlabel("lag (minutes; state_pax_delta leads target by lag)")
+    axes[0].set_ylabel("Pearson r")
+    axes[0].set_title(f"Lagged corr: state_pax_delta x outflow")
+    axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
+
+    # 散布図 (lag=0 でゼロ除き)
+    nonzero = grid[(grid["state_pax_delta"].abs() > 0) | (grid["total_outflow"] > 0)]
+    axes[1].scatter(nonzero["state_pax_delta"], nonzero["total_outflow"], s=8, alpha=0.4, color="#48c")
+    axes[1].set_xlabel("state_total_pax delta (per 5min)")
+    axes[1].set_ylabel("total_outflow (per 5min)")
+    axes[1].set_title(f"Scatter at lag=0 (n={len(nonzero)})")
+    axes[1].grid(True, alpha=0.3)
+    axes[1].axhline(0, color="#666", linewidth=0.5)
+    axes[1].axvline(0, color="#666", linewidth=0.5)
+    fig.suptitle(f"H6+B: arrivals_state cumulative pax delta vs outflow (5min grid, n_grid={len(grid)})", y=1.01)
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "09-state-pax-delta-correlation.png", dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[phase-a-mid] wrote {FIGURES_DIR / '09-state-pax-delta-correlation.png'}")
+
     # --- H9: 夜間代理指標 (行燈方式の予備妥当性) ---
     h9 = compute_h9_night_proxy(v3)
     print(f"[phase-a-mid] H9: night n={h9['night_n']} day n={h9['day_n']}")
@@ -596,6 +737,7 @@ def main() -> None:
 - 夜間の ROI 飽和率 {sat_rate:.1%} (n={len(night)}) — 夜間 occupied_estimate は使い物にならない、しかし夜間内で luminance_std / edge_density が予測需要と強く相関 (r=0.83, 0.90) — **行燈方式の妥当性に強い裏付け**
 - 5 分刻み出庫: 信頼サブセット {len(flow)} ticks で T1 合計 {t1_total} 台 / T2 合計 {t2_total} 台 / 全体 {total_outflow_sum} 台 — 04 時に深夜便ラッシュ (合計 4.36/tick)、8 時に立ち上がり、16 時で急減速
 - H6 (時間帯バケット相関): T1 r={fmt_r(h6['T1_pearson_r'])}, T2 r={fmt_r(h6['T2_pearson_r'])} — 弱～中程度の負相関、時間遅延を考慮した相関解析が必須
+- H6+ (lagged correlation): `arrivals_window` ベースでは r<0.11、`state_pax_delta` ベースで r~0.4 (best_lag=-35 min) — window 集計の平滑化問題、個別便スナップショット履歴が必要
 
 ## 2. データ品質チェック
 
@@ -690,6 +832,53 @@ def main() -> None:
 3. 16-18 時の出庫低調期にも `arrivals_window` は (夕方便集計で) 高めのため、時間帯バケットでは逆向きに見える
 
 **5/31 本分析の対応**: cross-correlation (時間遅延 0-60 分) で再計算、深夜帯 (4 時) と昼間 (9-15 時) を分けて評価。
+
+## 4+ H6 厳密化: lagged correlation と arrivals_state 変化量
+
+### A. arrivals_window x outflow の lagged cross-correlation
+
+5 分均等グリッド ({len(grid)} rows) で `arrivals_window.estimated_taxi_pax_sum` (signal) と outflow (target) の Pearson 相関を ±60 分でスイープ:
+
+| target | best_lag (分) | best_r |
+|---|---|---|
+| total | {lag_total['best_lag_minutes']} | {fmt_r(lag_total['best_r'])} |
+| T1    | {lag_t1['best_lag_minutes']} | {fmt_r(lag_t1['best_r'])} |
+| T2    | {lag_t2['best_lag_minutes']} | {fmt_r(lag_t2['best_r'])} |
+
+(best_lag > 0: signal が target より lag 分先行 = 因果的に妥当な「便ピーク → 出庫」関係)
+
+![lagged correlation](figures/2026-05-14/08-lagged-correlation.png)
+
+**所見**: 最大相関が +15 分付近にあるが r<0.11 とほぼゼロ。`arrivals_window` は「現在 -30 〜 +60 分」の **90 分集計値**であり、短期 (5 分) の便ピークが平滑化されている。lagged でも有意な相関は見えない。
+
+### B. arrivals_state.total_estimated_taxi_pax の 5 分変化量 x outflow
+
+`arrivals_state.total_estimated_taxi_pax` (時々刻々書き換わる累積予測値) の 5 分間差分 `state_pax_delta` (= 直近 5 分で予測値がどれだけ動いたか) と outflow の lagged 相関:
+
+| target | best_lag (分) | best_r |
+|---|---|---|
+| total | {lag_state_total['best_lag_minutes']} | {fmt_r(lag_state_total['best_r'])} |
+| T1    | {lag_state_t1['best_lag_minutes']} | {fmt_r(lag_state_t1['best_r'])} |
+| T2    | {lag_state_t2['best_lag_minutes']} | {fmt_r(lag_state_t2['best_r'])} |
+
+![state pax delta correlation](figures/2026-05-14/09-state-pax-delta-correlation.png)
+
+**所見**:
+- A (window 集計値) と比べて **約 4 倍の相関 (r~0.4)** が出る — 「変化量」のほうが短期シグナルとして強い
+- best_lag が **負** (signal が target より遅れる) — 因果的には不自然
+- 解釈候補:
+  1. **周期相関**: 飛行機の運航周期 (40 分前後の便間隔) を反映している可能性。出庫イベントから 35 分後に「次便の予測値」が累積に入ってくる、というサイクルが偶然マッチ
+  2. **観測順序**: jsonl は (新規便を反映した) `arrivals.json` 読み込みを観測 tick の直前に行う。`fetch-arrivals` ジョブと `observe-tick` ジョブの相対タイミングで、便追加が一定のタイミングで遅延している可能性
+
+### 5/31 本分析への持ち越し (個別便対応 案 D)
+
+window/state ベースの粗い集計では便単位の正確な対応が見えない。Phase B 本格分析では:
+
+- `arrivals.json` の **スナップショット履歴**を別ファイルに残す仕組み (本中間分析期間中の `arrivals.json` は時々刻々書き換わったため過去の便単位情報が消えている)
+- 個別便ごとに「予測着陸時刻 → ±N 分の出庫量」を集計し、便→出庫のラグ分布を直接見る
+- これは Phase A 観測コードの拡張が必要 — 5/31 まで本観測を止めない方針のため、observe-tick に jsonl 横の別ファイル `arrivals-snapshots-{date}.jsonl` を吐く改修を **5/31 以降** の Phase B 準備として実施
+
+---
 
 ## 5. H8: stall3 vs stall4 相関 (神奈川車混在の影響、ヒント)
 
