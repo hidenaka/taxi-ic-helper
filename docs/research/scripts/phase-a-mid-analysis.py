@@ -102,6 +102,25 @@ def compute_outflow_per_tick(v3: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def compute_h6_correlation(flow_df: pd.DataFrame) -> dict:
+    """T1/T2 出庫量と window_taxi_pax の時間帯バケット (1 時間粒度) Pearson 相関。
+    戻り値: {'T1_pearson_r', 'T2_pearson_r', 'hourly_df', 'n'}。
+    """
+    hourly = flow_df.groupby("hour").agg(
+        T1_outflow_sum=("T1_outflow", "sum"),
+        T2_outflow_sum=("T2_outflow", "sum"),
+        total_outflow_sum=("total_outflow", "sum"),
+        window_taxi_mean=("window_taxi_pax", "mean"),
+        n=("ts", "count"),
+    ).reset_index()
+    valid = hourly[(hourly["window_taxi_mean"].notna()) & (hourly["n"] > 0)]
+    if len(valid) < 3:
+        return {"T1_pearson_r": None, "T2_pearson_r": None, "hourly_df": hourly, "n": len(flow_df)}
+    r1 = float(valid["T1_outflow_sum"].corr(valid["window_taxi_mean"]))
+    r2 = float(valid["T2_outflow_sum"].corr(valid["window_taxi_mean"]))
+    return {"T1_pearson_r": r1, "T2_pearson_r": r2, "hourly_df": hourly, "n": len(flow_df)}
+
+
 def hourly_outflow_summary(flow_df: pd.DataFrame) -> pd.DataFrame:
     """時間帯 (hour) 別の出庫 / 入庫の平均と合計を集計。"""
     g = flow_df.groupby("hour").agg(
@@ -162,6 +181,22 @@ assert _expanded["luminance_mean_1"].iloc[0] == 100
 assert _expanded["stall1_occ"].iloc[0] == 5
 assert _expanded["stall3_diff"].iloc[0] == 1
 assert _expanded["hour"].iloc[0] == 12
+
+# inline test: H6 相関の符号と桁
+_h6_test = pd.DataFrame({
+    "hour": [10, 11, 12, 13, 14, 15],
+    "ts": pd.to_datetime([
+        "2026-05-13 10:00", "2026-05-13 11:00", "2026-05-13 12:00",
+        "2026-05-13 13:00", "2026-05-13 14:00", "2026-05-13 15:00",
+    ]),
+    "T1_outflow": [1, 3, 5, 3, 1, 0],
+    "T2_outflow": [1, 1, 3, 1, 0, 0],
+    "total_outflow": [2, 4, 8, 4, 1, 0],
+    "window_taxi_pax": [100, 200, 300, 200, 100, 50],
+})
+_h6_result = compute_h6_correlation(_h6_test)
+assert _h6_result["T1_pearson_r"] is not None
+assert _h6_result["T1_pearson_r"] > 0.8, f"got T1 r = {_h6_result['T1_pearson_r']}"
 
 # inline test: 5 分刻み出庫計算
 _outflow_test = pd.DataFrame({
@@ -360,6 +395,29 @@ def main() -> None:
         fig.savefig(FIGURES_DIR / "05c-outflow-per-day.png", dpi=120, bbox_inches="tight")
         plt.close(fig)
         print(f"[phase-a-mid] wrote {FIGURES_DIR / '05c-outflow-per-day.png'}")
+
+    # --- H6: T1/T2 出庫量 × arrivals_window 相関 (時間帯バケット) ---
+    h6 = compute_h6_correlation(flow)
+    print(f"[phase-a-mid] H6 Pearson r: T1={h6['T1_pearson_r']}, T2={h6['T2_pearson_r']} (n={h6['n']})")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    h6_hourly = h6["hourly_df"]
+    for ax, terminal, color in [(axes[0], "T1", "#48c"), (axes[1], "T2", "#e84")]:
+        ax.scatter(h6_hourly[f"{terminal}_outflow_sum"], h6_hourly["window_taxi_mean"], s=40, alpha=0.7, color=color)
+        for _, row in h6_hourly.iterrows():
+            ax.annotate(f"{int(row['hour'])}h",
+                        (row[f"{terminal}_outflow_sum"], row["window_taxi_mean"]),
+                        fontsize=7, alpha=0.6)
+        r_val = h6[f"{terminal}_pearson_r"]
+        r_str = f"r = {r_val:.3f}" if r_val is not None else "r = n/a"
+        ax.set_xlabel(f"{terminal} outflow (hourly sum)")
+        ax.set_ylabel("window_taxi_pax (hourly mean)")
+        ax.set_title(f"{terminal} outflow x predicted taxi demand  {r_str}  (n={h6['n']})")
+        ax.grid(True, alpha=0.3)
+    fig.suptitle("H6 hint (3.5-day sample)", fontsize=10, y=1.02)
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "05-h6-correlation.png", dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[phase-a-mid] wrote {FIGURES_DIR / '05-h6-correlation.png'}")
 
     # figure 05d: 入庫 / 出庫の同時プロット (時間帯別)
     fig, ax = plt.subplots(figsize=(11, 5))
