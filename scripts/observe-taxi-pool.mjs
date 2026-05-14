@@ -20,6 +20,7 @@ const REAL01_URL = 'https://ttc.taxi-inf.jp/Real01_line.jpg';
 const REAL02_URL = 'https://ttc.taxi-inf.jp/Real02.jpg';
 const USER_AGENT = 'taxi-ic-helper observation bot (https://github.com/hidenaka/taxi-ic-helper)';
 const HISTORY_PATH = './data/taxi-pool-history.jsonl';
+const SNAPSHOTS_DIR = './data/arrivals-snapshots';
 const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
 const TIMEOUT_MS = 15000;
 const STALL_ROIS_PATH = './scripts/lib/stall-rois.json';
@@ -173,6 +174,43 @@ async function main() {
     ? summarizeArrivalsWindow(arrivalsJson, new Date())
     : null;
   const weather = readWeather();
+
+  // Phase B 準備: arrivals.json の便単位スナップショットを日別 jsonl に追記
+  // (各 tick で「その時点で予測されていた便リスト」を保存することで、
+  //  後から「便→出庫」の直接対応を取れるようにする)
+  if (arrivalsJson && Array.isArray(arrivalsJson.flights)) {
+    try {
+      mkdirSync(SNAPSHOTS_DIR, { recursive: true });
+      const dateStr = ts.slice(0, 10); // YYYY-MM-DD
+      const snapshotPath = `${SNAPSHOTS_DIR}/arrivals-${dateStr}.jsonl`;
+      const flightsLite = arrivalsJson.flights.map(f => ({
+        flightNumber: f.flightNumber,
+        airline: f.airline,
+        from: f.from,
+        terminal: f.terminal,
+        isInternational: f.isInternational,
+        scheduledTime: f.scheduledTime,
+        estimatedTime: f.estimatedTime,
+        actualTime: f.actualTime,
+        status: f.status,
+        aircraftCode: f.aircraftCode,
+        seatCount: f.seatCount,
+        estimatedPax: f.estimatedPax,
+        estimatedTaxiPax: f.estimatedTaxiPax,
+        lobbyExitTime: f.lobbyExitTime,
+        reachTier: f.reachTier,
+      }));
+      const snapshotRow = {
+        ts,
+        tick_seq: tickSeq,
+        arrivals_updated_at: arrivalsJson.updatedAt,
+        flights: flightsLite,
+      };
+      appendFileSync(snapshotPath, JSON.stringify(snapshotRow) + '\n', 'utf8');
+    } catch (e) {
+      console.error(`[observe] arrivals snapshot write failed: ${e.message}`);
+    }
+  }
 
   const row = {
     schema_version: SCHEMA_VERSION,
