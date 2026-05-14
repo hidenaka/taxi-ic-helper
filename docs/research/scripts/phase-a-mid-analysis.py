@@ -42,11 +42,41 @@ def load_jsonl(path: Path) -> pd.DataFrame:
     return df
 
 
+def find_tick_seq_gaps(df: pd.DataFrame) -> list[tuple[int, int]]:
+    """tick_seq の不連続箇所を [(prev, next)] のリストで返す。連続なら []。"""
+    seq = df["tick_seq"].to_numpy()
+    gaps = []
+    for i in range(1, len(seq)):
+        if seq[i] != seq[i - 1] + 1:
+            gaps.append((int(seq[i - 1]), int(seq[i])))
+    return gaps
+
+
+def find_ts_reversal(df: pd.DataFrame) -> list[int]:
+    """ts が前行より戻っている行の index を返す。順序正常なら []。"""
+    diff = df["ts"].diff()
+    return df.index[diff < pd.Timedelta(0)].tolist()
+
+
 # inline test: 純関数 get_nested の挙動
 assert get_nested({"a": {"b": 1}}, "a", "b") == 1
 assert get_nested({"a": {"b": 1}}, "a", "c") is None
 assert get_nested(None, "a") is None
 assert get_nested({"a": None}, "a", "b") is None
+
+# inline test: tick_seq gap 検出
+_test_df = pd.DataFrame({"tick_seq": [1, 2, 3, 5, 6, 8]})
+assert find_tick_seq_gaps(_test_df) == [(3, 5), (6, 8)], f"got {find_tick_seq_gaps(_test_df)}"
+
+# inline test: ts 逆行検出
+_test_df_ts = pd.DataFrame({
+    "ts": pd.to_datetime([
+        "2026-01-01 10:00", "2026-01-01 10:05",
+        "2026-01-01 09:57",  # 逆行
+        "2026-01-01 10:10",
+    ])
+})
+assert find_ts_reversal(_test_df_ts) == [2], f"got {find_ts_reversal(_test_df_ts)}"
 
 
 def main() -> None:
@@ -58,6 +88,34 @@ def main() -> None:
     print("[phase-a-mid] schema_version 分布:")
     for v, n in schema_counts.items():
         print(f"  v{v}: {n} 行")
+
+    # --- tick_seq 連続性 ---
+    gaps = find_tick_seq_gaps(df)
+    print(f"[phase-a-mid] tick_seq 欠損: {len(gaps)} 箇所")
+    for prev, nxt in gaps[:5]:
+        print(f"  seq {prev} -> {nxt} (skipped {nxt - prev - 1})")
+    if len(gaps) > 5:
+        print(f"  ... 他 {len(gaps) - 5} 箇所")
+
+    # --- ts 逆行 ---
+    reversals = find_ts_reversal(df)
+    print(f"[phase-a-mid] ts 逆行: {len(reversals)} 件 (index: {reversals[:10]})")
+
+    # figure 02: tick_seq 欠損の時系列プロット
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(df["ts"], df["tick_seq"], linewidth=0.8, color="#48c")
+    for prev, nxt in gaps:
+        gap_idx = df.index[df["tick_seq"] == nxt]
+        if len(gap_idx) > 0:
+            ax.axvline(df.loc[gap_idx[0], "ts"], color="#e44", alpha=0.3, linewidth=0.5)
+    ax.set_title(f"tick_seq continuity (gaps={len(gaps)}, red lines = skip)")
+    ax.set_xlabel("ts")
+    ax.set_ylabel("tick_seq")
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "02-tick-seq-gaps.png", dpi=120)
+    plt.close(fig)
+    print(f"[phase-a-mid] wrote {FIGURES_DIR / '02-tick-seq-gaps.png'}")
 
     # figure 01: schema 分布の棒グラフ
     fig, ax = plt.subplots(figsize=(6, 4))
