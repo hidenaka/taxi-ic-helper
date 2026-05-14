@@ -87,6 +87,38 @@ def define_trusted_subset(df: pd.DataFrame) -> pd.DataFrame:
     return df[mask].copy()
 
 
+def compute_outflow_per_tick(v3: pd.DataFrame) -> pd.DataFrame:
+    """各 5 分 tick の出庫量を計算。stall1+2 = T1、stall3+4 = T2。
+    diff_occupied_from_prev の負の値 (= 出庫) の絶対値を合計。
+    戻り値: v3 と同じ index で T1_outflow / T2_outflow / total_outflow 列を追加した DataFrame。
+    """
+    out = v3.copy()
+    out["T1_outflow"] = (-out[["stall1_diff", "stall2_diff"]].clip(upper=0)).sum(axis=1)
+    out["T2_outflow"] = (-out[["stall3_diff", "stall4_diff"]].clip(upper=0)).sum(axis=1)
+    out["total_outflow"] = out["T1_outflow"] + out["T2_outflow"]
+    out["T1_inflow"] = out[["stall1_diff", "stall2_diff"]].clip(lower=0).sum(axis=1)
+    out["T2_inflow"] = out[["stall3_diff", "stall4_diff"]].clip(lower=0).sum(axis=1)
+    out["total_inflow"] = out["T1_inflow"] + out["T2_inflow"]
+    return out
+
+
+def hourly_outflow_summary(flow_df: pd.DataFrame) -> pd.DataFrame:
+    """時間帯 (hour) 別の出庫 / 入庫の平均と合計を集計。"""
+    g = flow_df.groupby("hour").agg(
+        T1_out_mean=("T1_outflow", "mean"),
+        T2_out_mean=("T2_outflow", "mean"),
+        total_out_mean=("total_outflow", "mean"),
+        T1_out_sum=("T1_outflow", "sum"),
+        T2_out_sum=("T2_outflow", "sum"),
+        total_out_sum=("total_outflow", "sum"),
+        T1_in_mean=("T1_inflow", "mean"),
+        T2_in_mean=("T2_inflow", "mean"),
+        n_ticks=("ts", "count"),
+        luminance_mean=("luminance_mean_1", "mean"),
+    ).reset_index()
+    return g
+
+
 # inline test: 純関数 get_nested の挙動
 assert get_nested({"a": {"b": 1}}, "a", "b") == 1
 assert get_nested({"a": {"b": 1}}, "a", "c") is None
@@ -130,6 +162,21 @@ assert _expanded["luminance_mean_1"].iloc[0] == 100
 assert _expanded["stall1_occ"].iloc[0] == 5
 assert _expanded["stall3_diff"].iloc[0] == 1
 assert _expanded["hour"].iloc[0] == 12
+
+# inline test: 5 分刻み出庫計算
+_outflow_test = pd.DataFrame({
+    "ts": pd.to_datetime(["2026-05-13 10:00", "2026-05-13 10:05", "2026-05-13 10:10"]),
+    "stall1_diff": [-2, 0, 1],
+    "stall2_diff": [-1, -1, 0],
+    "stall3_diff": [0, -2, 0],
+    "stall4_diff": [1, 0, 0],
+    "luminance_mean_1": [100, 100, 100],
+    "hour": [10, 10, 10],
+})
+_outflow_result = compute_outflow_per_tick(_outflow_test)
+assert _outflow_result["T1_outflow"].tolist() == [3, 1, 0], f"got {_outflow_result['T1_outflow'].tolist()}"
+assert _outflow_result["T2_outflow"].tolist() == [0, 2, 0], f"got {_outflow_result['T2_outflow'].tolist()}"
+assert _outflow_result["total_outflow"].tolist() == [3, 3, 0]
 
 
 def main() -> None:
@@ -239,6 +286,53 @@ def main() -> None:
         print(f"[phase-a-mid] wrote {FIGURES_DIR / '03-stall-occupancy-heatmap.png'}")
     else:
         print("[phase-a-mid] 信頼サブセット 0 行、figure 03 をスキップ")
+
+    # --- 5 分刻み出庫量の時系列とプロット ---
+    flow = compute_outflow_per_tick(trusted)
+    print(f"[phase-a-mid] 5 分刻み出庫: ticks={len(flow)} "
+          f"T1_sum={int(flow['T1_outflow'].sum())} T2_sum={int(flow['T2_outflow'].sum())} "
+          f"total_sum={int(flow['total_outflow'].sum())}")
+
+    # figure 05: 5 分刻みの T1/T2 出庫の時系列 (全期間、信頼サブセット)
+    fig, axes = plt.subplots(2, 1, figsize=(13, 7), sharex=True)
+    axes[0].plot(flow["ts"], flow["T1_outflow"], drawstyle="steps-post", color="#48c", label="T1 outflow", linewidth=0.7)
+    axes[0].plot(flow["ts"], flow["T2_outflow"], drawstyle="steps-post", color="#e84", label="T2 outflow", linewidth=0.7, alpha=0.7)
+    axes[0].set_ylabel("outflow per 5min tick")
+    axes[0].set_title(f"5min outflow timeseries (trusted subset, n={len(flow)})  T1=stall1+2, T2=stall3+4")
+    axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
+    axes[1].plot(flow["ts"], flow["total_outflow"].rolling(6, min_periods=1).sum(), color="#444",
+                 label="total outflow 30min rolling sum", linewidth=0.8)
+    axes[1].set_xlabel("ts (JST)")
+    axes[1].set_ylabel("rolling sum (30min window)")
+    axes[1].legend()
+    axes[1].grid(True, alpha=0.3)
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "05a-outflow-timeseries.png", dpi=120)
+    plt.close(fig)
+    print(f"[phase-a-mid] wrote {FIGURES_DIR / '05a-outflow-timeseries.png'}")
+
+    # figure 05b: 時間帯 (hour) 別の出庫平均
+    hourly_flow = hourly_outflow_summary(flow)
+    fig, ax = plt.subplots(figsize=(11, 5))
+    width = 0.35
+    hours = hourly_flow["hour"].to_numpy()
+    ax.bar(hours - width / 2, hourly_flow["T1_out_mean"], width, color="#48c", label="T1 outflow mean")
+    ax.bar(hours + width / 2, hourly_flow["T2_out_mean"], width, color="#e84", label="T2 outflow mean")
+    ax.set_xlabel("hour (JST)")
+    ax.set_ylabel("mean outflow per 5min tick")
+    ax.set_title(f"Hourly outflow mean (trusted subset, n={len(flow)})")
+    ax.set_xticks(hours)
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis="y")
+    fig.tight_layout()
+    fig.savefig(FIGURES_DIR / "05b-hourly-outflow.png", dpi=120)
+    plt.close(fig)
+    print(f"[phase-a-mid] wrote {FIGURES_DIR / '05b-hourly-outflow.png'}")
+
+    print("[phase-a-mid] hourly outflow summary:")
+    print(hourly_flow[["hour", "T1_out_mean", "T2_out_mean", "total_out_mean", "T1_out_sum", "T2_out_sum", "n_ticks", "luminance_mean"]].to_string(index=False))
 
 
 if __name__ == "__main__":
