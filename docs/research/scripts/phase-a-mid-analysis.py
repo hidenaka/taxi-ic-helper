@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 JSONL_PATH = REPO_ROOT / "data" / "taxi-pool-history.jsonl"
 FIGURES_DIR = REPO_ROOT / "docs" / "research" / "figures" / "2026-05-14"
 REPORT_PATH = REPO_ROOT / "docs" / "research" / "taxi-pool-mid-analysis-2026-05-14.md"
+DATA_DIR = REPO_ROOT / "docs" / "research" / "data" / "2026-05-14"
 
 NIGHT_LUMINANCE_THRESHOLD = 30  # roi.luminance_mean がこれ未満を夜間扱い
 
@@ -284,6 +285,7 @@ assert _outflow_result["total_outflow"].tolist() == [3, 3, 0]
 
 def main() -> None:
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     df = load_jsonl(JSONL_PATH)
     print(f"[phase-a-mid] loaded {len(df)} rows, ts range {df['ts'].min()} 〜 {df['ts'].max()}")
 
@@ -776,6 +778,31 @@ def main() -> None:
 """
     REPORT_PATH.write_text(report, encoding="utf-8")
     print(f"[phase-a-mid] wrote {REPORT_PATH}")
+
+    # --- CSV ダンプ ---
+    csv_cols_full = [
+        "ts", "tick_seq", "hour", "luminance_mean_1",
+        "T1_outflow", "T2_outflow", "total_outflow",
+        "T1_inflow", "T2_inflow", "total_inflow",
+        "stall1_occ", "stall2_occ", "stall3_occ", "stall4_occ",
+        "stall1_diff", "stall2_diff", "stall3_diff", "stall4_diff",
+        "window_taxi_pax", "weather_code",
+    ]
+    flow_full = flow[csv_cols_full].copy()
+    flow_full["ts"] = flow_full["ts"].dt.strftime("%Y-%m-%dT%H:%M:%S%z")
+    full_path = DATA_DIR / "5min-flow-full.csv"
+    flow_full.to_csv(full_path, index=False)
+    print(f"[phase-a-mid] wrote {full_path} ({len(flow_full)} rows, trusted subset)")
+
+    moved = flow[flow["total_outflow"] > 0].copy()
+    moved_cols = ["ts", "tick_seq", "hour", "luminance_mean_1",
+                  "T1_outflow", "T2_outflow", "total_outflow",
+                  "T1_inflow", "T2_inflow", "total_inflow"]
+    moved = moved[moved_cols].copy()
+    moved["ts"] = moved["ts"].dt.strftime("%Y-%m-%dT%H:%M:%S%z")
+    moved_path = DATA_DIR / "5min-movements.csv"
+    moved.to_csv(moved_path, index=False)
+    print(f"[phase-a-mid] wrote {moved_path} ({len(moved)} rows, moved ticks only)")
 
 
 if __name__ == "__main__":
