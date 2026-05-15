@@ -15,12 +15,14 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } fr
 import { Jimp } from 'jimp';
 import { analyzePoolImage, analyzeStalls } from './lib/image-pool-analyzer.mjs';
 import { summarizeArrivalsWindow } from './lib/arrivals-window-summary.mjs';
+import { computeBaseline, computeForecast } from './lib/forecast-engine.mjs';
 
 const REAL01_URL = 'https://ttc.taxi-inf.jp/Real01_line.jpg';
 const REAL02_URL = 'https://ttc.taxi-inf.jp/Real02.jpg';
 const USER_AGENT = 'taxi-ic-helper observation bot (https://github.com/hidenaka/taxi-ic-helper)';
 const HISTORY_PATH = './data/taxi-pool-history.jsonl';
 const SNAPSHOTS_DIR = './data/arrivals-snapshots';
+const FORECAST_OUTPUT_PATH = './data/stall-forecast.json';
 const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
 const TIMEOUT_MS = 15000;
 const STALL_ROIS_PATH = './scripts/lib/stall-rois.json';
@@ -226,6 +228,36 @@ async function main() {
 
   appendFileSync(HISTORY_PATH, JSON.stringify(row) + '\n', 'utf8');
   console.log(`[observe] appended tick_seq=${tickSeq} ts=${ts} (schema_version=${SCHEMA_VERSION})`);
+
+  // Phase C-1 MVP: stall 短期需要予測の生成
+  // 失敗しても本観測には影響させない (try/catch で握る)
+  try {
+    const allHistoryLines = readFileSync(HISTORY_PATH, 'utf8').trim().split('\n');
+    const allHistory = [];
+    for (const line of allHistoryLines) {
+      if (!line.trim()) continue;
+      try { allHistory.push(JSON.parse(line)); } catch { /* skip bad line */ }
+    }
+    const baseline = computeBaseline(allHistory);
+
+    // 直近 12 tick (60 分) の total_outflow を計算
+    const recent = allHistory.slice(-12).map(r => {
+      const stalls = r.stalls || {};
+      let totalOutflow = 0;
+      for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
+        const d = stalls[name]?.diff_occupied_from_prev;
+        if (typeof d === 'number' && d < 0) totalOutflow += -d;
+      }
+      return { ts: r.ts, total_outflow: totalOutflow };
+    });
+
+    const forecast = computeForecast(baseline, recent, arrivalsJson, new Date());
+    writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(forecast, null, 2) + '\n', 'utf8');
+    console.log(`[observe] forecast ok: trendFactor=${forecast.trendFactor.toFixed(2)} baselineSamples=${forecast.baselineSampleCount}`);
+  } catch (e) {
+    console.error(`[observe] forecast generation failed: ${e.message}`);
+  }
+
   console.log(`[observe] img1 edge=${img1.roi?.edge_density ?? 'n/a'} black=${img1.black_ratio} lum=${img1.roi?.luminance_mean ?? 'n/a'}`);
   console.log(`[observe] img2 edge=${img2.roi?.edge_density ?? 'n/a'} black=${img2.black_ratio} lum=${img2.roi?.luminance_mean ?? 'n/a'}`);
   if (arrivalsWindow) {

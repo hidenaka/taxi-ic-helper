@@ -160,9 +160,13 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now) {
     outSlots.push(slotOut);
   }
 
+  // JST 文字列を組み立てる (observe-taxi-pool.mjs の jstNowIso と同じハック)
+  const jst = new Date(now.getTime() + 9 * 3600 * 1000);
+  const generatedAt = jst.toISOString().replace('Z', '+09:00').replace(/\.\d+/, '');
+
   return {
     schemaVersion: FORECAST_SCHEMA_VERSION,
-    generatedAt: now.toISOString().replace('Z', '+09:00').replace(/\.\d+/, ''),
+    generatedAt,
     trendFactor,
     trendWindow: { actual: trendActual, expected: trendExpected, ticks: Math.min(recentHistory.length, TREND_WINDOW_TICKS) },
     baselineSampleCount: baseline.sampleCount,
