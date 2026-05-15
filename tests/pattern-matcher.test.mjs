@@ -46,13 +46,78 @@ test('aggregateByDate: 信頼サブセットを日単位に集約、各日に sl
   const day13 = result.get('2026-05-13');
   assert.ok(day13);
   assert.equal(day13.slots.length, 288);
-  // 12:00 slot (= 144) stall1 = 2
   assert.equal(day13.slots[144][0], 2);
-  // 12:05 slot (= 145) stall2 = 1
   assert.equal(day13.slots[145][1], 1);
   const day14 = result.get('2026-05-14');
-  // 5/14 夜間 03:00 は除外 → slots[36][0] === 0
   assert.equal(day14.slots[36][0], 0);
-  // 13:00 slot (= 156) stall3 = 3
   assert.equal(day14.slots[156][2], 3);
+});
+
+// --- selectCandidates ---
+
+import { selectCandidates, computePatternMatch } from '../scripts/lib/pattern-matcher.mjs';
+import { loadHolidaysSet } from '../scripts/lib/calendar-context.mjs';
+
+function dayEntry(dateStr, dayType, month, slots = []) {
+  return { dateStr, dayType, month, slots };
+}
+
+test('selectCandidates: strict ヒット (3 件以上) → filterTier="strict"', () => {
+  const pastDays = [
+    dayEntry('2026-05-11', 'weekday', 5),
+    dayEntry('2026-05-12', 'weekday', 5),
+    dayEntry('2026-05-13', 'weekday', 5),
+    dayEntry('2026-04-15', 'weekday', 4),
+    dayEntry('2026-05-09', 'saturday', 5),
+  ];
+  const r = selectCandidates(pastDays, 'weekday', 5);
+  assert.equal(r.filterTier, 'strict');
+  assert.equal(r.candidates.length, 3);
+});
+
+test('selectCandidates: strict <3 → medium ヒット', () => {
+  const pastDays = [
+    dayEntry('2026-05-11', 'weekday', 5),
+    dayEntry('2026-05-12', 'weekday', 5),
+    dayEntry('2026-04-15', 'weekday', 4),
+    dayEntry('2026-03-15', 'weekday', 3),
+  ];
+  const r = selectCandidates(pastDays, 'weekday', 5);
+  assert.equal(r.filterTier, 'medium');
+  assert.equal(r.candidates.length, 4);
+});
+
+test('selectCandidates: medium <3 → 平日カテゴリ all 2 件で all', () => {
+  const pastDays = [
+    dayEntry('2026-01-15', 'weekday', 1),
+    dayEntry('2026-01-20', 'pre_holiday', 1),
+    dayEntry('2026-02-20', 'saturday', 2),
+    dayEntry('2026-02-15', 'sunday_holiday', 2),
+  ];
+  // weekday 5月 → strict 0, medium 0 (1-2月は5月±2の外), loose は平日カテゴリ 2 件 < 3 → all
+  const r = selectCandidates(pastDays, 'weekday', 5);
+  assert.equal(r.filterTier, 'all');
+  assert.equal(r.candidates.length, 4);
+});
+
+test('selectCandidates: loose 3+ 件でヒット', () => {
+  const pastDays = [
+    dayEntry('2026-04-01', 'weekday', 4),
+    dayEntry('2026-04-02', 'weekday', 4),
+    dayEntry('2026-04-03', 'pre_holiday', 4),
+    dayEntry('2026-01-15', 'weekday', 1),
+  ];
+  // weekday 5月 → strict 0, medium = 月±2 (3-7月) かつ weekday = 2 件 < 3 → 失敗
+  // loose = 平日カテゴリ = 4 件 → loose ヒット
+  const r = selectCandidates(pastDays, 'weekday', 5);
+  assert.equal(r.filterTier, 'loose');
+  assert.equal(r.candidates.length, 4);
+});
+
+test('computePatternMatch: pastDays 0 件 → similarDays=[], historicalCurve=[]', () => {
+  const holidays = loadHolidaysSet({ holidays: [] });
+  const r = computePatternMatch([], holidays, new Date('2026-05-15T17:30:00+09:00'));
+  assert.equal(r.candidateCount, 0);
+  assert.equal(r.similarDays.length, 0);
+  assert.equal(r.historicalCurve.length, 0);
 });
