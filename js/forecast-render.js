@@ -63,9 +63,10 @@ function similarityIcon(sim) {
 
 const DAY_TYPE_LABEL = {
   weekday: '平日',
+  post_holiday: '連休明け平日',
   saturday: '土曜',
   sunday_holiday: '日曜/祝日',
-  pre_holiday: '連休前',
+  pre_holiday: '連休前平日',
   in_consec_holiday: '連休中',
   last_consec_holiday: '連休最終日',
 };
@@ -82,8 +83,14 @@ export function renderPatternMeta(container, patternMatch) {
   const t = patternMatch.today || {};
   const dayLabel = DAY_TYPE_LABEL[t.dayType] || t.dayType || '?';
   const tierLabel = FILTER_TIER_LABEL[t.filterTier] || t.filterTier || '?';
+  let consecText = '';
+  if (typeof t.relevantConsec === 'number' && t.relevantConsec >= 2) {
+    if (t.dayType === 'post_holiday') consecText = ` / ${t.relevantConsec}連休明け`;
+    else if (t.dayType === 'pre_holiday') consecText = ` / ${t.relevantConsec}連休前`;
+    else consecText = ` / ${t.relevantConsec}連休中`;
+  }
   container.innerHTML =
-    `今日: <strong>${t.date}</strong> / ${dayLabel} / ${t.month}月 / フィルタ <strong>${tierLabel}</strong> / 候補 ${patternMatch.candidateCount} 日`;
+    `今日: <strong>${t.date}</strong> / ${dayLabel}${consecText} / ${t.month}月 / フィルタ <strong>${tierLabel}</strong> / 候補 ${patternMatch.candidateCount} 日`;
 }
 
 export function renderSimilarDays(container, patternMatch) {
