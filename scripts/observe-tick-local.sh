@@ -31,6 +31,24 @@ if ! command -v node >/dev/null 2>&1; then
   exit 0
 fi
 
+# --- 自己回復: 前回 tick で残った rebase/merge 残骸を検出してリセット ---
+# unmerged index entries (ls-files -u) or rebase/merge 状態ディレクトリがあれば異常
+if [ -n "$(git ls-files -u 2>/dev/null)" ] || [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ] || [ -f .git/MERGE_HEAD ]; then
+  echo "[observe-tick] WARN: dirty merge/rebase state detected, cleaning up"
+  git rebase --abort 2>/dev/null || true
+  git merge --abort 2>/dev/null || true
+  # 観測 jsonl の append-only 変更は救出 (merge=union で衝突しないが念のため)
+  # forecast / pattern-match は次 tick で再生成されるので捨ててよい
+  git checkout HEAD -- data/stall-forecast.json data/stall-pattern-match.json 2>/dev/null || true
+  # 残った staged 変更を unstage
+  git reset HEAD 2>/dev/null || true
+fi
+
+# --- pull 前に forecast/pattern-match の working tree 変更を捨てる ---
+# observe-taxi-pool.mjs が毎 tick 全体上書き再生成するので、pull 前にローカルを HEAD に揃えれば衝突しない。
+# 次の observe 実行で最新内容に上書きされる。
+git checkout HEAD -- data/stall-forecast.json data/stall-pattern-match.json 2>/dev/null || true
+
 git pull --rebase --autostash origin main 2>&1 | tail -3
 
 node scripts/observe-taxi-pool.mjs
@@ -45,7 +63,8 @@ if [ -z "$(git status --porcelain data/taxi-pool-history.jsonl)" ]; then
   exit 0
 fi
 
-git add data/taxi-pool-history.jsonl
+# 観測関連ファイル 3 点を 1 コミットにまとめる (Web UI が forecast/pattern-match の最新を必要とする)
+git add data/taxi-pool-history.jsonl data/stall-forecast.json data/stall-pattern-match.json 2>/dev/null || true
 git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
 
 for i in 1 2 3; do
