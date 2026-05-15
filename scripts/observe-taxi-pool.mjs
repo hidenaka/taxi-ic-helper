@@ -18,6 +18,8 @@ import { summarizeArrivalsWindow } from './lib/arrivals-window-summary.mjs';
 import { computeBaseline, computeForecast } from './lib/forecast-engine.mjs';
 import { computePatternMatch } from './lib/pattern-matcher.mjs';
 import { loadHolidaysSet } from './lib/calendar-context.mjs';
+import { buildLogEntry } from './lib/forecast-logger.mjs';
+import { buildActualMap, evaluateAccuracy } from './lib/accuracy-evaluator.mjs';
 
 const REAL01_URL = 'https://ttc.taxi-inf.jp/Real01_line.jpg';
 const REAL02_URL = 'https://ttc.taxi-inf.jp/Real02.jpg';
@@ -27,6 +29,8 @@ const SNAPSHOTS_DIR = './data/arrivals-snapshots';
 const FORECAST_OUTPUT_PATH = './data/stall-forecast.json';
 const PATTERN_MATCH_OUTPUT_PATH = './data/stall-pattern-match.json';
 const HOLIDAYS_PATH = './data/japan-holidays.json';
+const FORECAST_LOG_PATH = './data/forecast-log.jsonl';
+const FORECAST_ACCURACY_PATH = './data/forecast-accuracy.json';
 const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
 const TIMEOUT_MS = 15000;
 const STALL_ROIS_PATH = './scripts/lib/stall-rois.json';
@@ -233,6 +237,10 @@ async function main() {
   appendFileSync(HISTORY_PATH, JSON.stringify(row) + '\n', 'utf8');
   console.log(`[observe] appended tick_seq=${tickSeq} ts=${ts} (schema_version=${SCHEMA_VERSION})`);
 
+  // forecast / pattern-match の結果を Phase D-1 ログ記録で参照するため外側で保持
+  let forecastResult = null;
+  let patternMatchResult = null;
+
   // Phase C-1 MVP: stall 短期需要予測の生成
   // 失敗しても本観測には影響させない (try/catch で握る)
   try {
@@ -255,9 +263,9 @@ async function main() {
       return { ts: r.ts, total_outflow: totalOutflow };
     });
 
-    const forecast = computeForecast(baseline, recent, arrivalsJson, new Date());
-    writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(forecast, null, 2) + '\n', 'utf8');
-    console.log(`[observe] forecast ok: trendFactor=${forecast.trendFactor.toFixed(2)} baselineSamples=${forecast.baselineSampleCount}`);
+    forecastResult = computeForecast(baseline, recent, arrivalsJson, new Date());
+    writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(forecastResult, null, 2) + '\n', 'utf8');
+    console.log(`[observe] forecast ok: trendFactor=${forecastResult.trendFactor.toFixed(2)} baselineSamples=${forecastResult.baselineSampleCount}`);
   } catch (e) {
     console.error(`[observe] forecast generation failed: ${e.message}`);
   }
@@ -277,11 +285,44 @@ async function main() {
     } catch {
       holidaysSet = loadHolidaysSet({ holidays: [] });
     }
-    const patternMatch = computePatternMatch(allHistory, holidaysSet, new Date());
-    writeFileSync(PATTERN_MATCH_OUTPUT_PATH, JSON.stringify(patternMatch, null, 2) + '\n', 'utf8');
-    console.log(`[observe] pattern-match ok: today=${patternMatch.today.dayType} tier=${patternMatch.today.filterTier} similar=${patternMatch.similarDays.length}`);
+    patternMatchResult = computePatternMatch(allHistory, holidaysSet, new Date());
+    writeFileSync(PATTERN_MATCH_OUTPUT_PATH, JSON.stringify(patternMatchResult, null, 2) + '\n', 'utf8');
+    console.log(`[observe] pattern-match ok: today=${patternMatchResult.today.dayType} tier=${patternMatchResult.today.filterTier} similar=${patternMatchResult.similarDays.length}`);
   } catch (e) {
     console.error(`[observe] pattern-match generation failed: ${e.message}`);
+  }
+
+  // Phase D-1: 予測ログ記録 + 精度評価
+  try {
+    const logEntry = buildLogEntry(
+      forecastResult,
+      patternMatchResult ? { historicalCurve: patternMatchResult.historicalCurve } : null,
+      tickSeq,
+      ts
+    );
+    if (logEntry) {
+      appendFileSync(FORECAST_LOG_PATH, JSON.stringify(logEntry) + '\n', 'utf8');
+    }
+    let logEntries = [];
+    if (existsSync(FORECAST_LOG_PATH)) {
+      const logLines = readFileSync(FORECAST_LOG_PATH, 'utf8').trim().split('\n');
+      for (const line of logLines) {
+        if (!line.trim()) continue;
+        try { logEntries.push(JSON.parse(line)); } catch { /* skip bad line */ }
+      }
+    }
+    const accHistoryLines = readFileSync(HISTORY_PATH, 'utf8').trim().split('\n');
+    const accHistory = [];
+    for (const line of accHistoryLines) {
+      if (!line.trim()) continue;
+      try { accHistory.push(JSON.parse(line)); } catch { /* skip bad line */ }
+    }
+    const actualMap = buildActualMap(accHistory);
+    const accuracy = evaluateAccuracy(logEntries, actualMap, new Date());
+    writeFileSync(FORECAST_ACCURACY_PATH, JSON.stringify(accuracy, null, 2) + '\n', 'utf8');
+    console.log(`[observe] accuracy ok: logEntries=${accuracy.logEntryCount} recent24h winner lead30=${accuracy.recent24h.winner.lead30}`);
+  } catch (e) {
+    console.error(`[observe] accuracy evaluation failed: ${e.message}`);
   }
 
   console.log(`[observe] img1 edge=${img1.roi?.edge_density ?? 'n/a'} black=${img1.black_ratio} lum=${img1.roi?.luminance_mean ?? 'n/a'}`);
