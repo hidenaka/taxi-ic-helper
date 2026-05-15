@@ -42,7 +42,7 @@ function render() {
   renderHeatmap(heatmapEl, bins, state.heatmapMode);
   const title = document.getElementById('heatmap-title');
   if (title) title.textContent = state.heatmapMode === 'taxi'
-    ? '時間帯別 タクシー候補数（30分単位）'
+    ? '時間帯別 タクシー想定台数（30分単位）'
     : '時間帯別 推定降客数（30分単位）';
   renderFlightList(document.getElementById('flight-list'), sortFlightsByTime(visible));
   renderUpdatedAt(

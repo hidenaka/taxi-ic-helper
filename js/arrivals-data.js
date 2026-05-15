@@ -23,8 +23,8 @@ export function filterByTimeWindow(flights, nowDate, pastMinutes = 30, futureMin
 
 const DENSITY_HIGH = 600;
 const DENSITY_MID = 300;
-const TAXI_DENSITY_HIGH = 70;
-const TAXI_DENSITY_MID = 30;
+const TAXI_DENSITY_HIGH = 20;
+const TAXI_DENSITY_MID = 8;
 
 function classifyDensity(value, mode = 'pax') {
   const high = mode === 'taxi' ? TAXI_DENSITY_HIGH : DENSITY_HIGH;

@@ -32,7 +32,7 @@ export function renderHeatmap(container, bins, mode = 'pax') {
       ? ` <span class="tier-badge">${tier.emoji}${tier.label}</span>`
       : '';
     const valueLabel = isTaxi
-      ? `タクシー候補${valueOf(b)}人`
+      ? `タクシー想定${valueOf(b)}台`
       : `${valueOf(b)}人 (${b.flightCount}便)`;
     row.innerHTML = `
       <span class="heatmap-time">${b.bin}</span>
@@ -73,7 +73,7 @@ export function renderSummary(container, summary) {
     ? `<span class="summary-intl">うち国際 ${summary.internationalPax.toLocaleString()}人 (${summary.internationalCount}便)</span>`
     : '';
   const taxiPart = summary.totalTaxiPax > 0
-    ? `<span class="summary-item summary-taxi">タクシー候補 <strong>${summary.totalTaxiPax.toLocaleString()}人</strong></span>`
+    ? `<span class="summary-item summary-taxi">タクシー想定 <strong>${summary.totalTaxiPax.toLocaleString()}台</strong></span>`
     : '';
   const peakPart = summary.peakTaxiBin?.bin
     ? `<span class="summary-item summary-peak">ピーク帯 ${summary.peakTaxiBin.bin}</span>`
@@ -111,8 +111,8 @@ export function renderTopics(container, topics) {
       ? `約${t.estimatedPax}人`
       : '推定不可';
     const detail = t.delayMin > 0
-      ? `${t.scheduledTime}→${t.estimatedTime} (${t.delayMin}分遅延) / ${paxLabel} / タクシー候補~${t.estimatedTaxiPax}`
-      : `${t.estimatedTime}着 / ${paxLabel} / タクシー候補~${t.estimatedTaxiPax}`;
+      ? `${t.scheduledTime}→${t.estimatedTime} (${t.delayMin}分遅延) / ${paxLabel} / タクシー想定~${t.estimatedTaxiPax}台`
+      : `${t.estimatedTime}着 / ${paxLabel} / タクシー想定~${t.estimatedTaxiPax}台`;
     return `<div class="topic-item">
       <span class="topic-icons">${icons}</span>
       <span class="topic-flight">${t.flightNumber}</span>
@@ -214,7 +214,7 @@ export function renderFlightList(container, flights) {
                     : f.reachTier === 'none' ? '🔴'
                     : '';
     const taxiPax = (f.estimatedTaxiPax !== null && f.estimatedTaxiPax !== undefined)
-      ? `タクシー候補~${f.estimatedTaxiPax}`
+      ? `タクシー想定~${f.estimatedTaxiPax}台`
       : '';
     const delayBoostBadge = (f.taxiDelayBoost && f.taxiDelayBoost > 1.0)
       ? ` <span class="delay-boost">遅延+深夜</span>`

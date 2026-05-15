@@ -102,7 +102,8 @@ test('transit-share.json: 8 buckets × 3 terminals × 4 boost levels', () => {
     }
   }
   assert.equal(d.reachBoost.length, 4);
-  assert.equal(d.maxRatio, 0.85);
+  // maxRatio: 2026-05-15 校正で 0.85 → 0.40 (estimatedTaxiPax を「台数」として扱うため、便客の 40% 以上の台数はありえない)
+  assert.ok(d.maxRatio > 0 && d.maxRatio <= 1, `maxRatio out of range: ${d.maxRatio}`);
   assert.ok(typeof d.fallbackRate === 'number');
 });
 

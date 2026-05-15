@@ -1,19 +1,20 @@
 {
   "_meta": {
     "source": "ユーザー経験則（アプリ配車のタクシー客）+ 国土交通省 航空旅客動態調査（参考）",
-    "scope": "アプリ配車のタクシー客に特化（流し営業・付け待ちと別パターン）",
-    "updated": "2026-04-25",
-    "note": "全係数は過去乗務履歴データで順次校正する前提。バケット境界はロビー出口時刻ベース。"
+    "scope": "便客のうちタクシー乗り場で実際に乗車する **台数** の比率 (estimatedTaxiPax は台数として扱う)",
+    "updated": "2026-05-15",
+    "calibration": "2026-05-15 中間中間報告 (Phase A 観測 5日分、T1+T2 信頼サブセット n=257便) で観測校正。旧値 × 0.25 にスケールダウン。観測 outflow 1322台 / 予測旧 5133人 ≒ 0.258、maxRatio も 0.85 → 0.40 (便客の 40% 以上の台数はありえないため)。",
+    "note": "5/31 Phase A 観測終了後、フルサンプルで再校正予定。バケット境界はロビー出口時刻ベース。"
   },
   "buckets": [
-    { "id": "early",     "label": "7-9時",      "fromHHMM": "07:00", "toHHMM": "09:00", "rates": { "T1": 0.08, "T2": 0.08, "T3": 0.10 } },
-    { "id": "morning",   "label": "9-12時",     "fromHHMM": "09:00", "toHHMM": "12:00", "rates": { "T1": 0.11, "T2": 0.11, "T3": 0.12 } },
-    { "id": "noon",      "label": "12-15時",    "fromHHMM": "12:00", "toHHMM": "15:00", "rates": { "T1": 0.14, "T2": 0.14, "T3": 0.16 } },
-    { "id": "afternoon", "label": "15-17時",    "fromHHMM": "15:00", "toHHMM": "17:00", "rates": { "T1": 0.18, "T2": 0.18, "T3": 0.20 } },
-    { "id": "peak1",     "label": "17-19時",    "fromHHMM": "17:00", "toHHMM": "19:00", "rates": { "T1": 0.24, "T2": 0.24, "T3": 0.22 } },
-    { "id": "evening",   "label": "19-21:30",   "fromHHMM": "19:00", "toHHMM": "21:30", "rates": { "T1": 0.14, "T2": 0.14, "T3": 0.18 } },
-    { "id": "peak2",     "label": "21:30-24時", "fromHHMM": "21:30", "toHHMM": "24:00", "rates": { "T1": 0.32, "T2": 0.32, "T3": 0.32 } },
-    { "id": "midnight",  "label": "24時以降",   "fromHHMM": "24:00", "toHHMM": "27:00", "rates": { "T1": 0.30, "T2": 0.30, "T3": 0.30 } }
+    { "id": "early",     "label": "7-9時",      "fromHHMM": "07:00", "toHHMM": "09:00", "rates": { "T1": 0.020, "T2": 0.020, "T3": 0.025 } },
+    { "id": "morning",   "label": "9-12時",     "fromHHMM": "09:00", "toHHMM": "12:00", "rates": { "T1": 0.028, "T2": 0.028, "T3": 0.030 } },
+    { "id": "noon",      "label": "12-15時",    "fromHHMM": "12:00", "toHHMM": "15:00", "rates": { "T1": 0.035, "T2": 0.035, "T3": 0.040 } },
+    { "id": "afternoon", "label": "15-17時",    "fromHHMM": "15:00", "toHHMM": "17:00", "rates": { "T1": 0.045, "T2": 0.045, "T3": 0.050 } },
+    { "id": "peak1",     "label": "17-19時",    "fromHHMM": "17:00", "toHHMM": "19:00", "rates": { "T1": 0.060, "T2": 0.060, "T3": 0.055 } },
+    { "id": "evening",   "label": "19-21:30",   "fromHHMM": "19:00", "toHHMM": "21:30", "rates": { "T1": 0.035, "T2": 0.035, "T3": 0.045 } },
+    { "id": "peak2",     "label": "21:30-24時", "fromHHMM": "21:30", "toHHMM": "24:00", "rates": { "T1": 0.080, "T2": 0.080, "T3": 0.080 } },
+    { "id": "midnight",  "label": "24時以降",   "fromHHMM": "24:00", "toHHMM": "27:00", "rates": { "T1": 0.075, "T2": 0.075, "T3": 0.075 } }
   ],
   "reachBoost": [
     { "minRate": 0.9, "boost": 1.0 },
@@ -31,6 +32,6 @@
     "windowMinutes": 60,
     "deactivateAfter": "24:00"
   },
-  "maxRatio": 0.85,
-  "fallbackRate": 0.10
+  "maxRatio": 0.40,
+  "fallbackRate": 0.025
 }

@@ -3,13 +3,14 @@ import { strict as assert } from 'node:assert';
 import { aggregateHeatmapClient } from '../js/arrivals-data.js';
 
 test('aggregateHeatmapClient: bin に totalTaxiPax / taxiDensityTier / reachNoneCount が出る', () => {
+  // 校正後 (2026-05-15): estimatedTaxiPax は「台数」、TAXI_DENSITY_MID=8, HIGH=20
   const flights = [
-    { estimatedTime: '18:30', estimatedPax: 200, estimatedTaxiPax: 40, isInternational: false, status: '定刻', reachTier: 'high' },
-    { estimatedTime: '18:45', estimatedPax: 100, estimatedTaxiPax: 20, isInternational: false, status: '定刻', reachTier: 'high' }
+    { estimatedTime: '18:30', estimatedPax: 200, estimatedTaxiPax: 10, isInternational: false, status: '定刻', reachTier: 'high' },
+    { estimatedTime: '18:45', estimatedPax: 100, estimatedTaxiPax: 5, isInternational: false, status: '定刻', reachTier: 'high' }
   ];
   const bins = aggregateHeatmapClient(flights);
   assert.equal(bins.length, 1);
-  assert.equal(bins[0].totalTaxiPax, 60);
+  assert.equal(bins[0].totalTaxiPax, 15);  // 15 台 (>= MID=8) → 'mid'
   assert.equal(bins[0].taxiDensityTier, 'mid');
   assert.equal(bins[0].reachNoneCount, 0);
 });
@@ -32,9 +33,9 @@ test('aggregateHeatmapClient: estimatedTaxiPax=undefined の便も合計に影�
   assert.equal(bins[0].taxiDensityTier, 'low');
 });
 
-test('aggregateHeatmapClient: taxi 70人以上で high 階層', () => {
+test('aggregateHeatmapClient: taxi 20台以上で high 階層 (2026-05-15 校正)', () => {
   const flights = [
-    { estimatedTime: '17:00', estimatedPax: 300, estimatedTaxiPax: 75, isInternational: false, status: '定刻', reachTier: 'high' }
+    { estimatedTime: '17:00', estimatedPax: 300, estimatedTaxiPax: 22, isInternational: false, status: '定刻', reachTier: 'high' }
   ];
   const bins = aggregateHeatmapClient(flights);
   assert.equal(bins[0].taxiDensityTier, 'high');
