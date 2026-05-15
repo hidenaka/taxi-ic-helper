@@ -6,7 +6,7 @@
  * 純関数のみ。observe-taxi-pool.mjs から呼ばれる。
  */
 
-import { formatYmd, getDayType } from './calendar-context.mjs';
+import { formatYmd, getDayContext } from './calendar-context.mjs';
 
 export const SLOTS_PER_HOUR = 12;
 export const SLOTS_PER_DAY = 288;
@@ -64,24 +64,46 @@ export function aggregateByDate(history) {
   return byDate;
 }
 
+const WEEKDAY_DAY_TYPES = ['weekday', 'post_holiday', 'pre_holiday'];
+
+/**
+ * 各日の「関連連休日数」を取り出す。
+ *   - 休日 (saturday/sunday_holiday/in_consec_holiday/last_consec_holiday): 当該連休 consecLength
+ *   - post_holiday: 直前連休 prevConsecLength
+ *   - pre_holiday: 直後連休 nextConsecLength
+ *   - weekday: 1 (フィルタ的に「連休と無関係」)
+ */
+function relevantConsec(d) {
+  if (d.dayType === 'post_holiday') return d.prevConsecLength ?? 0;
+  if (d.dayType === 'pre_holiday') return d.nextConsecLength ?? 0;
+  if (d.dayType === 'weekday') return 1;
+  return d.consecLength ?? 1;
+}
+
 /**
  * 段階プレフィルタで候補日を選ぶ。
  *
- * @param {Array<{dateStr,dayType,month,slots}>} pastDays
+ * @param {Array<{dateStr,dayType,month,consecLength,prevConsecLength,nextConsecLength,slots}>} pastDays
  * @param {string} targetDayType
  * @param {number} targetMonth (1-12)
+ * @param {number} [targetConsec] 対象日の relevantConsec (省略時は consecLength 比較なし)
  * @returns {{filterTier: string, candidates: Array}}
  */
-export function selectCandidates(pastDays, targetDayType, targetMonth) {
-  const strict = pastDays.filter(d => d.dayType === targetDayType && d.month === targetMonth);
+export function selectCandidates(pastDays, targetDayType, targetMonth, targetConsec) {
+  // strict: 同 dayType + 同月 + (consec が指定されていれば ±1 以内)
+  const strict = pastDays.filter(d => {
+    if (d.dayType !== targetDayType) return false;
+    if (d.month !== targetMonth) return false;
+    if (targetConsec !== undefined && Math.abs(relevantConsec(d) - targetConsec) > 1) return false;
+    return true;
+  });
   if (strict.length >= MIN_CANDIDATES) return { filterTier: 'strict', candidates: strict };
+  // medium: 同 dayType + 月±2 (consec 制約緩める)
   const medium = pastDays.filter(d => d.dayType === targetDayType && Math.abs(d.month - targetMonth) <= 2);
   if (medium.length >= MIN_CANDIDATES) return { filterTier: 'medium', candidates: medium };
-  const targetIsWeekday = ['weekday', 'pre_holiday'].includes(targetDayType);
-  const loose = pastDays.filter(d => {
-    const dIsWeekday = ['weekday', 'pre_holiday'].includes(d.dayType);
-    return dIsWeekday === targetIsWeekday;
-  });
+  // loose: 平日/休日カテゴリのみ
+  const targetIsWeekday = WEEKDAY_DAY_TYPES.includes(targetDayType);
+  const loose = pastDays.filter(d => WEEKDAY_DAY_TYPES.includes(d.dayType) === targetIsWeekday);
   if (loose.length >= MIN_CANDIDATES) return { filterTier: 'loose', candidates: loose };
   return { filterTier: 'all', candidates: pastDays };
 }
@@ -107,11 +129,12 @@ function extractWindowVec(daySlots, startSlot, lengthSlots) {
 
 const DOW_LABEL_JA = ['日', '月', '火', '水', '木', '金', '土'];
 
-function makeLabel(dateStr, dayType) {
+function makeLabel(dateStr, dayType, consec) {
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(y, m - 1, d);
   const dow = DOW_LABEL_JA[date.getDay()];
-  return `${m}/${d} (${dow}・${dayType})`;
+  const consecStr = (typeof consec === 'number' && consec >= 2) ? `・${consec}連休` : '';
+  return `${m}/${d} (${dow}・${dayType}${consecStr})`;
 }
 
 /**
@@ -125,8 +148,14 @@ function makeLabel(dateStr, dayType) {
 export function computePatternMatch(historyAll, holidaysSet, now) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayDateStr = formatYmd(today);
-  const todayDayType = getDayType(today, holidaysSet);
+  const todayContext = getDayContext(today, holidaysSet);
   const todayMonth = today.getMonth() + 1;
+  const todayRelevantConsec = relevantConsec({
+    dayType: todayContext.dayType,
+    consecLength: todayContext.consecLength,
+    prevConsecLength: todayContext.prevConsecLength,
+    nextConsecLength: todayContext.nextConsecLength,
+  });
 
   const byDate = aggregateByDate(historyAll);
 
@@ -134,11 +163,15 @@ export function computePatternMatch(historyAll, holidaysSet, now) {
   const pastDays = [];
   for (const [dateStr, entry] of byDate.entries()) {
     if (dateStr === todayDateStr) continue;
+    const ctx = getDayContext(entry.date, holidaysSet);
     pastDays.push({
       dateStr,
       date: entry.date,
-      dayType: getDayType(entry.date, holidaysSet),
+      dayType: ctx.dayType,
       month: entry.date.getMonth() + 1,
+      consecLength: ctx.consecLength,
+      prevConsecLength: ctx.prevConsecLength,
+      nextConsecLength: ctx.nextConsecLength,
       slots: entry.slots,
     });
   }
@@ -148,8 +181,12 @@ export function computePatternMatch(historyAll, holidaysSet, now) {
     generatedAt: jstNowIsoString(now),
     today: {
       date: todayDateStr,
-      dayType: todayDayType,
+      dayType: todayContext.dayType,
       month: todayMonth,
+      consecLength: todayContext.consecLength,
+      prevConsecLength: todayContext.prevConsecLength,
+      nextConsecLength: todayContext.nextConsecLength,
+      relevantConsec: todayRelevantConsec,
     },
   };
 
@@ -163,7 +200,7 @@ export function computePatternMatch(historyAll, holidaysSet, now) {
     };
   }
 
-  const { filterTier, candidates } = selectCandidates(pastDays, todayDayType, todayMonth);
+  const { filterTier, candidates } = selectCandidates(pastDays, todayContext.dayType, todayMonth, todayRelevantConsec);
 
   const nowSlot = slotIdx(now);
   const windowStart = (nowSlot - WINDOW_PAST_SLOTS + SLOTS_PER_DAY) % SLOTS_PER_DAY;
@@ -182,8 +219,12 @@ export function computePatternMatch(historyAll, holidaysSet, now) {
     date: s.entry.dateStr,
     dayType: s.entry.dayType,
     month: s.entry.month,
+    consecLength: s.entry.consecLength,
+    prevConsecLength: s.entry.prevConsecLength,
+    nextConsecLength: s.entry.nextConsecLength,
+    relevantConsec: relevantConsec(s.entry),
     similarity: Number(s.similarity.toFixed(3)),
-    label: makeLabel(s.entry.dateStr, s.entry.dayType),
+    label: makeLabel(s.entry.dateStr, s.entry.dayType, relevantConsec(s.entry)),
   }));
 
   const forecastStart = (nowSlot + 1) % SLOTS_PER_DAY;

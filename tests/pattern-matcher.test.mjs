@@ -121,3 +121,64 @@ test('computePatternMatch: pastDays 0 件 → similarDays=[], historicalCurve=[]
   assert.equal(r.similarDays.length, 0);
   assert.equal(r.historicalCurve.length, 0);
 });
+
+// --- consec フィルタ (2026-05-15 拡張) ---
+
+function dayEntryConsec(dateStr, dayType, month, consecLength = 1, prevConsecLength = 0, nextConsecLength = 0) {
+  return { dateStr, dayType, month, consecLength, prevConsecLength, nextConsecLength, slots: [] };
+}
+
+test('selectCandidates strict: consec ±1 内のみマッチ (例: 3 連休 vs 5 連休は除外)', () => {
+  const pastDays = [
+    // 同 dayType (in_consec_holiday) + 同月 (5) + consec 3 → strict OK (target consec=3 と一致)
+    dayEntryConsec('2026-05-01', 'in_consec_holiday', 5, 3),
+    dayEntryConsec('2026-05-02', 'in_consec_holiday', 5, 3),
+    dayEntryConsec('2026-05-03', 'in_consec_holiday', 5, 3),
+    // 同月 + 同 dayType だが consec 5 → consec 差 2 → strict 除外
+    dayEntryConsec('2026-05-21', 'in_consec_holiday', 5, 5),
+    dayEntryConsec('2026-05-22', 'in_consec_holiday', 5, 5),
+  ];
+  const r = selectCandidates(pastDays, 'in_consec_holiday', 5, 3);
+  assert.equal(r.filterTier, 'strict');
+  assert.equal(r.candidates.length, 3);
+});
+
+test('selectCandidates strict: consec が引数で渡らない場合は consec フィルタ無効 (後方互換)', () => {
+  const pastDays = [
+    dayEntryConsec('2026-05-01', 'weekday', 5),
+    dayEntryConsec('2026-05-02', 'weekday', 5),
+    dayEntryConsec('2026-05-03', 'weekday', 5),
+  ];
+  const r = selectCandidates(pastDays, 'weekday', 5);
+  assert.equal(r.filterTier, 'strict');
+  assert.equal(r.candidates.length, 3);
+});
+
+test('selectCandidates strict: post_holiday の prevConsec で連休明け判別', () => {
+  const pastDays = [
+    // 連休明け (前連休 5 日 = GW明け相当) を 5 月内に 3 件 (架空)
+    dayEntryConsec('2026-05-07', 'post_holiday', 5, 1, 5, 0),
+    dayEntryConsec('2026-05-14', 'post_holiday', 5, 1, 5, 0),
+    dayEntryConsec('2026-05-21', 'post_holiday', 5, 1, 5, 0),
+    // 土日明け月曜 (前連休 2 日) → consec 差 3 で strict 除外
+    dayEntryConsec('2026-05-18', 'post_holiday', 5, 1, 2, 0),
+  ];
+  // target: post_holiday、5 月、relevantConsec=5 (GW明け)
+  const r = selectCandidates(pastDays, 'post_holiday', 5, 5);
+  assert.equal(r.filterTier, 'strict');
+  assert.equal(r.candidates.length, 3);
+});
+
+test('computePatternMatch: today consec 情報が出力 today に含まれる', () => {
+  const holidays = loadHolidaysSet({
+    holidays: [
+      { date: '2026-05-03', name: '憲法' }, { date: '2026-05-04', name: 'みどり' },
+      { date: '2026-05-05', name: 'こども' }, { date: '2026-05-06', name: '振休' },
+    ],
+  });
+  // 5/4 = GW 中 (in_consec_holiday, consecLength=5)
+  const r = computePatternMatch([], holidays, new Date(2026, 4, 4, 12, 0));
+  assert.equal(r.today.dayType, 'in_consec_holiday');
+  assert.equal(r.today.consecLength, 5);
+  assert.equal(r.today.relevantConsec, 5);
+});
