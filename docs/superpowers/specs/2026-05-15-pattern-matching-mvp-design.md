@@ -59,13 +59,22 @@ C-1 はこれの「曜日」「フライト情報」を一部反映済み (fligh
 | `tests/calendar-context.test.mjs` | Create | dayType 判定テスト 6 件 |
 | `tests/pattern-matcher.test.mjs` | Create | パターンマッチングテスト 9 件 |
 
-## カレンダー判定 (6 カテゴリ)
+## カレンダー判定 (7 カテゴリ + consec 情報)
+
+### 2026-05-15 改訂
+
+- 「月曜日 = 連休明け」(土日明け含む) を別カテゴリ `post_holiday` として追加 (合計 7 カテゴリ)
+- 各日に `consecLength` (休日の場合は属する連休の総日数、平日なら 1)、`prevConsecLength` (直前の連休日数)、`nextConsecLength` (直後の連休日数) を持つ
+- 段階フィルタの strict 条件に「consecLength ±1 日以内」を追加
+
+### dayType (7 カテゴリ)
 
 `dayType` は以下のいずれか:
 
 | カテゴリ | 条件 |
 |---|---|
-| `weekday` | 平日 (月-金) かつ翌日も平日 |
+| `weekday` | 平日 (月-金) で前日も翌日も平日 |
+| `post_holiday` | 平日 (月-金) で前日が休日 (土日明け or 連休明けの月曜 等) |
 | `saturday` | 土曜日かつ翌日が平日 (= 三連休でない土曜) |
 | `sunday_holiday` | 日曜 or 祝日かつ前日が平日 (= 単独の祝日/日曜) |
 | `pre_holiday` | 平日 (月-金) で翌日が日曜/祝日 (連休初日) |
@@ -95,25 +104,37 @@ C-1 はこれの「曜日」「フライト情報」を一部反映済み (fligh
 ## 段階プレフィルタ
 
 ```
-target = getDayType(today, holidays), targetMonth = today.month
-pastDays = (信頼サブセットを日単位に集約した array)
+target = getDayContext(today, holidays)
+// target = { dayType, consecLength, prevConsecLength, nextConsecLength }
+targetMonth = today.month
+pastDays = (信頼サブセットを日単位に集約した array、各日に getDayContext 適用)
 
-// strict: 同 dayType + 同月
-strictCandidates = pastDays.filter(d => d.dayType === target && d.month === targetMonth)
+// 各日の relevantConsec:
+//   - 休日 (saturday/sunday_holiday/in_consec_holiday/last_consec_holiday): consecLength (当該連休)
+//   - post_holiday: prevConsecLength (直前の連休)
+//   - pre_holiday: nextConsecLength (直後の連休)
+//   - weekday: 1 (休日と非関連)
+
+// strict: 同 dayType + 同月 + relevantConsec ±1
+strictCandidates = pastDays.filter(d =>
+  d.dayType === target.dayType
+  && d.month === targetMonth
+  && Math.abs(d.relevantConsec - target.relevantConsec) <= 1
+)
 if (strictCandidates.length >= 3) { filterTier = "strict"; candidates = strictCandidates }
 
 else {
-  // medium: 同 dayType + 月±2
-  mediumCandidates = pastDays.filter(d => d.dayType === target && abs(d.month - targetMonth) <= 2)
+  // medium: 同 dayType + 月±2 (consec 制約緩める)
+  mediumCandidates = pastDays.filter(d => d.dayType === target.dayType && abs(d.month - targetMonth) <= 2)
   if (mediumCandidates.length >= 3) { filterTier = "medium"; candidates = mediumCandidates }
 
   else {
-    // loose: 平日/土日カテゴリのみマッチ
-    const targetIsWeekday = ["weekday", "pre_holiday"].includes(target)
-    looseCandidates = pastDays.filter(d => {
-      const dIsWeekday = ["weekday", "pre_holiday"].includes(d.dayType)
-      return dIsWeekday === targetIsWeekday
-    })
+    // loose: 平日/休日カテゴリのみマッチ
+    //   平日カテゴリ: weekday / post_holiday / pre_holiday
+    //   休日カテゴリ: saturday / sunday_holiday / in_consec_holiday / last_consec_holiday
+    const WEEKDAY_TYPES = ["weekday", "post_holiday", "pre_holiday"]
+    const targetIsWeekday = WEEKDAY_TYPES.includes(target.dayType)
+    looseCandidates = pastDays.filter(d => WEEKDAY_TYPES.includes(d.dayType) === targetIsWeekday)
     if (looseCandidates.length >= 3) { filterTier = "loose"; candidates = looseCandidates }
     else { filterTier = "all"; candidates = pastDays }
   }
