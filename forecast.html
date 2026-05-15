@@ -26,6 +26,15 @@
     .star { color: var(--very-high); font-weight: 700; }
     .factor-cell { color: var(--sub); font-size: 12px; }
     .total-cell { font-weight: 700; }
+    .pattern-section { margin-top: 32px; padding-top: 16px; border-top: 1px solid #222; }
+    .pattern-section h2 { font-size: 16px; margin: 0 0 8px 0; }
+    .pattern-section h3 { font-size: 14px; margin: 16px 0 8px 0; color: var(--sub); }
+    .pattern-meta { color: var(--sub); font-size: 13px; margin-bottom: 12px; line-height: 1.5; }
+    .similar-day-list { list-style: none; padding: 0; margin: 0 0 16px 0; }
+    .similar-day-item { padding: 6px 8px; border-bottom: 1px solid #222; display: flex; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
+    .similar-day-icon { font-size: 14px; }
+    .similar-day-label { flex: 1; }
+    .similar-day-score { color: var(--sub); font-size: 12px; }
   </style>
 </head>
 <body>
@@ -36,6 +45,14 @@
   <main>
     <div id="forecast-meta" class="forecast-meta">読み込み中...</div>
     <div id="forecast-table-wrap"></div>
+
+    <section class="pattern-section" id="pattern-section">
+      <h2>類似日マッチング</h2>
+      <div id="pattern-meta" class="pattern-meta">読み込み中...</div>
+      <ul id="similar-days" class="similar-day-list"></ul>
+      <h3>ヒストリカル予測 (類似日平均)</h3>
+      <div id="historical-curve-wrap"></div>
+    </section>
   </main>
   <script type="module" src="js/forecast-app.js"></script>
 </body>
