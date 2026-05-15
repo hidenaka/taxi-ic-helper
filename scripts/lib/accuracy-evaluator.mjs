@@ -57,3 +57,124 @@ export function buildActualMap(history) {
   }
   return map;
 }
+
+function jstNowIsoString(now) {
+  const jst = new Date(now.getTime() + 9 * 3600 * 1000);
+  return jst.toISOString().replace('Z', '+09:00').replace(/\.\d+/, '');
+}
+
+function leadBucketOf(leadMinutes) {
+  for (const b of LEAD_BUCKETS) {
+    if (Math.abs(leadMinutes - b.center) <= b.halfWidth) return b.key;
+  }
+  return null;
+}
+
+function emptyBucketStats() {
+  const stats = {};
+  for (const b of LEAD_BUCKETS) {
+    stats[b.key] = { absSum: 0, absPerStall: [0, 0, 0, 0], n: 0 };
+  }
+  return stats;
+}
+
+function finalizeBucketStats(stats) {
+  const out = {};
+  for (const b of LEAD_BUCKETS) {
+    const s = stats[b.key];
+    if (s.n === 0) {
+      out[b.key] = { mae_total: null, mae_per_stall: [null, null, null, null], n: 0 };
+    } else {
+      out[b.key] = {
+        mae_total: Number((s.absSum / s.n).toFixed(3)),
+        mae_per_stall: s.absPerStall.map(v => Number((v / s.n).toFixed(3))),
+        n: s.n,
+      };
+    }
+  }
+  return out;
+}
+
+/**
+ * 1 つの method (forecast / patternMatch) の予測 slot 配列を評価し、stats に加算する。
+ */
+function accumulate(stats, issueDate, predSlots, actualMap) {
+  const issueSlotIdx = issueDate.getHours() * SLOTS_PER_HOUR + Math.floor(issueDate.getMinutes() / 5);
+  for (const slot of predSlots) {
+    const [hh, mm] = slot.slotStart.split(':').map(Number);
+    if (Number.isNaN(hh) || Number.isNaN(mm)) continue;
+    const slotIdx = hh * SLOTS_PER_HOUR + Math.floor(mm / 5);
+    // slot が発行時刻より後なら同日、前なら翌日
+    const dateForSlot = new Date(issueDate);
+    if (slotIdx <= issueSlotIdx) {
+      dateForSlot.setDate(dateForSlot.getDate() + 1);
+    }
+    const y = dateForSlot.getFullYear();
+    const m = String(dateForSlot.getMonth() + 1).padStart(2, '0');
+    const d = String(dateForSlot.getDate()).padStart(2, '0');
+    const key = slotKeyOf(`${y}-${m}-${d}`, slotIdx);
+    const actual = actualMap.get(key);
+    if (!actual) continue; // 実測なし → スキップ
+    // lead time
+    let leadSlots = slotIdx - issueSlotIdx;
+    if (leadSlots <= 0) leadSlots += SLOTS_PER_DAY;
+    const leadMinutes = leadSlots * 5;
+    const bucket = leadBucketOf(leadMinutes);
+    if (!bucket) continue;
+    const predStalls = [slot.stall1, slot.stall2, slot.stall3, slot.stall4];
+    const predTotal = slot.total;
+    const actualTotal = actual[0] + actual[1] + actual[2] + actual[3];
+    const s = stats[bucket];
+    s.absSum += Math.abs(predTotal - actualTotal);
+    for (let i = 0; i < 4; i++) {
+      s.absPerStall[i] += Math.abs(predStalls[i] - actual[i]);
+    }
+    s.n += 1;
+  }
+}
+
+function evaluatePeriod(logEntries, actualMap) {
+  const fcStats = emptyBucketStats();
+  const pmStats = emptyBucketStats();
+  for (const entry of logEntries) {
+    const issueDate = new Date(entry.ts);
+    if (Number.isNaN(issueDate.getTime())) continue;
+    if (Array.isArray(entry.forecast)) accumulate(fcStats, issueDate, entry.forecast, actualMap);
+    if (Array.isArray(entry.patternMatch)) accumulate(pmStats, issueDate, entry.patternMatch, actualMap);
+  }
+  const forecast = finalizeBucketStats(fcStats);
+  const patternMatch = finalizeBucketStats(pmStats);
+  const winner = {};
+  for (const b of LEAD_BUCKETS) {
+    const f = forecast[b.key].mae_total;
+    const p = patternMatch[b.key].mae_total;
+    if (f === null && p === null) winner[b.key] = 'n/a';
+    else if (p === null) winner[b.key] = 'forecast';
+    else if (f === null) winner[b.key] = 'patternMatch';
+    else winner[b.key] = f <= p ? 'forecast' : 'patternMatch';
+  }
+  return { forecast, patternMatch, winner };
+}
+
+/**
+ * 予測精度を評価する。
+ *
+ * @param {Array} logEntries forecast-log.jsonl の全行
+ * @param {Map<string, number[]>} actualMap buildActualMap の戻り値
+ * @param {Date} now
+ * @returns 精度オブジェクト
+ */
+export function evaluateAccuracy(logEntries, actualMap, now) {
+  const cutoff = now.getTime() - 24 * 3600 * 1000;
+  const recentEntries = logEntries.filter(e => {
+    const t = new Date(e.ts).getTime();
+    return !Number.isNaN(t) && t >= cutoff;
+  });
+  return {
+    schemaVersion: ACCURACY_SCHEMA_VERSION,
+    generatedAt: jstNowIsoString(now),
+    logEntryCount: logEntries.length,
+    recent24h: evaluatePeriod(recentEntries, actualMap),
+    allPeriod: evaluatePeriod(logEntries, actualMap),
+  };
+}
