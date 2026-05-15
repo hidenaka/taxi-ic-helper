@@ -35,6 +35,15 @@
     .similar-day-icon { font-size: 14px; }
     .similar-day-label { flex: 1; }
     .similar-day-score { color: var(--sub); font-size: 12px; }
+    .accuracy-section { margin-top: 32px; padding-top: 16px; border-top: 1px solid #222; }
+    .accuracy-section h2 { font-size: 16px; margin: 0 0 8px 0; }
+    .accuracy-meta { color: var(--sub); font-size: 13px; margin-bottom: 12px; }
+    .accuracy-table { border-collapse: collapse; width: 100%; max-width: 520px; }
+    .accuracy-table th, .accuracy-table td { padding: 6px 10px; border-bottom: 1px solid #222; text-align: right; font-variant-numeric: tabular-nums; }
+    .accuracy-table th { background: #16161c; color: var(--sub); font-weight: 500; font-size: 12px; }
+    .accuracy-table td.lead { text-align: left; font-weight: 600; }
+    .winner-fc { color: var(--accent); }
+    .winner-pm { color: var(--high); }
   </style>
 </head>
 <body>
@@ -52,6 +61,12 @@
       <ul id="similar-days" class="similar-day-list"></ul>
       <h3>ヒストリカル予測 (類似日平均)</h3>
       <div id="historical-curve-wrap"></div>
+    </section>
+
+    <section class="accuracy-section" id="accuracy-section">
+      <h2>予測精度 (直近 24 時間)</h2>
+      <div id="accuracy-meta" class="accuracy-meta">読み込み中...</div>
+      <div id="accuracy-table-wrap"></div>
     </section>
   </main>
   <script type="module" src="js/forecast-app.js"></script>

@@ -131,3 +131,40 @@ export function renderHistoricalCurve(container, patternMatch) {
     <tbody>${rows}</tbody>
   </table>`;
 }
+
+// --- Phase D-1: 予測精度描画 ---
+
+const LEAD_LABEL = { lead30: '30 分先', lead60: '60 分先', lead120: '120 分先' };
+
+export function renderAccuracy(metaEl, tableEl, accuracy) {
+  if (!metaEl || !tableEl || !accuracy) return;
+  const r24 = accuracy.recent24h;
+  metaEl.innerHTML = `予測時刻 ${(accuracy.generatedAt || '').slice(0, 16).replace('T', ' ')} JST / ログ ${accuracy.logEntryCount} 件`;
+
+  if (!r24) {
+    tableEl.innerHTML = '<p class="accuracy-meta">精度データなし</p>';
+    return;
+  }
+  const fmt = (v) => (v === null || v === undefined) ? '—' : `${v.toFixed(2)} 台`;
+  const rows = ['lead30', 'lead60', 'lead120'].map(k => {
+    const fc = r24.forecast[k] || { mae_total: null, n: 0 };
+    const pm = r24.patternMatch[k] || { mae_total: null, n: 0 };
+    const w = r24.winner[k];
+    let winLabel = '—';
+    if (w === 'forecast') winLabel = '<span class="winner-fc">forecast</span>';
+    else if (w === 'patternMatch') winLabel = '<span class="winner-pm">pattern</span>';
+    return `<tr>
+      <td class="lead">${LEAD_LABEL[k]}</td>
+      <td>${fmt(fc.mae_total)}</td>
+      <td>${fmt(pm.mae_total)}</td>
+      <td>${winLabel}</td>
+      <td>${fc.n}</td>
+    </tr>`;
+  }).join('');
+  tableEl.innerHTML = `<table class="accuracy-table">
+    <thead><tr>
+      <th>lead time</th><th>forecast MAE</th><th>pattern MAE</th><th>優勢</th><th>n</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
