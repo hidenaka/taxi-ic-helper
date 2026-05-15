@@ -135,6 +135,13 @@ def main():
     past_flights = per_flight[per_flight["lobby_exit_dt"] <= updated_dt].copy()
     print(f"[proto] 既に lobbyExitTime を過ぎた便: {len(past_flights)} / {len(per_flight)}")
 
+    # 重要: 観測 ROI は第1-第4乗り場 = T1/T2 のみ。
+    # T3 は物理的に別乗り場 (国際線ターミナル) で画像に映っていない。
+    # T3 便は別集計とし、メイン分析からは除外する。
+    t3_flights = past_flights[past_flights["terminal"] == "T3"].copy()
+    past_flights = past_flights[past_flights["terminal"].isin(["T1", "T2"])].copy()
+    print(f"[proto] 観測対象 (T1+T2) 便: {len(past_flights)}, 観測対象外 (T3) 便: {len(t3_flights)}")
+
     # 集計: 便ごとの予測 vs 観測出庫
     if len(past_flights) > 0:
         print("\n[proto] === 過去便 (lobby exit time が既に過ぎた便) のサンプル ===")
