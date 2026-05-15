@@ -16,6 +16,8 @@ import { Jimp } from 'jimp';
 import { analyzePoolImage, analyzeStalls } from './lib/image-pool-analyzer.mjs';
 import { summarizeArrivalsWindow } from './lib/arrivals-window-summary.mjs';
 import { computeBaseline, computeForecast } from './lib/forecast-engine.mjs';
+import { computePatternMatch } from './lib/pattern-matcher.mjs';
+import { loadHolidaysSet } from './lib/calendar-context.mjs';
 
 const REAL01_URL = 'https://ttc.taxi-inf.jp/Real01_line.jpg';
 const REAL02_URL = 'https://ttc.taxi-inf.jp/Real02.jpg';
@@ -23,6 +25,8 @@ const USER_AGENT = 'taxi-ic-helper observation bot (https://github.com/hidenaka/
 const HISTORY_PATH = './data/taxi-pool-history.jsonl';
 const SNAPSHOTS_DIR = './data/arrivals-snapshots';
 const FORECAST_OUTPUT_PATH = './data/stall-forecast.json';
+const PATTERN_MATCH_OUTPUT_PATH = './data/stall-pattern-match.json';
+const HOLIDAYS_PATH = './data/japan-holidays.json';
 const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
 const TIMEOUT_MS = 15000;
 const STALL_ROIS_PATH = './scripts/lib/stall-rois.json';
@@ -256,6 +260,28 @@ async function main() {
     console.log(`[observe] forecast ok: trendFactor=${forecast.trendFactor.toFixed(2)} baselineSamples=${forecast.baselineSampleCount}`);
   } catch (e) {
     console.error(`[observe] forecast generation failed: ${e.message}`);
+  }
+
+  // Phase C-2 MVP: パターンマッチング予測の生成
+  try {
+    const allHistoryLines = readFileSync(HISTORY_PATH, 'utf8').trim().split('\n');
+    const allHistory = [];
+    for (const line of allHistoryLines) {
+      if (!line.trim()) continue;
+      try { allHistory.push(JSON.parse(line)); } catch { /* skip bad line */ }
+    }
+    let holidaysSet;
+    try {
+      const holidaysJson = JSON.parse(readFileSync(HOLIDAYS_PATH, 'utf8'));
+      holidaysSet = loadHolidaysSet(holidaysJson);
+    } catch {
+      holidaysSet = loadHolidaysSet({ holidays: [] });
+    }
+    const patternMatch = computePatternMatch(allHistory, holidaysSet, new Date());
+    writeFileSync(PATTERN_MATCH_OUTPUT_PATH, JSON.stringify(patternMatch, null, 2) + '\n', 'utf8');
+    console.log(`[observe] pattern-match ok: today=${patternMatch.today.dayType} tier=${patternMatch.today.filterTier} similar=${patternMatch.similarDays.length}`);
+  } catch (e) {
+    console.error(`[observe] pattern-match generation failed: ${e.message}`);
   }
 
   console.log(`[observe] img1 edge=${img1.roi?.edge_density ?? 'n/a'} black=${img1.black_ratio} lum=${img1.roi?.luminance_mean ?? 'n/a'}`);
