@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>羽田タクシー需要予測 (MVP)</title>
+  <link rel="icon" type="image/png" sizes="180x180" href="./icon-180.png">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <style>
+    :root { --bg: #0e0e10; --fg: #e8e8e8; --sub: #888; --accent: #4ea1ff; --high: #ffb84d; --very-high: #ff5252; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, system-ui, sans-serif; font-size: 15px; }
+    header { padding: 12px 16px; border-bottom: 1px solid #222; background: #0a0a0f; position: sticky; top: 0; z-index: 10; }
+    h1 { margin: 0 0 6px 0; font-size: 18px; }
+    nav a { color: var(--accent); text-decoration: none; font-size: 13px; }
+    main { padding: 12px 16px; max-width: 760px; }
+    .forecast-meta { margin: 8px 0 16px 0; color: var(--sub); font-size: 13px; line-height: 1.5; }
+    .forecast-table { border-collapse: collapse; width: 100%; }
+    .forecast-table th, .forecast-table td { padding: 6px 8px; border-bottom: 1px solid #222; text-align: right; font-variant-numeric: tabular-nums; }
+    .forecast-table th { background: #16161c; color: var(--sub); font-weight: 500; font-size: 12px; }
+    .forecast-table td.time { text-align: left; font-weight: 600; }
+    .forecast-table tr.tier-high td { background: rgba(255, 184, 77, 0.10); }
+    .forecast-table tr.tier-very-high td { background: rgba(255, 82, 82, 0.14); }
+    .star { color: var(--very-high); font-weight: 700; }
+    .factor-cell { color: var(--sub); font-size: 12px; }
+    .total-cell { font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>羽田タクシー需要予測 (MVP)</h1>
+    <nav><a href="arrivals.html">← 到着便一覧へ</a></nav>
+  </header>
+  <main>
+    <div id="forecast-meta" class="forecast-meta">読み込み中...</div>
+    <div id="forecast-table-wrap"></div>
+  </main>
+  <script type="module" src="js/forecast-app.js"></script>
+</body>
+</html>
