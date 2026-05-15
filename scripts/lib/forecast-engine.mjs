@@ -76,3 +76,96 @@ export function computeBaseline(history) {
   });
   return { slots, sampleCount };
 }
+
+/**
+ * 現在時刻から +5min〜+120min (24 slot) の予測を返す。
+ *
+ * @param {{slots: Array, sampleCount: number}} baseline computeBaseline の戻り値
+ * @param {Array} recentHistory 直近 N tick の jsonl 行 (各行に ts と total_outflow)
+ * @param {{flights: Array}|null} arrivalsJson arrivals.json (flights[].lobbyExitTime, .estimatedTaxiPax)
+ * @param {Date} now 現在時刻
+ * @returns 予測オブジェクト
+ */
+export function computeForecast(baseline, recentHistory, arrivalsJson, now) {
+  const nowSlot = slotKey(now.getHours(), now.getMinutes());
+
+  // --- trendFactor ---
+  let trendFactor = 1.0;
+  let trendActual = 0;
+  let trendExpected = 0;
+  if (recentHistory.length >= TREND_WINDOW_TICKS) {
+    const window = recentHistory.slice(-TREND_WINDOW_TICKS);
+    for (const row of window) {
+      if (typeof row.total_outflow === 'number') {
+        trendActual += row.total_outflow;
+      }
+      const ts = new Date(row.ts);
+      if (!Number.isNaN(ts.getTime())) {
+        const slot = baseline.slots[slotKey(ts.getHours(), ts.getMinutes())];
+        if (slot && slot.stall1 !== null) {
+          trendExpected += (slot.stall1 + slot.stall2 + slot.stall3 + slot.stall4);
+        }
+      }
+    }
+    if (trendExpected > 0) {
+      trendFactor = clip(trendActual / trendExpected, TREND_FACTOR_MIN, TREND_FACTOR_MAX);
+    }
+  }
+
+  // --- flightFactor[slot_t] ---
+  const flightSums = new Array(FORECAST_SLOT_COUNT).fill(0);
+  if (arrivalsJson && Array.isArray(arrivalsJson.flights)) {
+    for (const f of arrivalsJson.flights) {
+      if (!f.lobbyExitTime || typeof f.estimatedTaxiPax !== 'number') continue;
+      const [h, m] = f.lobbyExitTime.split(':').map(Number);
+      if (Number.isNaN(h) || Number.isNaN(m)) continue;
+      const lobbySlot = slotKey(h, m);
+      for (let i = 0; i < FORECAST_SLOT_COUNT; i++) {
+        const targetSlot = (nowSlot + 1 + i) % SLOTS_PER_DAY;
+        if (lobbySlot === targetSlot) {
+          flightSums[i] += f.estimatedTaxiPax;
+          break;
+        }
+      }
+    }
+  }
+  const dailyAvg = flightSums.reduce((s, v) => s + v, 0) / FORECAST_SLOT_COUNT;
+  const flightFactors = flightSums.map(s => {
+    if (dailyAvg <= 0) return 1.0;
+    return clip(s / dailyAvg, FLIGHT_FACTOR_MIN, FLIGHT_FACTOR_MAX);
+  });
+
+  // --- 各 slot の予測 ---
+  const outSlots = [];
+  for (let i = 0; i < FORECAST_SLOT_COUNT; i++) {
+    const targetSlot = (nowSlot + 1 + i) % SLOTS_PER_DAY;
+    const slotStartMin = targetSlot * 5;
+    const startH = Math.floor(slotStartMin / 60) % 24;
+    const startM = slotStartMin % 60;
+    const endTotal = slotStartMin + 5;
+    const endH = Math.floor(endTotal / 60) % 24;
+    const endM = endTotal % 60;
+    const fmt = (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const base = baseline.slots[targetSlot] || { stall1: null, stall2: null, stall3: null, stall4: null };
+    const f = flightFactors[i];
+    const slotOut = { slotStart: fmt(startH, startM), slotEnd: fmt(endH, endM), flightFactor: f };
+    let total = 0;
+    for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
+      const b = base[name];
+      const val = (b === null || b === undefined) ? 0 : Math.round(b * trendFactor * f);
+      slotOut[name] = val;
+      total += val;
+    }
+    slotOut.total = total;
+    outSlots.push(slotOut);
+  }
+
+  return {
+    schemaVersion: FORECAST_SCHEMA_VERSION,
+    generatedAt: now.toISOString().replace('Z', '+09:00').replace(/\.\d+/, ''),
+    trendFactor,
+    trendWindow: { actual: trendActual, expected: trendExpected, ticks: Math.min(recentHistory.length, TREND_WINDOW_TICKS) },
+    baselineSampleCount: baseline.sampleCount,
+    slots: outSlots,
+  };
+}
