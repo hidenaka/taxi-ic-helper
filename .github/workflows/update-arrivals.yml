@@ -2,7 +2,10 @@ name: Update Haneda Arrivals
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    # 5 分間隔。観測 tick (Mac mini launchd 5 分) と粒度を揃え、ODPT の
+    # estimatedArrivalTime のリアルタイム更新を予測に反映しやすくする。
+    # GitHub Actions cron は実際には数分遅延しうるため厳密な 5 分同期ではない。
+    - cron: '*/5 * * * *'
   workflow_dispatch: {}
 
 permissions:
