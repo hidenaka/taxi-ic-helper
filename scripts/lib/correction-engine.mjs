@@ -11,7 +11,7 @@ import { slotKeyOf } from './accuracy-evaluator.mjs';
 import { pickBucket } from './taxi-estimator.mjs';
 import { hhmmToMinutes } from './route-reachability.mjs';
 
-export const CORRECTION_SCHEMA_VERSION = 2;
+export const CORRECTION_SCHEMA_VERSION = 3;
 export const SHARE_WINDOW_DAYS = 7;
 export const SHARE_MIN_FLIGHTS = 20;
 export const SHARE_FACTOR_MIN = 0.3;
@@ -22,6 +22,10 @@ export const LEVEL_FACTOR_MIN = 0.5;
 export const LEVEL_FACTOR_MAX = 2.0;
 export const SLOTS_PER_HOUR = 12;
 export const SLOTS_PER_DAY = 288;
+export const T3_MIN_TICKS = 20;
+export const T3_DIRECTIONAL_GAIN = 0.2;
+export const T3_FACTOR_MIN = 0.8;
+export const T3_FACTOR_MAX = 1.2;
 
 const STALL_NAMES = ['stall1', 'stall2', 'stall3', 'stall4'];
 
@@ -303,4 +307,71 @@ export function computeShareCorrection(snapshotRows, actualMap, transitShare, no
     share[b.id].T3 = { factor: 1.0, source: 'unobservable' };
   }
   return share;
+}
+
+/**
+ * t3-pool-history.jsonl の Real106 black_ratio から、T3 のバケット別方向性補正を計算する。
+ *
+ * curb の 5 分サンプリングでは台数を数えられないため、これは弱い経験則:
+ * バケットの先頭活性 (Real106 black_ratio 平均) を全バケット平均で相対化し、
+ * 相対的に活性が高い (滞留タクシー多め) バケットは factor < 1、低いバケットは factor > 1。
+ *
+ * @param {Array} t3PoolRows    t3-pool-history.jsonl の全行
+ * @param {Object} transitShare data/transit-share.json (バケット定義)
+ * @param {Date} now
+ * @returns {Object} {<bucketId>: {factor, source, n, relativeActivity}}
+ */
+export function computeT3DirectionalCorrection(t3PoolRows, transitShare, now) {
+  const buckets = (transitShare && Array.isArray(transitShare.buckets)) ? transitShare.buckets : [];
+  const todayStr = ymdOf(now);
+
+  // バケット別に Real106 black_ratio を集計 (完了日のみ)
+  const sums = {};
+  for (const b of buckets) sums[b.id] = { sum: 0, n: 0 };
+  for (const row of t3PoolRows) {
+    if (!row || typeof row.ts !== 'string') continue;
+    if (row.ts.slice(0, 10) >= todayStr) continue; // 完了日のみ
+    if (!Array.isArray(row.t3_stand)) continue;
+    const r106 = row.t3_stand.find(e => e && e.name === 'Real106');
+    if (!r106 || typeof r106.black_ratio !== 'number') continue;
+    const bucket = pickBucket(row.ts.slice(11, 16), transitShare);
+    if (!bucket || !sums[bucket.id]) continue;
+    sums[bucket.id].sum += r106.black_ratio;
+    sums[bucket.id].n += 1;
+  }
+
+  // tick 数が閾値以上のバケットの平均活性 → overall
+  const activity = {};
+  let overallSum = 0;
+  let overallCount = 0;
+  for (const b of buckets) {
+    const s = sums[b.id];
+    if (s.n >= T3_MIN_TICKS) {
+      activity[b.id] = s.sum / s.n;
+      overallSum += activity[b.id];
+      overallCount += 1;
+    }
+  }
+  const overall = overallCount > 0 ? overallSum / overallCount : 0;
+
+  const out = {};
+  for (const b of buckets) {
+    const s = sums[b.id];
+    if (s.n < T3_MIN_TICKS || overall <= 0) {
+      out[b.id] = { factor: 1.0, source: 'fallback', n: s.n, relativeActivity: null };
+    } else {
+      const relative = activity[b.id] / overall;
+      const factor = clipFactor(
+        Number((1 - T3_DIRECTIONAL_GAIN * (relative - 1)).toFixed(4)),
+        T3_FACTOR_MIN, T3_FACTOR_MAX
+      );
+      out[b.id] = {
+        factor,
+        source: 'directional',
+        n: s.n,
+        relativeActivity: Number(relative.toFixed(4)),
+      };
+    }
+  }
+  return out;
 }

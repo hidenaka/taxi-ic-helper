@@ -306,3 +306,81 @@ test('computeShareCorrection: 当日のデータは無視 (完了日のみ)', ()
   const r = computeShareCorrection(rows, noonActualMap('2026-06-03', 3, 2, 0, 0), SHARE_TS, SHARE_NOW);
   assert.equal(r.noon.T1.source, 'fallback');
 });
+
+// --- computeT3DirectionalCorrection (Phase E-2) ---
+
+import { computeT3DirectionalCorrection } from '../scripts/lib/correction-engine.mjs';
+
+// transit-share フィクスチャ (noon/peak1/evening バケット)
+const T3_TS = {
+  buckets: [
+    { id: 'noon', fromHHMM: '12:00', toHHMM: '15:00', rates: { T1: 0.035, T2: 0.035, T3: 0.040 } },
+    { id: 'peak1', fromHHMM: '17:00', toHHMM: '19:00', rates: { T1: 0.060, T2: 0.060, T3: 0.055 } },
+    { id: 'evening', fromHHMM: '19:00', toHHMM: '21:30', rates: { T1: 0.035, T2: 0.035, T3: 0.045 } },
+  ],
+};
+const T3_NOW = new Date('2026-06-03T10:00:00+09:00');
+
+// hhmm (例 '13:00') の完了日 (6/2) tick を n 件、Real106 black_ratio=br で作る
+function t3Rows(hhmm, n, br) {
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    rows.push({
+      ts: `2026-06-02T${hhmm}:00+09:00`,
+      t3_stand: [{ name: 'Real106', black_ratio: br }, { name: 'Real107', black_ratio: 0.1 }],
+      pool: [],
+    });
+  }
+  return rows;
+}
+
+test('computeT3DirectionalCorrection: 0 件 → 全バケット fallback', () => {
+  const r = computeT3DirectionalCorrection([], T3_TS, T3_NOW);
+  assert.equal(r.noon.source, 'fallback');
+  assert.equal(r.noon.factor, 1.0);
+  assert.equal(r.peak1.source, 'fallback');
+});
+
+test('computeT3DirectionalCorrection: 当日データのみ → fallback (完了日なし)', () => {
+  const rows = [];
+  for (let i = 0; i < 30; i++) {
+    rows.push({ ts: '2026-06-03T13:00:00+09:00', t3_stand: [{ name: 'Real106', black_ratio: 0.1 }], pool: [] });
+  }
+  const r = computeT3DirectionalCorrection(rows, T3_TS, T3_NOW);
+  assert.equal(r.noon.source, 'fallback');
+});
+
+test('computeT3DirectionalCorrection: 全バケット均一活性 → factor ≈ 1.0', () => {
+  const rows = [...t3Rows('13:00', 25, 0.1), ...t3Rows('18:00', 25, 0.1)];
+  const r = computeT3DirectionalCorrection(rows, T3_TS, T3_NOW);
+  assert.equal(r.noon.factor, 1.0);
+  assert.equal(r.noon.source, 'directional');
+  assert.equal(r.peak1.factor, 1.0);
+});
+
+test('computeT3DirectionalCorrection: 相対的に活性高→factor<1、低→factor>1', () => {
+  // noon black_ratio 0.2、peak1 0.1。overall=0.15。
+  // noon relative=1.333 → factor=1-0.2*0.333=0.9333。peak1 relative=0.667 → factor=1.0667。
+  const rows = [...t3Rows('13:00', 25, 0.2), ...t3Rows('18:00', 25, 0.1)];
+  const r = computeT3DirectionalCorrection(rows, T3_TS, T3_NOW);
+  assert.ok(r.noon.factor < 1.0, `noon factor ${r.noon.factor} < 1`);
+  assert.ok(r.peak1.factor > 1.0, `peak1 factor ${r.peak1.factor} > 1`);
+  assert.equal(r.noon.source, 'directional');
+});
+
+test('computeT3DirectionalCorrection: tick 数 < T3_MIN_TICKS → そのバケット fallback', () => {
+  const rows = [...t3Rows('13:00', 5, 0.2), ...t3Rows('18:00', 25, 0.1)];
+  const r = computeT3DirectionalCorrection(rows, T3_TS, T3_NOW);
+  assert.equal(r.noon.source, 'fallback'); // 5 件 < 20
+  assert.equal(r.noon.factor, 1.0);
+  assert.equal(r.peak1.source, 'directional');
+});
+
+test('computeT3DirectionalCorrection: factor は bound [0.8, 1.2] でクリップ', () => {
+  // noon 0.9、peak1 0.0、evening 0.0。overall=0.3。noon relative=3.0 → 素 factor=0.6 → クリップ 0.8。
+  const rows = [...t3Rows('13:00', 25, 0.9), ...t3Rows('18:00', 25, 0.0), ...t3Rows('20:00', 25, 0.0)];
+  const r = computeT3DirectionalCorrection(rows, T3_TS, T3_NOW);
+  assert.equal(r.noon.factor, 0.8);
+  assert.equal(r.peak1.factor, 1.2);
+  assert.equal(r.evening.factor, 1.2);
+});
