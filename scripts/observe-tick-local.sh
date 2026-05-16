@@ -58,13 +58,20 @@ if [ "$NODE_EXIT" -ne 0 ]; then
   exit 0
 fi
 
+# Phase F-1: YOLOv8 車両検出 (並行・fail-safe。venv が無い/失敗しても tick は継続)
+if [ -x .venv/bin/python3 ]; then
+  .venv/bin/python3 scripts/detect_vehicles.py || true
+else
+  echo "[observe-tick] .venv not found, skip vehicle detection"
+fi
+
 if [ -z "$(git status --porcelain data/taxi-pool-history.jsonl)" ]; then
   echo "[observe-tick] no jsonl change, skip commit"
   exit 0
 fi
 
 # 観測関連ファイル 3 点を 1 コミットにまとめる (Web UI が forecast/pattern-match の最新を必要とする)
-git add data/taxi-pool-history.jsonl data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/coefficient-corrections.json data/t3-pool-history.jsonl 2>/dev/null || true
+git add data/taxi-pool-history.jsonl data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/coefficient-corrections.json data/t3-pool-history.jsonl data/vehicle-detection-history.jsonl 2>/dev/null || true
 git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
 
 for i in 1 2 3; do
