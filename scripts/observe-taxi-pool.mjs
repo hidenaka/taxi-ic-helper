@@ -20,6 +20,7 @@ import { computePatternMatch } from './lib/pattern-matcher.mjs';
 import { loadHolidaysSet } from './lib/calendar-context.mjs';
 import { buildLogEntry } from './lib/forecast-logger.mjs';
 import { buildActualMap, evaluateAccuracy } from './lib/accuracy-evaluator.mjs';
+import { computeEnsemble } from './lib/ensemble-engine.mjs';
 
 const REAL01_URL = 'https://ttc.taxi-inf.jp/Real01_line.jpg';
 const REAL02_URL = 'https://ttc.taxi-inf.jp/Real02.jpg';
@@ -31,6 +32,7 @@ const PATTERN_MATCH_OUTPUT_PATH = './data/stall-pattern-match.json';
 const HOLIDAYS_PATH = './data/japan-holidays.json';
 const FORECAST_LOG_PATH = './data/forecast-log.jsonl';
 const FORECAST_ACCURACY_PATH = './data/forecast-accuracy.json';
+const ENSEMBLE_OUTPUT_PATH = './data/stall-ensemble.json';
 const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
 const TIMEOUT_MS = 15000;
 const STALL_ROIS_PATH = './scripts/lib/stall-rois.json';
@@ -293,6 +295,7 @@ async function main() {
   }
 
   // Phase D-1: 予測ログ記録 + 精度評価
+  let accuracyResult = null;
   try {
     const logEntry = buildLogEntry(
       forecastResult,
@@ -318,11 +321,25 @@ async function main() {
       try { accHistory.push(JSON.parse(line)); } catch { /* skip bad line */ }
     }
     const actualMap = buildActualMap(accHistory);
-    const accuracy = evaluateAccuracy(logEntries, actualMap, new Date());
-    writeFileSync(FORECAST_ACCURACY_PATH, JSON.stringify(accuracy, null, 2) + '\n', 'utf8');
-    console.log(`[observe] accuracy ok: logEntries=${accuracy.logEntryCount} recent24h winner lead30=${accuracy.recent24h.winner.lead30}`);
+    accuracyResult = evaluateAccuracy(logEntries, actualMap, new Date());
+    writeFileSync(FORECAST_ACCURACY_PATH, JSON.stringify(accuracyResult, null, 2) + '\n', 'utf8');
+    console.log(`[observe] accuracy ok: logEntries=${accuracyResult.logEntryCount} recent24h winner lead30=${accuracyResult.recent24h.winner.lead30}`);
   } catch (e) {
     console.error(`[observe] accuracy evaluation failed: ${e.message}`);
+  }
+
+  // Phase D-2: アンサンブル統合予測
+  try {
+    const ensemble = computeEnsemble(
+      forecastResult,
+      patternMatchResult ? { historicalCurve: patternMatchResult.historicalCurve } : null,
+      accuracyResult,
+      new Date()
+    );
+    writeFileSync(ENSEMBLE_OUTPUT_PATH, JSON.stringify(ensemble, null, 2) + '\n', 'utf8');
+    console.log(`[observe] ensemble ok: slots=${ensemble.slots.length} lead30 weight fc=${ensemble.weights.lead30.w_fc}`);
+  } catch (e) {
+    console.error(`[observe] ensemble generation failed: ${e.message}`);
   }
 
   console.log(`[observe] img1 edge=${img1.roi?.edge_density ?? 'n/a'} black=${img1.black_ratio} lum=${img1.roi?.luminance_mean ?? 'n/a'}`);
