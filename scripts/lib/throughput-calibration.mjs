@@ -83,3 +83,28 @@ export function computeThroughputCalibration(netDiffHistory, trackHistory) {
 
   return { k, state, windowCount, trackSum, netDiffSum };
 }
+
+/**
+ * track history のうち ts が (startMs, endMs] に入る行の departed を合算する。
+ * 区間内の行数が minTicks 未満なら null (カバレッジ不足のためフォールバックさせる)。
+ *
+ * @param {Array} trackHistory vehicle-track-history.jsonl の行配列
+ * @param {number} startMs 窓開始 (排他)
+ * @param {number} endMs   窓終了 (包含)
+ * @param {number} minTicks この本数未満なら null
+ * @returns {number|null}
+ */
+export function sumTrackDepartedInWindow(trackHistory, startMs, endMs, minTicks) {
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  let sum = 0;
+  let ticks = 0;
+  for (const row of trackHistory) {
+    const tsMs = new Date(row.ts).getTime();
+    if (Number.isNaN(tsMs)) continue;
+    if (tsMs > startMs && tsMs <= endMs) {
+      sum += typeof row.departed === 'number' ? row.departed : 0;
+      ticks += 1;
+    }
+  }
+  return ticks >= minTicks ? sum : null;
+}

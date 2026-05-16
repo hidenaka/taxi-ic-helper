@@ -5,6 +5,7 @@ import {
   WINDOW_MS,
   MIN_WINDOWS_FOR_LEARNING,
   K_MAX,
+  sumTrackDepartedInWindow,
 } from '../scripts/lib/throughput-calibration.mjs';
 
 // net-diff 1 行を作る。s1/s2/s3/s4 は diff_occupied_from_prev。
@@ -118,4 +119,60 @@ test('computeThroughputCalibration: 正の diff (入庫) は outflow に数え�
   const { netDiffHistory, trackHistory } = buildFixture(12, { s1: 4, s2: -6, departedPerTick: 1 });
   const r = computeThroughputCalibration(netDiffHistory, trackHistory);
   assert.equal(r.netDiffSum, 72); // stall2 の -6 のみ × 12
+});
+
+// ts ミリ秒の連番 track 行を作る
+function makeTrackRows(startMs, count, stepMs, departed) {
+  const rows = [];
+  for (let i = 0; i < count; i++) {
+    rows.push({ ts: new Date(startMs + i * stepMs).toISOString(), departed });
+  }
+  return rows;
+}
+
+test('sumTrackDepartedInWindow: 窓内本数が minTicks 以上 → departed 合算', () => {
+  const base = new Date('2026-05-14T10:00:00+09:00').getTime();
+  const rows = makeTrackRows(base, 60, 60000, 1); // 60 本、各 departed 1
+  const sum = sumTrackDepartedInWindow(rows, base - 1, base + 60 * 60000, 48);
+  assert.equal(sum, 60);
+});
+
+test('sumTrackDepartedInWindow: 窓内本数が minTicks 未満 → null', () => {
+  const base = new Date('2026-05-14T10:00:00+09:00').getTime();
+  const rows = makeTrackRows(base, 10, 60000, 1); // 10 本のみ
+  const sum = sumTrackDepartedInWindow(rows, base - 1, base + 60 * 60000, 48);
+  assert.equal(sum, null);
+});
+
+test('sumTrackDepartedInWindow: 窓外の行は合算しない', () => {
+  const base = new Date('2026-05-14T10:00:00+09:00').getTime();
+  // 窓内 50 本 + 窓より後ろ 50 本
+  const inWin = makeTrackRows(base, 50, 60000, 2);
+  const after = makeTrackRows(base + 100 * 60000, 50, 60000, 9);
+  const sum = sumTrackDepartedInWindow([...inWin, ...after], base - 1, base + 60 * 60000, 48);
+  assert.equal(sum, 100); // 50 本 × 2 のみ
+});
+
+test('sumTrackDepartedInWindow: 開始/終了が NaN → null', () => {
+  const base = new Date('2026-05-14T10:00:00+09:00').getTime();
+  const rows = makeTrackRows(base, 60, 60000, 1);
+  assert.equal(sumTrackDepartedInWindow(rows, NaN, base + 60 * 60000, 48), null);
+  assert.equal(sumTrackDepartedInWindow(rows, base, NaN, 48), null);
+});
+
+test('sumTrackDepartedInWindow: ts 不正な行はスキップ', () => {
+  const base = new Date('2026-05-14T10:00:00+09:00').getTime();
+  const rows = makeTrackRows(base, 60, 60000, 1);
+  rows.push({ ts: 'not-a-date', departed: 999 });
+  const sum = sumTrackDepartedInWindow(rows, base - 1, base + 60 * 60000, 48);
+  assert.equal(sum, 60); // 不正行は無視
+});
+
+test('sumTrackDepartedInWindow: 区間は (startMs, endMs] の半開区間', () => {
+  const base = new Date('2026-05-14T10:00:00+09:00').getTime();
+  const rows = makeTrackRows(base, 60, 60000, 1);
+  // startMs ちょうどの行 (rows[0]) は除外、endMs ちょうどの行 (rows[59]) は含む
+  const endMs = base + 59 * 60000;
+  const sum = sumTrackDepartedInWindow(rows, base, endMs, 48);
+  assert.equal(sum, 59); // rows[1..59]
 });
