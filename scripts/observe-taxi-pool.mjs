@@ -21,6 +21,7 @@ import {
   sumTrackDepartedInWindow,
   MIN_TRACK_TICKS_FOR_TREND,
   applyThroughputScale,
+  applyThroughputScaleToAccuracy,
 } from './lib/throughput-calibration.mjs';
 import { computePatternMatch } from './lib/pattern-matcher.mjs';
 import { loadHolidaysSet } from './lib/calendar-context.mjs';
@@ -379,7 +380,7 @@ async function main() {
     }
     actualMap = buildActualMap(accHistory);
     accuracyResult = evaluateAccuracy(logEntries, actualMap, new Date());
-    writeFileSync(FORECAST_ACCURACY_PATH, JSON.stringify(accuracyResult, null, 2) + '\n', 'utf8');
+    writeFileSync(FORECAST_ACCURACY_PATH, JSON.stringify(applyThroughputScaleToAccuracy(accuracyResult, throughputK), null, 2) + '\n', 'utf8');
     console.log(`[observe] accuracy ok: logEntries=${accuracyResult.logEntryCount} recent24h winner lead30=${accuracyResult.recent24h.winner.lead30}`);
   } catch (e) {
     console.error(`[observe] accuracy evaluation failed: ${e.message}`);
