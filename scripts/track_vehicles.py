@@ -205,6 +205,7 @@ def main():
                 'active': len(result['tracks']),
                 'arrived': result['arrived'],
                 'departed': result['departed'],
+                'matched_dists': result['matched_dists'],
             }
     except Exception as e:
         print(f'[track] detect/roi failed, skip tick: {e}', file=sys.stderr)
