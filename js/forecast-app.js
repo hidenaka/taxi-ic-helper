@@ -1,7 +1,7 @@
 import {
   renderForecastMeta, renderForecastTable,
   renderPatternMeta, renderSimilarDays, renderHistoricalCurve,
-  renderAccuracy, renderEnsemble,
+  renderAccuracy, renderEnsemble, renderCorrections,
 } from './forecast-render.js';
 
 async function main() {
@@ -14,6 +14,9 @@ async function main() {
   const curveEl = document.getElementById('historical-curve-wrap');
   const accuracyMetaEl = document.getElementById('accuracy-meta');
   const accuracyTableEl = document.getElementById('accuracy-table-wrap');
+  const correctionMetaEl = document.getElementById('correction-meta');
+  const correctionLevelEl = document.getElementById('correction-level-wrap');
+  const correctionShareEl = document.getElementById('correction-share-wrap');
 
   // 統合予測 (Phase D-2) — メイン予測、最初に描画
   try {
@@ -61,6 +64,18 @@ async function main() {
   } catch (e) {
     accuracyMetaEl.textContent = `精度データの読み込みに失敗: ${e.message}`;
     accuracyTableEl.innerHTML = '';
+  }
+
+  // 係数補正状態 (Phase D-3)
+  try {
+    const res = await fetch('data/coefficient-corrections.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const corrections = await res.json();
+    renderCorrections(correctionMetaEl, correctionLevelEl, correctionShareEl, corrections);
+  } catch (e) {
+    correctionMetaEl.textContent = `補正データの読み込みに失敗: ${e.message}`;
+    correctionLevelEl.innerHTML = '';
+    correctionShareEl.innerHTML = '';
   }
 }
 

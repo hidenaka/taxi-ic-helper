@@ -214,3 +214,57 @@ export function renderEnsemble(metaEl, tableEl, ensemble) {
     <tbody>${rows}</tbody>
   </table>`;
 }
+
+// --- Phase D-3: 係数補正状態描画 ---
+
+const SHARE_BUCKET_LABELS = {
+  early: '7-9時', morning: '9-12時', noon: '12-15時', afternoon: '15-17時',
+  peak1: '17-19時', evening: '19-21:30', peak2: '21:30-24時', midnight: '24時以降',
+};
+const LEVEL_LABELS = { lead30: '30分先', lead60: '60分先', lead120: '120分先' };
+
+function srcSpan(source) {
+  const cls = source === 'learning' ? 'src-learning' : 'src-fallback';
+  const label = source === 'learning' ? '学習中' : '様子見';
+  return `<span class="${cls}">${label}</span>`;
+}
+
+export function renderCorrections(metaEl, levelEl, shareEl, corrections) {
+  if (!metaEl || !levelEl || !shareEl || !corrections) return;
+  const ts = (corrections.generatedAt || '').slice(0, 16).replace('T', ' ');
+  metaEl.innerHTML = `生成時刻 <strong>${ts} JST</strong><br>forecast レベル補正 ＝ ensemble に適用 / transit-share 補正 ＝ 便台数推定に適用`;
+
+  const level = corrections.level || {};
+  const levelRows = ['lead30', 'lead60', 'lead120'].map(k => {
+    const e = level[k] || { factor: 1.0, source: 'fallback', n: 0 };
+    return `<tr>
+      <td class="label">${LEVEL_LABELS[k]}</td>
+      <td>${Number(e.factor).toFixed(2)}×</td>
+      <td>${srcSpan(e.source)}</td>
+      <td>${e.n}</td>
+    </tr>`;
+  }).join('');
+  levelEl.innerHTML = `<h3>forecast レベル補正</h3>
+    <table class="correction-table">
+      <thead><tr><th>lead time</th><th>補正係数</th><th>状態</th><th>n</th></tr></thead>
+      <tbody>${levelRows}</tbody>
+    </table>`;
+
+  const share = corrections.share || {};
+  const shareRows = ['early', 'morning', 'noon', 'afternoon', 'peak1', 'evening', 'peak2', 'midnight']
+    .filter(k => share[k])
+    .map(k => {
+      const e = share[k];
+      return `<tr>
+        <td class="label">${SHARE_BUCKET_LABELS[k]}</td>
+        <td>${Number(e.factor).toFixed(2)}×</td>
+        <td>${srcSpan(e.source)}</td>
+        <td>${e.flightCount}</td>
+      </tr>`;
+    }).join('');
+  shareEl.innerHTML = `<h3>transit-share バケット補正</h3>
+    <table class="correction-table">
+      <thead><tr><th>時間帯</th><th>補正係数</th><th>状態</th><th>便数</th></tr></thead>
+      <tbody>${shareRows}</tbody>
+    </table>`;
+}

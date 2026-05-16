@@ -53,6 +53,16 @@
     .ensemble-table td.time { text-align: left; font-weight: 600; }
     .ensemble-table tr.tier-high td { background: rgba(255, 184, 77, 0.10); }
     .ensemble-table tr.tier-very-high td { background: rgba(255, 82, 82, 0.14); }
+    .correction-section { margin-top: 32px; padding-top: 16px; border-top: 1px solid #222; }
+    .correction-section h2 { font-size: 16px; margin: 0 0 8px 0; }
+    .correction-section h3 { font-size: 13px; margin: 14px 0 6px 0; color: var(--sub); }
+    .correction-meta { color: var(--sub); font-size: 13px; margin-bottom: 12px; }
+    .correction-table { border-collapse: collapse; width: 100%; max-width: 520px; }
+    .correction-table th, .correction-table td { padding: 5px 10px; border-bottom: 1px solid #222; text-align: right; font-variant-numeric: tabular-nums; }
+    .correction-table th { background: #16161c; color: var(--sub); font-weight: 500; font-size: 12px; }
+    .correction-table td.label { text-align: left; font-weight: 600; }
+    .src-learning { color: var(--accent); }
+    .src-fallback { color: var(--sub); }
   </style>
 </head>
 <body>
@@ -83,6 +93,13 @@
       <h2>予測精度 (直近 24 時間)</h2>
       <div id="accuracy-meta" class="accuracy-meta">読み込み中...</div>
       <div id="accuracy-table-wrap"></div>
+    </section>
+
+    <section class="correction-section" id="correction-section">
+      <h2>係数補正状態</h2>
+      <div id="correction-meta" class="correction-meta">読み込み中...</div>
+      <div id="correction-level-wrap"></div>
+      <div id="correction-share-wrap"></div>
     </section>
   </main>
   <script type="module" src="js/forecast-app.js"></script>
