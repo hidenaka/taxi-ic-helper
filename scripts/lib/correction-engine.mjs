@@ -83,3 +83,83 @@ export function buildEffectiveTransitShare(transitShareMaster, corrections) {
   }
   return effective;
 }
+
+/**
+ * Date → "YYYY-MM-DD" (ローカル時刻)。
+ */
+function ymdOf(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * 1 つの予測 slot 配列を actualMap と突き合わせ、lead bucket 別に
+ * 予測合計・実測合計・件数を stats に加算する。
+ */
+function accumulateLevel(stats, issueDate, predSlots, actualMap) {
+  const issueSlotIdx = issueDate.getHours() * SLOTS_PER_HOUR + Math.floor(issueDate.getMinutes() / 5);
+  for (const slot of predSlots) {
+    const parts = String(slot.slotStart).split(':');
+    const hh = Number(parts[0]);
+    const mm = Number(parts[1]);
+    if (Number.isNaN(hh) || Number.isNaN(mm)) continue;
+    const slotIdx = hh * SLOTS_PER_HOUR + Math.floor(mm / 5);
+    // slot が発行時刻より後なら同日、以前なら翌日
+    const dateForSlot = new Date(issueDate);
+    if (slotIdx <= issueSlotIdx) dateForSlot.setDate(dateForSlot.getDate() + 1);
+    const actual = actualMap.get(slotKeyOf(ymdOf(dateForSlot), slotIdx));
+    if (!actual) continue;
+    let leadSlots = slotIdx - issueSlotIdx;
+    if (leadSlots <= 0) leadSlots += SLOTS_PER_DAY;
+    const bucket = leadBucketOf(leadSlots * 5);
+    const predTotal = typeof slot.total === 'number'
+      ? slot.total
+      : STALL_NAMES.reduce((s, n) => s + (slot[n] || 0), 0);
+    const actualTotal = actual[0] + actual[1] + actual[2] + actual[3];
+    const st = stats[bucket];
+    st.predSum += predTotal;
+    st.actualSum += actualTotal;
+    st.n += 1;
+  }
+}
+
+/**
+ * forecast-log の RAW 予測を実測と突き合わせ、lead bucket 別レベル補正係数を計算。
+ * 直近 LEVEL_WINDOW_HOURS 以内に発行されたエントリのみ対象。
+ *
+ * @param {Array} logEntries  forecast-log.jsonl の全行 (各 {ts, forecast})
+ * @param {Map} actualMap     buildActualMap の戻り値
+ * @param {Date} now
+ * @returns {{lead30, lead60, lead120}} 各 {factor, source, n}
+ */
+export function computeLevelCorrection(logEntries, actualMap, now) {
+  const cutoff = now.getTime() - LEVEL_WINDOW_HOURS * 3600 * 1000;
+  const stats = {};
+  for (const k of LEAD_KEYS) stats[k] = { predSum: 0, actualSum: 0, n: 0 };
+  for (const entry of logEntries) {
+    if (!entry || typeof entry.ts !== 'string') continue;
+    const issueDate = new Date(entry.ts);
+    if (Number.isNaN(issueDate.getTime())) continue;
+    if (issueDate.getTime() < cutoff) continue;
+    if (Array.isArray(entry.forecast)) {
+      accumulateLevel(stats, issueDate, entry.forecast, actualMap);
+    }
+  }
+  const out = {};
+  for (const k of LEAD_KEYS) {
+    const st = stats[k];
+    if (st.n < LEVEL_MIN_SAMPLE || st.predSum <= 0) {
+      out[k] = { factor: 1.0, source: 'fallback', n: st.n };
+    } else {
+      const raw = Number((st.actualSum / st.predSum).toFixed(4));
+      out[k] = {
+        factor: clipFactor(raw, LEVEL_FACTOR_MIN, LEVEL_FACTOR_MAX),
+        source: 'learning',
+        n: st.n,
+      };
+    }
+  }
+  return out;
+}
