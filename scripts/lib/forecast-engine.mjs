@@ -86,13 +86,16 @@ export function computeBaseline(history) {
  * @param {Date} now 現在時刻
  * @returns 予測オブジェクト
  */
-export function computeForecast(baseline, recentHistory, arrivalsJson, now) {
+export function computeForecast(baseline, recentHistory, arrivalsJson, now, trackTrend = null) {
   const nowSlot = slotKey(now.getHours(), now.getMinutes());
 
   // --- trendFactor ---
+  // trackTrend ({ k, actual }) があれば track 経路、無ければ net-diff 経路 (Phase G-1)。
   let trendFactor = 1.0;
   let trendActual = 0;
   let trendExpected = 0;
+  let trendSource = 'netdiff';
+  let trendK = null;
   if (recentHistory.length >= TREND_WINDOW_TICKS) {
     const window = recentHistory.slice(-TREND_WINDOW_TICKS);
     for (const row of window) {
@@ -107,7 +110,18 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now) {
         }
       }
     }
-    if (trendExpected > 0) {
+    const useTrack = trackTrend !== null
+      && typeof trackTrend.actual === 'number'
+      && typeof trackTrend.k === 'number'
+      && trackTrend.k > 0
+      && trendExpected > 0;
+    if (useTrack) {
+      // track 経路: k で net-diff baseline と単位を揃える
+      trendActual = trackTrend.actual;
+      trendSource = 'track';
+      trendK = trackTrend.k;
+      trendFactor = clip(trendActual / (trackTrend.k * trendExpected), TREND_FACTOR_MIN, TREND_FACTOR_MAX);
+    } else if (trendExpected > 0) {
       trendFactor = clip(trendActual / trendExpected, TREND_FACTOR_MIN, TREND_FACTOR_MAX);
     }
   }
@@ -168,7 +182,7 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now) {
     schemaVersion: FORECAST_SCHEMA_VERSION,
     generatedAt,
     trendFactor,
-    trendWindow: { actual: trendActual, expected: trendExpected, ticks: Math.min(recentHistory.length, TREND_WINDOW_TICKS) },
+    trendWindow: { actual: trendActual, expected: trendExpected, ticks: Math.min(recentHistory.length, TREND_WINDOW_TICKS), source: trendSource, k: trendK },
     baselineSampleCount: baseline.sampleCount,
     slots: outSlots,
   };

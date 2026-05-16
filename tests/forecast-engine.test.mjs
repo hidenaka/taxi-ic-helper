@@ -166,3 +166,62 @@ test('computeForecast: 出力 JSON スキーマ - 必須フィールドが揃う
   assert.equal(typeof s.stall1, 'number');
   assert.equal(typeof s.total, 'number');
 });
+
+// --- computeForecast: trackTrend (Phase G-1) ---
+
+// 11:00〜11:55 の 12 tick ぶんの recent を作る
+function make12Recent(totalOutflow) {
+  return Array.from({ length: 12 }, (_, i) => ({
+    ts: new Date(2026, 4, 15, 11, i * 5, 0).toISOString().replace('Z', '+09:00'),
+    total_outflow: totalOutflow,
+  }));
+}
+
+test('computeForecast: trackTrend あり → track 経路で trendFactor = clip(actual/(k*expected))', () => {
+  const slots = Array.from({ length: 288 }, () => ({ stall1: 1.0, stall2: 0, stall3: 0, stall4: 0 }));
+  const baseline = { slots, sampleCount: 100 };
+  const recent = make12Recent(99); // net-diff 値は track 経路では無視される
+  // expected = 12 slot × 1.0 = 12、k=2、actual=12 → trendFactor = clip(12/(2*12)) = 0.5
+  const trackTrend = { k: 2, actual: 12 };
+  const r = computeForecast(baseline, recent, makeArrivals([]), new Date('2026-05-15T12:00:00+09:00'), trackTrend);
+  assert.equal(r.trendFactor, 0.5);
+  assert.equal(r.trendWindow.source, 'track');
+  assert.equal(r.trendWindow.k, 2);
+  assert.equal(r.trendWindow.actual, 12);
+});
+
+test('computeForecast: trackTrend null → net-diff 経路、source=netdiff, k=null', () => {
+  const slots = Array.from({ length: 288 }, () => ({ stall1: 1.0, stall2: 0, stall3: 0, stall4: 0 }));
+  const baseline = { slots, sampleCount: 100 };
+  const recent = make12Recent(2);
+  const r = computeForecast(baseline, recent, makeArrivals([]), new Date('2026-05-15T12:00:00+09:00'), null);
+  assert.equal(r.trendFactor, 2); // net-diff: 24/12
+  assert.equal(r.trendWindow.source, 'netdiff');
+  assert.equal(r.trendWindow.k, null);
+});
+
+test('computeForecast: trackTrend あっても recent 12 未満 → net-diff 経路にフォールバック', () => {
+  const slots = Array.from({ length: 288 }, () => ({ stall1: 1.0, stall2: 0, stall3: 0, stall4: 0 }));
+  const baseline = { slots, sampleCount: 100 };
+  const r = computeForecast(baseline, [], makeArrivals([]), new Date('2026-05-15T12:00:00+09:00'), { k: 2, actual: 12 });
+  assert.equal(r.trendFactor, 1.0);
+  assert.equal(r.trendWindow.source, 'netdiff');
+});
+
+test('computeForecast: trackTrend.k が 0 以下 → net-diff 経路にフォールバック', () => {
+  const slots = Array.from({ length: 288 }, () => ({ stall1: 1.0, stall2: 0, stall3: 0, stall4: 0 }));
+  const baseline = { slots, sampleCount: 100 };
+  const recent = make12Recent(2);
+  const r = computeForecast(baseline, recent, makeArrivals([]), new Date('2026-05-15T12:00:00+09:00'), { k: 0, actual: 12 });
+  assert.equal(r.trendWindow.source, 'netdiff');
+  assert.equal(r.trendFactor, 2);
+});
+
+test('computeForecast: 4 引数呼び出し (trackTrend 省略) は従来どおり動く', () => {
+  const slots = Array.from({ length: 288 }, () => ({ stall1: 1.0, stall2: 0, stall3: 0, stall4: 0 }));
+  const baseline = { slots, sampleCount: 100 };
+  const recent = make12Recent(2);
+  const r = computeForecast(baseline, recent, makeArrivals([]), new Date('2026-05-15T12:00:00+09:00'));
+  assert.equal(r.trendFactor, 2);
+  assert.equal(r.trendWindow.source, 'netdiff');
+});
