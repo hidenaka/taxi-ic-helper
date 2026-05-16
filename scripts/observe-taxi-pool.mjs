@@ -25,6 +25,10 @@ import {
   computeShareCorrection, computeLevelCorrection, applyLevelCorrection,
   CORRECTION_SCHEMA_VERSION,
 } from './lib/correction-engine.mjs';
+import {
+  T3_STAND_IMAGES, POOL_IMAGES, FULL_FRAME_ROI,
+  buildAuxImageEntry, findPrevAuxImage, buildAuxRow,
+} from './lib/aux-observation.mjs';
 
 const REAL01_URL = 'https://ttc.taxi-inf.jp/Real01_line.jpg';
 const REAL02_URL = 'https://ttc.taxi-inf.jp/Real02.jpg';
@@ -39,6 +43,7 @@ const FORECAST_ACCURACY_PATH = './data/forecast-accuracy.json';
 const ENSEMBLE_OUTPUT_PATH = './data/stall-ensemble.json';
 const CORRECTIONS_OUTPUT_PATH = './data/coefficient-corrections.json';
 const TRANSIT_SHARE_PATH = './data/transit-share.json';
+const T3_POOL_HISTORY_PATH = './data/t3-pool-history.jsonl';
 const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
 const TIMEOUT_MS = 15000;
 const STALL_ROIS_PATH = './scripts/lib/stall-rois.json';
@@ -376,6 +381,43 @@ async function main() {
     console.log(`[observe] ensemble ok: slots=${ensemble.slots.length} lead30 weight fc=${ensemble.weights.lead30.w_fc}`);
   } catch (e) {
     console.error(`[observe] ensemble generation failed: ${e.message}`);
+  }
+
+  // Phase E-1: T3乗り場・待機所プール観測 (収集のみ、独立ファイル t3-pool-history.jsonl)
+  try {
+    let prevAuxRow = null;
+    if (existsSync(T3_POOL_HISTORY_PATH)) {
+      const auxLines = readFileSync(T3_POOL_HISTORY_PATH, 'utf8').trim().split('\n');
+      for (let i = auxLines.length - 1; i >= 0; i--) {
+        if (!auxLines[i].trim()) continue;
+        try { prevAuxRow = JSON.parse(auxLines[i]); break; } catch { /* skip bad line */ }
+      }
+    }
+    const observeAux = async (name, group) => {
+      const buffer = await fetchImage(`https://ttc.taxi-inf.jp/${name}.jpg`);
+      const prev = findPrevAuxImage(prevAuxRow, group, name);
+      const analyzed = await analyzePoolImage(buffer, prev, FULL_FRAME_ROI);
+      return buildAuxImageEntry(name, analyzed);
+    };
+    const t3StandEntries = [];
+    for (const name of T3_STAND_IMAGES) {
+      try { t3StandEntries.push(await observeAux(name, 't3_stand')); }
+      catch (e) { console.error(`[observe] aux ${name} failed: ${e.message}`); }
+    }
+    const poolEntries = [];
+    for (const name of POOL_IMAGES) {
+      try { poolEntries.push(await observeAux(name, 'pool')); }
+      catch (e) { console.error(`[observe] aux ${name} failed: ${e.message}`); }
+    }
+    if (t3StandEntries.length > 0 || poolEntries.length > 0) {
+      const auxRow = buildAuxRow(ts, tickSeq, t3StandEntries, poolEntries);
+      appendFileSync(T3_POOL_HISTORY_PATH, JSON.stringify(auxRow) + '\n', 'utf8');
+      console.log(`[observe] aux ok: t3_stand=${t3StandEntries.length} pool=${poolEntries.length}`);
+    } else {
+      console.error('[observe] aux: all images failed, skip append');
+    }
+  } catch (e) {
+    console.error(`[observe] aux observation failed: ${e.message}`);
   }
 
   console.log(`[observe] img1 edge=${img1.roi?.edge_density ?? 'n/a'} black=${img1.black_ratio} lum=${img1.roi?.luminance_mean ?? 'n/a'}`);
