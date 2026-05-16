@@ -254,7 +254,9 @@ export function renderCorrections(metaEl, levelEl, shareEl, corrections) {
   const shareCell = (entry) => {
     if (!entry) return '—';
     if (entry.source === 'unobservable') return '<span class="src-fallback">観測外</span>';
-    return `${Number(entry.factor).toFixed(2)}× ${srcSpan(entry.source)}`;
+    const f = `${Number(entry.factor).toFixed(2)}×`;
+    if (entry.source === 'directional') return `${f} <span class="src-learning">方向性</span>`;
+    return `${f} ${srcSpan(entry.source)}`;
   };
   const shareRows = ['early', 'morning', 'noon', 'afternoon', 'peak1', 'evening', 'peak2', 'midnight']
     .filter(k => share[k])
