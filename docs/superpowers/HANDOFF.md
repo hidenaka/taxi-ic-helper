@@ -2,19 +2,20 @@
 
 > 最終更新: 2026-05-16 / このファイルは「次セッションが即座に作業を再開する」ための引き継ぎ。
 
-## 次にやること（ユーザー依頼）
+## 次にやること（ユーザー選択）
 
-**追跡 throughput を forecast に接続する。**
+**Phase G-1（追跡 throughput → forecast 接続）は 2026-05-16 完了・本番稼働中。** 次タスクは未確定。候補：
 
-- F-3 で `data/vehicle-track-history.jsonl` に 60 秒毎の `{detected, active, arrived, departed}` が記録される。`departed` の累計＝出庫 throughput。
-- 現在の forecast (`scripts/lib/forecast-engine.mjs` の `computeBaseline`/`computeForecast`) は stall 占有の net-diff を outflow 代理に使っている。net-diff は「5 分間に入れ替わった分」を取りこぼす。
-- このタスク＝追跡ベースの正確な throughput を forecast/baseline の outflow 信号として接続する。
-- **未着手。** 次セッションは `superpowers:brainstorming` から開始すること（下記ワークフロー参照）。
+- **B 案：baseline 出力の真値化** — G-1 は `trendFactor` の単位合わせに留め、forecast 出力は net-diff 単位のまま。forecast `total` を真の出庫台数にするには D-1 `buildActualMap`・correction-engine・ensemble の単位移行が必要。別 spec。G-1 の直接の続き。
+- **複数カメラ追跡** — F-3 は Real01_line のみ。Real02（stall4）の追跡を追加。
+- **検出ベースの並行 forecast** — F-2 データ蓄積後。
 
-### 着手前の注意（設計時に必ず考慮）
-- `vehicle-track-history.jsonl` は本セッションで稼働開始したばかり → データはほぼ空。機構先行・データ後追い（D-1〜F-3 と同じパターン）。
+次セッションはユーザーがどれをやるか決めてから `superpowers:brainstorming` で開始（下記ワークフロー参照）。
+
+### G-1 の状態（参考）
+- spec/plan: `docs/superpowers/{specs,plans}/2026-05-16-throughput-forecast-connection*`。
+- `vehicle-track-history.jsonl` は 2026-05-16 13時頃に稼働開始 → 当面は track データ不足で calibration は `bootstrapping`（net-diff 経路フォールバック）。重複 5 分窓が 12 個溜まると `learning` に遷移し `stall-forecast.json` の `trendWindow.source` が `track` に変わる。
 - 観測は `observe-tick-local.sh` の `STOP_DATE=2026-06-01` で約2週間後に停止予定。
-- 追跡は Real01_line 1 カメラのみ（F-3 MVP）。forecast は stall1-4 単位 → カメラ全体 throughput を stall 別 outflow にどう対応づけるかが設計論点。
 
 ## 厳守ワークフロー（このプロジェクトの全機能で踏襲してきた）
 
@@ -54,12 +55,13 @@
 | F-1 | YOLOv8 車両検出 | `detect_vehicles.py`, `vehicle-detection-history.jsonl` |
 | F-2 | T1/T2 検出ベース並行占有分析 | `detect_vehicles.py` (`count_boxes_per_stall`) |
 | F-3 | 車両フレーム間追跡（60秒・throughput） | `track_vehicles.py`, `vehicle-track-history.jsonl` |
+| G-1 | 追跡 throughput → forecast 接続（`trendFactor` 単位合わせ係数 `k`、累積比・bootstrap フォールバック） | `throughput-calibration.mjs`, `throughput-calibration.json`, `forecast-engine.mjs`（`trackTrend` 引数） |
 
 各フェーズの spec/plan は `docs/superpowers/{specs,plans}/2026-05-16-*` にある。
 
 ## テスト
 
-- `npm test`（node:test）= 407 件。`.mjs` のみ対象。
+- `npm test`（node:test）= 427 件。`.mjs` のみ対象。
 - Python: `.venv*/bin/python3 -m unittest tests/test_detect_vehicles.py tests/test_track_vehicles.py`（detect 13 + track 6 = 19 件）。`.py` は node:test 非対象。
 - 回帰時は両方確認。
 
@@ -69,7 +71,8 @@
 - F-1/F-2/F-3 は検出・追跡データの蓄積中（本セッション稼働開始）。
 - working tree に `M data/taxi-pool-history.jsonl` / `M data/t3-pool-history.jsonl` が残ることがある（観測の未コミット行、次 tick が回収。正常）。
 
-## ロードマップ残（このタスクの後）
+## ロードマップ残
 
+- baseline 出力の真値化（B 案、G-1 の続き、別 spec）
 - 複数カメラ追跡（F-3 は Real01_line のみ）
 - 検出ベースの並行 forecast（F-2 データ蓄積後）
