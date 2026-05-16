@@ -59,11 +59,11 @@ if [ "$NODE_EXIT" -ne 0 ]; then
 fi
 
 # Phase F-1: YOLOv8 車両検出 (並行・fail-safe。venv が無い/失敗しても tick は継続)
-# venv は .nosync 名で iCloud Drive 同期を除外 (各マシンが自前で作成)
-if [ -x .venv.nosync/bin/python3 ]; then
-  .venv.nosync/bin/python3 scripts/detect_vehicles.py || true
+# venv は各実行機が自前で .venv に作成する (git 管理外)
+if [ -x .venv/bin/python3 ]; then
+  .venv/bin/python3 scripts/detect_vehicles.py || true
 else
-  echo "[observe-tick] .venv.nosync not found, skip vehicle detection"
+  echo "[observe-tick] .venv not found, skip vehicle detection"
 fi
 
 if [ -z "$(git status --porcelain data/taxi-pool-history.jsonl)" ]; then
