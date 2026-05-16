@@ -7,6 +7,7 @@ import {
   K_MAX,
   sumTrackDepartedInWindow,
   applyThroughputScale,
+  applyThroughputScaleToAccuracy,
 } from '../scripts/lib/throughput-calibration.mjs';
 
 // net-diff 1 行を作る。s1/s2/s3/s4 は diff_occupied_from_prev。
@@ -323,4 +324,88 @@ test('applyThroughputScale: slots が配列でない → throughputScaleK のみ
   assert.equal(r.throughputScaleK, 2);
   assert.equal(r.schemaVersion, 1);
   assert.equal(r.slots, undefined);
+});
+
+// --- applyThroughputScaleToAccuracy ---
+
+// accuracy 形のオブジェクトを作る
+function makeAccuracyObj() {
+  const bucket = (total, perStall, n) => ({ mae_total: total, mae_per_stall: perStall, n });
+  const method = () => ({
+    lead30: bucket(1.0, [0.5, 0.4, 0.3, 0.2], 100),
+    lead60: bucket(2.0, [1.0, 0.5, 0.3, 0.2], 80),
+    lead120: bucket(null, [null, null, null, null], 0),
+  });
+  const period = () => ({
+    forecast: method(),
+    patternMatch: method(),
+    winner: { lead30: 'forecast', lead60: 'patternMatch', lead120: 'n/a' },
+  });
+  return {
+    schemaVersion: 1,
+    generatedAt: '2026-05-17T10:00:00+09:00',
+    logEntryCount: 86,
+    recent24h: period(),
+    allPeriod: period(),
+  };
+}
+
+test('applyThroughputScaleToAccuracy: MAE を k 倍する (recent24h/allPeriod, forecast/patternMatch)', () => {
+  const r = applyThroughputScaleToAccuracy(makeAccuracyObj(), 2);
+  assert.equal(r.recent24h.forecast.lead30.mae_total, 2.0);
+  assert.deepEqual(r.recent24h.forecast.lead30.mae_per_stall, [1.0, 0.8, 0.6, 0.4]);
+  assert.equal(r.recent24h.forecast.lead60.mae_total, 4.0);
+  assert.equal(r.recent24h.patternMatch.lead30.mae_total, 2.0);
+  assert.equal(r.allPeriod.forecast.lead30.mae_total, 2.0);
+  assert.equal(r.allPeriod.patternMatch.lead60.mae_total, 4.0);
+});
+
+test('applyThroughputScaleToAccuracy: null の MAE は null のまま', () => {
+  const r = applyThroughputScaleToAccuracy(makeAccuracyObj(), 2);
+  assert.equal(r.recent24h.forecast.lead120.mae_total, null);
+  assert.deepEqual(r.recent24h.forecast.lead120.mae_per_stall, [null, null, null, null]);
+});
+
+test('applyThroughputScaleToAccuracy: n / winner / metadata を保持', () => {
+  const r = applyThroughputScaleToAccuracy(makeAccuracyObj(), 2);
+  assert.equal(r.recent24h.forecast.lead30.n, 100);
+  assert.equal(r.recent24h.winner.lead30, 'forecast');
+  assert.equal(r.recent24h.winner.lead60, 'patternMatch');
+  assert.equal(r.schemaVersion, 1);
+  assert.equal(r.generatedAt, '2026-05-17T10:00:00+09:00');
+  assert.equal(r.logEntryCount, 86);
+});
+
+test('applyThroughputScaleToAccuracy: 入力を破壊しない', () => {
+  const obj = makeAccuracyObj();
+  applyThroughputScaleToAccuracy(obj, 2);
+  assert.equal(obj.recent24h.forecast.lead30.mae_total, 1.0);
+  assert.deepEqual(obj.recent24h.forecast.lead30.mae_per_stall, [0.5, 0.4, 0.3, 0.2]);
+  assert.equal(obj.throughputScaleK, undefined);
+});
+
+test('applyThroughputScaleToAccuracy: throughputScaleK を付与', () => {
+  const r = applyThroughputScaleToAccuracy(makeAccuracyObj(), 2.5);
+  assert.equal(r.throughputScaleK, 2.5);
+});
+
+test('applyThroughputScaleToAccuracy: k=1 は恒等', () => {
+  const r = applyThroughputScaleToAccuracy(makeAccuracyObj(), 1);
+  assert.equal(r.recent24h.forecast.lead30.mae_total, 1.0);
+  assert.deepEqual(r.recent24h.forecast.lead30.mae_per_stall, [0.5, 0.4, 0.3, 0.2]);
+  assert.equal(r.throughputScaleK, 1);
+});
+
+test('applyThroughputScaleToAccuracy: k が非正・非数値 → 1.0 扱い', () => {
+  assert.equal(applyThroughputScaleToAccuracy(makeAccuracyObj(), 0).throughputScaleK, 1);
+  assert.equal(applyThroughputScaleToAccuracy(makeAccuracyObj(), -3).throughputScaleK, 1);
+  assert.equal(applyThroughputScaleToAccuracy(makeAccuracyObj(), NaN).throughputScaleK, 1);
+  const r = applyThroughputScaleToAccuracy(makeAccuracyObj(), 0);
+  assert.equal(r.recent24h.forecast.lead30.mae_total, 1.0); // 恒等
+});
+
+test('applyThroughputScaleToAccuracy: 構造が欠けても例外を投げない', () => {
+  const r = applyThroughputScaleToAccuracy({ schemaVersion: 1 }, 2);
+  assert.equal(r.throughputScaleK, 2);
+  assert.equal(r.schemaVersion, 1);
 });

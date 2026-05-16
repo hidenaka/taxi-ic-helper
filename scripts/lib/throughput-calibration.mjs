@@ -157,3 +157,49 @@ export function applyThroughputScale(obj, k) {
   });
   return { ...obj, slots, throughputScaleK: scale };
 }
+
+/**
+ * accuracy オブジェクトの全 MAE 値を k 倍した新オブジェクトを返す。
+ *
+ * recent24h / allPeriod の forecast・patternMatch の各 lead bucket の
+ * mae_total と mae_per_stall[] を round(値×k, 小数3桁) でスケールする。
+ * null (や非数値) の MAE はそのまま。n / winner / metadata は保持。
+ * 入力は破壊しない。トップレベルに throughputScaleK (適用した k) を付与する。
+ * recent24h / allPeriod / forecast / patternMatch / bucket が欠けていても例外を投げない。
+ *
+ * @param {object} accObj evaluateAccuracy の戻り値相当
+ * @param {number} k スケール係数 (非数値・非正なら 1.0 扱い)
+ * @returns {object} スケール済みの新オブジェクト
+ */
+export function applyThroughputScaleToAccuracy(accObj, k) {
+  const scale = (Number.isFinite(k) && k > 0) ? k : 1.0;
+  const scaleMae = (v) => (typeof v === 'number' ? Number((v * scale).toFixed(3)) : v);
+  const scaleBucket = (bucket) => {
+    if (!bucket || typeof bucket !== 'object') return bucket;
+    const out = { ...bucket };
+    if ('mae_total' in bucket) out.mae_total = scaleMae(bucket.mae_total);
+    if (Array.isArray(bucket.mae_per_stall)) {
+      out.mae_per_stall = bucket.mae_per_stall.map(scaleMae);
+    }
+    return out;
+  };
+  const scaleMethod = (method) => {
+    if (!method || typeof method !== 'object') return method;
+    const out = {};
+    for (const [key, bucket] of Object.entries(method)) {
+      out[key] = scaleBucket(bucket);
+    }
+    return out;
+  };
+  const scalePeriod = (period) => {
+    if (!period || typeof period !== 'object') return period;
+    const out = { ...period };
+    if (period.forecast) out.forecast = scaleMethod(period.forecast);
+    if (period.patternMatch) out.patternMatch = scaleMethod(period.patternMatch);
+    return out;
+  };
+  const result = { ...accObj, throughputScaleK: scale };
+  if (accObj.recent24h) result.recent24h = scalePeriod(accObj.recent24h);
+  if (accObj.allPeriod) result.allPeriod = scalePeriod(accObj.allPeriod);
+  return result;
+}
