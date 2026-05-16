@@ -127,23 +127,24 @@ export function sumTrackDepartedInWindow(trackHistory, startMs, endMs, minTicks)
 }
 
 /**
- * forecast / ensemble の出力オブジェクトの slot outflow を k 倍した新オブジェクトを返す。
+ * forecast / ensemble / pattern-match の出力オブジェクトの slot outflow を k 倍した新オブジェクトを返す。
  *
- * 各 slot の stall1-4 を round(値×k)、total はスケール後 stall1-4 の合計で再計算する。
- * slot のその他フィールド (slotStart/slotEnd/flightFactor/leadBucket 等) と
- * トップレベルのその他フィールド (schemaVersion/trendFactor/trendWindow/weights 等) は保持する。
+ * slotsKey 配下の配列の各 slot の stall1-4 を round(値×k)、total はスケール後 stall1-4 の
+ * 合計で再計算する。slot のその他フィールド (slotStart/slotEnd/flightFactor/leadBucket 等) と
+ * トップレベルのその他フィールド (schemaVersion/trendFactor/similarDays/today 等) は保持する。
  * 入力は破壊しない。トップレベルに throughputScaleK (適用した k) を付与する。
  *
- * @param {{slots?: Array}} obj forecast または ensemble の出力オブジェクト
+ * @param {object} obj forecast/ensemble/pattern-match の出力オブジェクト
  * @param {number} k スケール係数 (非数値・非正なら 1.0 扱い)
+ * @param {string} [slotsKey] スケール対象の配列のキー (既定 'slots'、pattern-match は 'historicalCurve')
  * @returns {object} スケール済みの新オブジェクト
  */
-export function applyThroughputScale(obj, k) {
+export function applyThroughputScale(obj, k, slotsKey = 'slots') {
   const scale = (Number.isFinite(k) && k > 0) ? k : 1.0;
-  if (!Array.isArray(obj.slots)) {
+  if (!Array.isArray(obj[slotsKey])) {
     return { ...obj, throughputScaleK: scale };
   }
-  const slots = obj.slots.map(slot => {
+  const scaledSlots = obj[slotsKey].map(slot => {
     const out = { ...slot };
     let total = 0;
     for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
@@ -155,7 +156,7 @@ export function applyThroughputScale(obj, k) {
     out.total = total;
     return out;
   });
-  return { ...obj, slots, throughputScaleK: scale };
+  return { ...obj, [slotsKey]: scaledSlots, throughputScaleK: scale };
 }
 
 /**

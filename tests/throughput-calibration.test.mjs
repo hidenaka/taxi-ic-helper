@@ -409,3 +409,50 @@ test('applyThroughputScaleToAccuracy: 構造が欠けても例外を投げない
   assert.equal(r.throughputScaleK, 2);
   assert.equal(r.schemaVersion, 1);
 });
+
+// --- applyThroughputScale: slotsKey (pattern-match 対応) ---
+
+// pattern-match 形の出力オブジェクトを作る
+function makePatternMatchObj() {
+  return {
+    schemaVersion: 1,
+    today: { date: '2026-05-17', dayType: 'sunday_holiday', filterTier: 'all' },
+    candidateCount: 5,
+    similarDays: [{ date: '2025-05-18', similarity: 0.9, label: 'x' }],
+    historicalCurve: [
+      { slotStart: '07:45', slotEnd: '07:50', stall1: 1, stall2: 2, stall3: 0, stall4: 3, total: 6 },
+      { slotStart: '07:50', slotEnd: '07:55', stall1: 2, stall2: 0, stall3: 1, stall4: 1, total: 4 },
+    ],
+  };
+}
+
+test('applyThroughputScale: slotsKey="historicalCurve" で historicalCurve をスケール', () => {
+  const r = applyThroughputScale(makePatternMatchObj(), 2, 'historicalCurve');
+  assert.equal(r.historicalCurve[0].stall1, 2);
+  assert.equal(r.historicalCurve[0].stall4, 6);
+  assert.equal(r.historicalCurve[0].total, 12); // 2+4+0+6
+  assert.equal(r.historicalCurve[1].total, 8);  // 4+0+2+2
+  assert.equal(r.throughputScaleK, 2);
+});
+
+test('applyThroughputScale: slotsKey="historicalCurve" は similarDays/today/metadata を保持', () => {
+  const r = applyThroughputScale(makePatternMatchObj(), 2, 'historicalCurve');
+  assert.equal(r.today.dayType, 'sunday_holiday');
+  assert.equal(r.candidateCount, 5);
+  assert.deepEqual(r.similarDays, [{ date: '2025-05-18', similarity: 0.9, label: 'x' }]);
+  assert.equal(r.schemaVersion, 1);
+});
+
+test('applyThroughputScale: slotsKey 省略時は従来どおり slots をスケール (後方互換)', () => {
+  const r = applyThroughputScale(makeForecastObj(), 2);
+  assert.equal(r.slots[0].stall1, 4); // makeForecastObj の slots[0].stall1=2 → ×2
+  assert.equal(r.slots[0].total, 12); // 4+6+0+2
+  assert.equal(r.throughputScaleK, 2);
+});
+
+test('applyThroughputScale: slotsKey 配下が配列でない → throughputScaleK のみ付与', () => {
+  const r = applyThroughputScale({ schemaVersion: 1, today: {} }, 2, 'historicalCurve');
+  assert.equal(r.throughputScaleK, 2);
+  assert.equal(r.schemaVersion, 1);
+  assert.equal(r.historicalCurve, undefined);
+});
