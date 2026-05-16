@@ -16,6 +16,11 @@ import { Jimp } from 'jimp';
 import { analyzePoolImage, analyzeStalls } from './lib/image-pool-analyzer.mjs';
 import { summarizeArrivalsWindow } from './lib/arrivals-window-summary.mjs';
 import { computeBaseline, computeForecast } from './lib/forecast-engine.mjs';
+import {
+  computeThroughputCalibration,
+  sumTrackDepartedInWindow,
+  MIN_TRACK_TICKS_FOR_TREND,
+} from './lib/throughput-calibration.mjs';
 import { computePatternMatch } from './lib/pattern-matcher.mjs';
 import { loadHolidaysSet } from './lib/calendar-context.mjs';
 import { buildLogEntry } from './lib/forecast-logger.mjs';
@@ -44,6 +49,8 @@ const ENSEMBLE_OUTPUT_PATH = './data/stall-ensemble.json';
 const CORRECTIONS_OUTPUT_PATH = './data/coefficient-corrections.json';
 const TRANSIT_SHARE_PATH = './data/transit-share.json';
 const T3_POOL_HISTORY_PATH = './data/t3-pool-history.jsonl';
+const TRACK_HISTORY_PATH = './data/vehicle-track-history.jsonl';
+const THROUGHPUT_CALIBRATION_PATH = './data/throughput-calibration.json';
 const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
 const TIMEOUT_MS = 15000;
 const STALL_ROIS_PATH = './scripts/lib/stall-rois.json';
@@ -276,7 +283,39 @@ async function main() {
       return { ts: r.ts, total_outflow: totalOutflow };
     });
 
-    forecastResult = computeForecast(baseline, recent, arrivalsJson, new Date());
+    // Phase G-1: 追跡 throughput キャリブレーション
+    const trackHistory = [];
+    if (existsSync(TRACK_HISTORY_PATH)) {
+      for (const line of readFileSync(TRACK_HISTORY_PATH, 'utf8').trim().split('\n')) {
+        if (!line.trim()) continue;
+        try { trackHistory.push(JSON.parse(line)); } catch { /* skip bad line */ }
+      }
+    }
+    const calibration = computeThroughputCalibration(allHistory, trackHistory);
+    writeFileSync(THROUGHPUT_CALIBRATION_PATH, JSON.stringify({
+      schema_version: 1,
+      generated_at: jstNowIso(),
+      k: calibration.k,
+      state: calibration.state,
+      window_count: calibration.windowCount,
+      track_sum: calibration.trackSum,
+      netdiff_sum: calibration.netDiffSum,
+    }, null, 2) + '\n', 'utf8');
+
+    // trendActual: 直近60分窓 (recent の最古 tick 〜 now) の track departed 合算
+    const now = new Date();
+    let trackTrend = null;
+    if (calibration.state === 'learning' && recent.length >= 12) {
+      const windowStartMs = new Date(recent[0].ts).getTime();
+      const trackActual = sumTrackDepartedInWindow(
+        trackHistory, windowStartMs, now.getTime(), MIN_TRACK_TICKS_FOR_TREND,
+      );
+      if (trackActual !== null) {
+        trackTrend = { k: calibration.k, actual: trackActual };
+      }
+    }
+
+    forecastResult = computeForecast(baseline, recent, arrivalsJson, now, trackTrend);
     writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(forecastResult, null, 2) + '\n', 'utf8');
     console.log(`[observe] forecast ok: trendFactor=${forecastResult.trendFactor.toFixed(2)} baselineSamples=${forecastResult.baselineSampleCount}`);
   } catch (e) {
