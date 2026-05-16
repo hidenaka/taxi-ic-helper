@@ -20,7 +20,9 @@ from detect_vehicles import fetch_image, detect_image, MODEL_PATH
 
 STATE_PATH = os.path.join(REPO_ROOT, 'data', 'track-state.json')
 OUTPUT_PATH = os.path.join(REPO_ROOT, 'data', 'vehicle-track-history.jsonl')
+STALL_ROIS_PATH = os.path.join(REPO_ROOT, 'scripts', 'lib', 'stall-rois.json')
 TRACK_IMAGE = 'Real01_line'
+TRACK_CAMERA = 'real01_line'
 STOP_DATE = '2026-06-01'
 MAX_MISSED = 2
 DIST_THRESHOLD = 0.06
@@ -167,14 +169,18 @@ def main():
     try:
         session = ort.InferenceSession(MODEL_PATH, providers=['CPUExecutionProvider'])
         img = fetch_image(TRACK_IMAGE)
-        detections = detect_image(session, img)
+        raw_detections = detect_image(session, img)
+        with open(STALL_ROIS_PATH, 'r', encoding='utf-8') as f:
+            stall_rois_json = json.load(f)
+        rois = stall_rois_for_camera(stall_rois_json, TRACK_CAMERA)
+        detections = filter_to_rois(raw_detections, rois)
     except Exception as e:
-        print(f'[track] detect failed, skip tick: {e}', file=sys.stderr)
+        print(f'[track] detect/roi failed, skip tick: {e}', file=sys.stderr)
         return
     result = update_tracks(tracks, detections, next_id, MAX_MISSED, DIST_THRESHOLD)
     save_state(result['tracks'], result['next_id'])
     row = {
-        'schema_version': 1,
+        'schema_version': 2,
         'ts': jst_now_iso(),
         'detected': len(detections),
         'active': len(result['tracks']),
