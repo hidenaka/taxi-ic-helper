@@ -318,7 +318,7 @@ test('applyThroughputScale: k が非正・非数値 → 1.0 扱い (恒等)', ()
   assert.equal(r.slots[0].stall1, 2); // 恒等
 });
 
-test('applyThroughputScale: slots が配열でない → throughputScaleK のみ付与', () => {
+test('applyThroughputScale: slots が配列でない → throughputScaleK のみ付与', () => {
   const r = applyThroughputScale({ schemaVersion: 1 }, 2);
   assert.equal(r.throughputScaleK, 2);
   assert.equal(r.schemaVersion, 1);
