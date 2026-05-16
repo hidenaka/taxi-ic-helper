@@ -6,6 +6,7 @@ import {
   MIN_WINDOWS_FOR_LEARNING,
   K_MAX,
   sumTrackDepartedInWindow,
+  applyThroughputScale,
 } from '../scripts/lib/throughput-calibration.mjs';
 
 // net-diff 1 行を作る。s1/s2/s3/s4 は diff_occupied_from_prev。
@@ -240,4 +241,86 @@ test('sumTrackDepartedInWindow: departed が数値でないカメラは 0 とし
   }
   const sum = sumTrackDepartedInWindow(rows, base - 1, base + 60 * 60000, 48);
   assert.equal(sum, 60); // real01_line の 1 のみ × 60、real02 は 0
+});
+
+// --- applyThroughputScale (B案) ---
+
+// forecast 形の出力オブジェクトを作る
+function makeForecastObj() {
+  return {
+    schemaVersion: 1,
+    trendFactor: 1.5,
+    trendWindow: { actual: 9, expected: 7.5, source: 'track', k: 2 },
+    slots: [
+      { slotStart: '12:05', slotEnd: '12:10', flightFactor: 1.0, stall1: 2, stall2: 3, stall3: 0, stall4: 1, total: 6 },
+      { slotStart: '12:10', slotEnd: '12:15', flightFactor: 2.0, stall1: 1, stall2: 1, stall3: 1, stall4: 1, total: 4 },
+    ],
+  };
+}
+
+test('applyThroughputScale: slot の stall1-4 を k 倍し total を再計算', () => {
+  const r = applyThroughputScale(makeForecastObj(), 2);
+  assert.equal(r.slots[0].stall1, 4);
+  assert.equal(r.slots[0].stall2, 6);
+  assert.equal(r.slots[0].stall3, 0);
+  assert.equal(r.slots[0].stall4, 2);
+  assert.equal(r.slots[0].total, 12); // 4+6+0+2
+});
+
+test('applyThroughputScale: k=1 は恒等 (数値不変)', () => {
+  const r = applyThroughputScale(makeForecastObj(), 1);
+  assert.equal(r.slots[0].stall1, 2);
+  assert.equal(r.slots[0].total, 6);
+  assert.equal(r.throughputScaleK, 1);
+});
+
+test('applyThroughputScale: 非 slot フィールド保持、trendWindow はスケールしない', () => {
+  const r = applyThroughputScale(makeForecastObj(), 2);
+  assert.equal(r.schemaVersion, 1);
+  assert.equal(r.trendFactor, 1.5);
+  assert.equal(r.trendWindow.actual, 9);    // net-diff 診断値、スケールしない
+  assert.equal(r.trendWindow.expected, 7.5);
+  assert.equal(r.slots[0].slotStart, '12:05');
+  assert.equal(r.slots[0].flightFactor, 1.0);
+});
+
+test('applyThroughputScale: 入力を破壊しない', () => {
+  const obj = makeForecastObj();
+  applyThroughputScale(obj, 2);
+  assert.equal(obj.slots[0].stall1, 2);   // 元のまま
+  assert.equal(obj.slots[0].total, 6);
+  assert.equal(obj.throughputScaleK, undefined);
+});
+
+test('applyThroughputScale: throughputScaleK を付与', () => {
+  const r = applyThroughputScale(makeForecastObj(), 2.5);
+  assert.equal(r.throughputScaleK, 2.5);
+});
+
+test('applyThroughputScale: ensemble 形 (slots に leadBucket) でも動く', () => {
+  const ens = {
+    schemaVersion: 1,
+    weights: { lead30: { w_fc: 0.5, w_pm: 0.5 } },
+    slots: [{ slotStart: '12:05', leadBucket: 'lead30', stall1: 2, stall2: 2, stall3: 2, stall4: 2, total: 8 }],
+  };
+  const r = applyThroughputScale(ens, 3);
+  assert.equal(r.slots[0].stall1, 6);
+  assert.equal(r.slots[0].total, 24);
+  assert.equal(r.slots[0].leadBucket, 'lead30');
+  assert.deepEqual(r.weights, { lead30: { w_fc: 0.5, w_pm: 0.5 } });
+});
+
+test('applyThroughputScale: k が非正・非数値 → 1.0 扱い (恒等)', () => {
+  assert.equal(applyThroughputScale(makeForecastObj(), 0).throughputScaleK, 1);
+  assert.equal(applyThroughputScale(makeForecastObj(), -2).throughputScaleK, 1);
+  assert.equal(applyThroughputScale(makeForecastObj(), NaN).throughputScaleK, 1);
+  const r = applyThroughputScale(makeForecastObj(), 0);
+  assert.equal(r.slots[0].stall1, 2); // 恒等
+});
+
+test('applyThroughputScale: slots が配열でない → throughputScaleK のみ付与', () => {
+  const r = applyThroughputScale({ schemaVersion: 1 }, 2);
+  assert.equal(r.throughputScaleK, 2);
+  assert.equal(r.schemaVersion, 1);
+  assert.equal(r.slots, undefined);
 });
