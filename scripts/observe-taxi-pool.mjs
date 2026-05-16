@@ -20,6 +20,7 @@ import {
   computeThroughputCalibration,
   sumTrackDepartedInWindow,
   MIN_TRACK_TICKS_FOR_TREND,
+  applyThroughputScale,
 } from './lib/throughput-calibration.mjs';
 import { computePatternMatch } from './lib/pattern-matcher.mjs';
 import { loadHolidaysSet } from './lib/calendar-context.mjs';
@@ -260,6 +261,8 @@ async function main() {
   // forecast / pattern-match の結果を Phase D-1 ログ記録で参照するため外側で保持
   let forecastResult = null;
   let patternMatchResult = null;
+  // Phase B案: 出力 JSON を真値化するスケール係数 (forecast block で calibration.k をセット)
+  let throughputK = 1.0;
 
   // Phase C-1 MVP: stall 短期需要予測の生成
   // 失敗しても本観測には影響させない (try/catch で握る)
@@ -292,6 +295,7 @@ async function main() {
       }
     }
     const calibration = computeThroughputCalibration(allHistory, trackHistory);
+    throughputK = calibration.k;
     writeFileSync(THROUGHPUT_CALIBRATION_PATH, JSON.stringify({
       schema_version: 1,
       generated_at: jstNowIso(),
@@ -318,7 +322,7 @@ async function main() {
     }
 
     forecastResult = computeForecast(baseline, recent, arrivalsJson, now, trackTrend);
-    writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(forecastResult, null, 2) + '\n', 'utf8');
+    writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(applyThroughputScale(forecastResult, throughputK), null, 2) + '\n', 'utf8');
     console.log(`[observe] forecast ok: trendFactor=${forecastResult.trendFactor.toFixed(2)} baselineSamples=${forecastResult.baselineSampleCount}`);
   } catch (e) {
     console.error(`[observe] forecast generation failed: ${e.message}`);
@@ -434,7 +438,7 @@ async function main() {
       accuracyResult,
       new Date()
     );
-    writeFileSync(ENSEMBLE_OUTPUT_PATH, JSON.stringify(ensemble, null, 2) + '\n', 'utf8');
+    writeFileSync(ENSEMBLE_OUTPUT_PATH, JSON.stringify(applyThroughputScale(ensemble, throughputK), null, 2) + '\n', 'utf8');
     console.log(`[observe] ensemble ok: slots=${ensemble.slots.length} lead30 weight fc=${ensemble.weights.lead30.w_fc}`);
   } catch (e) {
     console.error(`[observe] ensemble generation failed: ${e.message}`);
