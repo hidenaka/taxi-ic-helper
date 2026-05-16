@@ -251,20 +251,25 @@ export function renderCorrections(metaEl, levelEl, shareEl, corrections) {
     </table>`;
 
   const share = corrections.share || {};
+  const shareCell = (entry) => {
+    if (!entry) return '—';
+    if (entry.source === 'unobservable') return '<span class="src-fallback">観測外</span>';
+    return `${Number(entry.factor).toFixed(2)}× ${srcSpan(entry.source)}`;
+  };
   const shareRows = ['early', 'morning', 'noon', 'afternoon', 'peak1', 'evening', 'peak2', 'midnight']
     .filter(k => share[k])
     .map(k => {
       const e = share[k];
       return `<tr>
         <td class="label">${SHARE_BUCKET_LABELS[k]}</td>
-        <td>${Number(e.factor).toFixed(2)}×</td>
-        <td>${srcSpan(e.source)}</td>
-        <td>${e.flightCount}</td>
+        <td>${shareCell(e.T1)}</td>
+        <td>${shareCell(e.T2)}</td>
+        <td>${shareCell(e.T3)}</td>
       </tr>`;
     }).join('');
-  shareEl.innerHTML = `<h3>transit-share バケット補正</h3>
+  shareEl.innerHTML = `<h3>transit-share バケット補正 (端末別)</h3>
     <table class="correction-table">
-      <thead><tr><th>時間帯</th><th>補正係数</th><th>状態</th><th>便数</th></tr></thead>
+      <thead><tr><th>時間帯</th><th>T1</th><th>T2</th><th>T3</th></tr></thead>
       <tbody>${shareRows}</tbody>
     </table>`;
 }
