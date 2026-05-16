@@ -109,6 +109,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(SCRIPT_DIR)
 MODEL_PATH = os.path.join(REPO_ROOT, 'models', 'yolov8m.onnx')
 OUTPUT_PATH = os.path.join(REPO_ROOT, 'data', 'vehicle-detection-history.jsonl')
+STALL_ROIS_PATH = os.path.join(REPO_ROOT, 'scripts', 'lib', 'stall-rois.json')
 
 TTC_BASE = 'https://ttc.taxi-inf.jp'
 IMAGES = ['Real01_line', 'Real02', 'Real106', 'Real107', 'Real03', 'Real04', 'Real108', 'Real109']
@@ -123,6 +124,24 @@ VEHICLE_CLASSES = {2: 'car', 3: 'motorcycle', 5: 'bus', 7: 'truck'}
 def jst_now_iso():
     """現在時刻の JST ISO 文字列 (秒精度)。"""
     return datetime.now(timezone(timedelta(hours=9))).isoformat(timespec='seconds')
+
+
+def read_last_history_row(path):
+    """JSON Lines ファイルの最終行を dict で返す。無い・壊れている場合は None。"""
+    if not os.path.exists(path):
+        return None
+    last = None
+    with open(path, 'r', encoding='utf-8') as f:
+        for line in f:
+            s = line.strip()
+            if s:
+                last = s
+    if last is None:
+        return None
+    try:
+        return json.loads(last)
+    except Exception:
+        return None
 
 
 def letterbox(img, size):
@@ -194,11 +213,28 @@ def main():
     if not images:
         print('[detect] all images failed, skip append', file=sys.stderr)
         return
-    row = {'schema_version': 1, 'ts': jst_now_iso(), 'images': images}
+
+    # Phase F-2: 検出 box を stall ROI に振り分けて T1/T2 stall 別台数を算出
+    t1t2_stalls = None
+    try:
+        with open(STALL_ROIS_PATH, 'r', encoding='utf-8') as f:
+            stall_rois = json.load(f)
+        boxes_by_image = {im['name']: im.get('boxes', []) for im in images}
+        prev_row = read_last_history_row(OUTPUT_PATH)
+        prev_stalls = prev_row.get('t1t2_stalls') if isinstance(prev_row, dict) else None
+        stall_counts = count_boxes_per_stall(boxes_by_image, stall_rois)
+        t1t2_stalls = build_t1t2_stalls(stall_counts, prev_stalls)
+    except Exception as e:
+        print(f'[detect] t1t2_stalls failed: {e}', file=sys.stderr)
+
+    row = {'schema_version': 2, 'ts': jst_now_iso(), 'images': images}
+    if t1t2_stalls is not None:
+        row['t1t2_stalls'] = t1t2_stalls
     with open(OUTPUT_PATH, 'a', encoding='utf-8') as f:
         f.write(json.dumps(row) + '\n')
     total = sum(im['vehicle_count'] for im in images)
-    print(f'[detect] ok: {len(images)} images, {total} vehicles total')
+    stall_summary = ' '.join(f"{k}={v['count']}" for k, v in (t1t2_stalls or {}).items())
+    print(f'[detect] ok: {len(images)} images, {total} vehicles total | t1t2 {stall_summary}')
 
 
 if __name__ == '__main__':
