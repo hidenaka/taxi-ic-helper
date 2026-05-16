@@ -3,7 +3,9 @@ import os
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-from track_vehicles import update_tracks, stall_rois_for_camera, filter_to_rois, state_from_json
+from track_vehicles import (
+    update_tracks, stall_rois_for_camera, filter_to_rois, state_from_json, camera_state,
+)
 
 
 def _det(x, y):
@@ -112,25 +114,50 @@ class TestUpdateTracks(unittest.TestCase):
 
 
 class TestStateFromJson(unittest.TestCase):
-    def test_schema_match_returns_state(self):
+    def test_schema_match_returns_cameras(self):
+        cams = {'real01_line': {'tracks': [_trk(1, 0.5, 0.3)], 'next_id': 7}}
+        s = {'schema': 3, 'cameras': cams}
+        self.assertEqual(state_from_json(s), cams)
+
+    def test_old_v2_schema_resets(self):
+        # 旧 v2 形式 (schema 2、cameras 無し) → {}
         s = {'schema': 2, 'tracks': [_trk(1, 0.5, 0.3)], 'next_id': 7}
-        tracks, next_id = state_from_json(s)
+        self.assertEqual(state_from_json(s), {})
+
+    def test_missing_schema_resets(self):
+        s = {'cameras': {'real01_line': {'tracks': [], 'next_id': 1}}}
+        self.assertEqual(state_from_json(s), {})
+
+    def test_non_dict_resets(self):
+        self.assertEqual(state_from_json([]), {})
+        self.assertEqual(state_from_json('x'), {})
+
+    def test_cameras_not_dict_resets(self):
+        s = {'schema': 3, 'cameras': 'oops'}
+        self.assertEqual(state_from_json(s), {})
+
+
+class TestCameraState(unittest.TestCase):
+    def test_extracts_camera_state(self):
+        cams = {'real01_line': {'tracks': [_trk(1, 0.5, 0.3)], 'next_id': 7}}
+        tracks, next_id = camera_state(cams, 'real01_line')
         self.assertEqual(len(tracks), 1)
         self.assertEqual(tracks[0]['id'], 1)
         self.assertEqual(next_id, 7)
 
-    def test_missing_schema_resets(self):
-        # 旧形式 (schema キー無し) → リセット
-        s = {'tracks': [_trk(1, 0.5, 0.3)], 'next_id': 7}
-        self.assertEqual(state_from_json(s), ([], 1))
+    def test_missing_camera_resets(self):
+        cams = {'real01_line': {'tracks': [], 'next_id': 3}}
+        self.assertEqual(camera_state(cams, 'real02'), ([], 1))
 
-    def test_old_schema_resets(self):
-        s = {'schema': 1, 'tracks': [_trk(1, 0.5, 0.3)], 'next_id': 7}
-        self.assertEqual(state_from_json(s), ([], 1))
+    def test_non_dict_cameras_resets(self):
+        self.assertEqual(camera_state({}, 'real01_line'), ([], 1))
+        self.assertEqual(camera_state('x', 'real01_line'), ([], 1))
 
-    def test_non_dict_resets(self):
-        self.assertEqual(state_from_json([]), ([], 1))
-        self.assertEqual(state_from_json('x'), ([], 1))
+    def test_malformed_camera_resets(self):
+        # tracks が list でない / next_id が int でない / camera 値が dict でない
+        self.assertEqual(camera_state({'c': {'tracks': 'x', 'next_id': 1}}, 'c'), ([], 1))
+        self.assertEqual(camera_state({'c': {'tracks': [], 'next_id': 'x'}}, 'c'), ([], 1))
+        self.assertEqual(camera_state({'c': 5}, 'c'), ([], 1))
 
 
 if __name__ == '__main__':

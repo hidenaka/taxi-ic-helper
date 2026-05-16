@@ -21,12 +21,12 @@ from detect_vehicles import fetch_image, detect_image, MODEL_PATH
 STATE_PATH = os.path.join(REPO_ROOT, 'data', 'track-state.json')
 OUTPUT_PATH = os.path.join(REPO_ROOT, 'data', 'vehicle-track-history.jsonl')
 STALL_ROIS_PATH = os.path.join(REPO_ROOT, 'scripts', 'lib', 'stall-rois.json')
-TRACK_IMAGE = 'Real01_line'
-TRACK_CAMERA = 'real01_line'
+# (fetch 用画像名, stall-rois.json の source キー)
+TRACK_CAMERAS = [('Real01_line', 'real01_line'), ('Real02', 'real02')]
 STOP_DATE = '2026-06-01'
 MAX_MISSED = 2
 DIST_THRESHOLD = 0.06
-TRACK_STATE_SCHEMA = 2
+TRACK_STATE_SCHEMA = 3
 
 
 def update_tracks(prev_tracks, detections, next_id, max_missed, dist_threshold):
@@ -128,33 +128,48 @@ def is_past_stop_date():
 
 
 def state_from_json(s):
-    """track-state.json のパース済み dict から (tracks, next_id) を返す純関数。
+    """track-state.json のパース済み dict から per-camera state dict を返す純関数。
 
     schema が TRACK_STATE_SCHEMA でない (旧形式・キー無し)・dict でない・
-    型不正なら ([], 1) を返す (クリーン開始)。
+    cameras が dict でないなら {} を返す (クリーン開始)。
     """
     if not isinstance(s, dict) or s.get('schema') != TRACK_STATE_SCHEMA:
+        return {}
+    cameras = s.get('cameras')
+    return cameras if isinstance(cameras, dict) else {}
+
+
+def camera_state(cameras, camera):
+    """per-camera state dict から指定カメラの (tracks, next_id) を返す純関数。
+
+    cameras が dict でない・camera キーが無い・camera 値が dict でない・
+    tracks が list でない・next_id が int でないなら ([], 1)。
+    """
+    if not isinstance(cameras, dict):
         return [], 1
-    tracks = s.get('tracks', [])
-    next_id = s.get('next_id', 1)
+    cam = cameras.get(camera)
+    if not isinstance(cam, dict):
+        return [], 1
+    tracks = cam.get('tracks', [])
+    next_id = cam.get('next_id', 1)
     if isinstance(tracks, list) and isinstance(next_id, int):
         return tracks, next_id
     return [], 1
 
 
 def load_state():
-    """track-state.json を (tracks, next_id) で返す。無い・壊れていれば ([], 1)。"""
+    """track-state.json を per-camera state dict で返す。無い・壊れていれば {}。"""
     try:
         with open(STATE_PATH, 'r', encoding='utf-8') as f:
             return state_from_json(json.load(f))
     except Exception:
-        return [], 1
+        return {}
 
 
-def save_state(tracks, next_id):
-    """track-state.json を上書き保存 (schema マーカー付き)。"""
+def save_state(cameras):
+    """track-state.json を per-camera state で上書き保存 (schema マーカー付き)。"""
     with open(STATE_PATH, 'w', encoding='utf-8') as f:
-        json.dump({'schema': TRACK_STATE_SCHEMA, 'tracks': tracks, 'next_id': next_id}, f)
+        json.dump({'schema': TRACK_STATE_SCHEMA, 'cameras': cameras}, f)
 
 
 def main():
@@ -165,32 +180,40 @@ def main():
     if not os.path.exists(MODEL_PATH):
         print(f'ERROR: model not found: {MODEL_PATH}', file=sys.stderr)
         sys.exit(1)
-    tracks, next_id = load_state()
+    cameras = load_state()
     try:
         session = ort.InferenceSession(MODEL_PATH, providers=['CPUExecutionProvider'])
-        img = fetch_image(TRACK_IMAGE)
-        raw_detections = detect_image(session, img)
         with open(STALL_ROIS_PATH, 'r', encoding='utf-8') as f:
             stall_rois_json = json.load(f)
-        rois = stall_rois_for_camera(stall_rois_json, TRACK_CAMERA)
-        detections = filter_to_rois(raw_detections, rois)
+        new_cameras = {}
+        row_cameras = {}
+        for image_name, camera_key in TRACK_CAMERAS:
+            tracks, next_id = camera_state(cameras, camera_key)
+            img = fetch_image(image_name)
+            raw_detections = detect_image(session, img)
+            rois = stall_rois_for_camera(stall_rois_json, camera_key)
+            detections = filter_to_rois(raw_detections, rois)
+            result = update_tracks(tracks, detections, next_id, MAX_MISSED, DIST_THRESHOLD)
+            new_cameras[camera_key] = {
+                'tracks': result['tracks'], 'next_id': result['next_id'],
+            }
+            row_cameras[camera_key] = {
+                'detected': len(detections),
+                'active': len(result['tracks']),
+                'arrived': result['arrived'],
+                'departed': result['departed'],
+            }
     except Exception as e:
         print(f'[track] detect/roi failed, skip tick: {e}', file=sys.stderr)
         return
-    result = update_tracks(tracks, detections, next_id, MAX_MISSED, DIST_THRESHOLD)
-    save_state(result['tracks'], result['next_id'])
-    row = {
-        'schema_version': 2,
-        'ts': jst_now_iso(),
-        'detected': len(detections),
-        'active': len(result['tracks']),
-        'arrived': result['arrived'],
-        'departed': result['departed'],
-    }
+    save_state(new_cameras)
+    row = {'schema_version': 3, 'ts': jst_now_iso(), 'cameras': row_cameras}
     with open(OUTPUT_PATH, 'a', encoding='utf-8') as f:
         f.write(json.dumps(row) + '\n')
-    print(f"[track] ok: detected={row['detected']} active={row['active']} "
-          f"arrived={row['arrived']} departed={row['departed']}")
+    summary = ' '.join(
+        f"{k}(d={v['detected']},a={v['active']},in={v['arrived']},out={v['departed']})"
+        for k, v in row_cameras.items())
+    print(f'[track] ok: {summary}')
 
 
 if __name__ == '__main__':
