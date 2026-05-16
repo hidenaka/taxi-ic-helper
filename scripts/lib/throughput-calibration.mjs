@@ -76,7 +76,7 @@ export function computeThroughputCalibration(netDiffHistory, trackHistory) {
     }
     if (winTicks < MIN_TRACK_TICKS_PER_WINDOW) continue;
 
-    // net-diff outflow = stall1+2+3 の負 diff 絶対値
+    // net-diff outflow = stall1〜4 の負 diff 絶対値
     let winNetDiff = 0;
     for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
       const d = row.stalls[name]?.diff_occupied_from_prev;
