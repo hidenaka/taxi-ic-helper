@@ -34,7 +34,7 @@ def update_tracks(prev_tracks, detections, next_id, max_missed, dist_threshold):
 
     prev_tracks: [{id,x,y,w,h,missed}, ...]
     detections:  [{x,y,w,h,...}, ...]
-    戻り値: {tracks, next_id, arrived, departed}
+    戻り値: {tracks, next_id, arrived, departed, matched_dists}
     - マッチ: 中心座標のユークリッド距離が最小かつ dist_threshold 以内
     - 未マッチ検出 → 新トラック (arrived++)
     - 未マッチトラック → missed++、missed > max_missed で消滅 (departed++)
@@ -43,6 +43,7 @@ def update_tracks(prev_tracks, detections, next_id, max_missed, dist_threshold):
     out_tracks = []
     arrived = 0
     departed = 0
+    matched_dists = []
     for tr in prev_tracks:
         best_i, best_d = None, dist_threshold
         for i in unmatched:
@@ -53,6 +54,7 @@ def update_tracks(prev_tracks, detections, next_id, max_missed, dist_threshold):
         if best_i is not None:
             d = detections[best_i]
             unmatched.remove(best_i)
+            matched_dists.append(round(best_d, 4))
             out_tracks.append({'id': tr['id'], 'x': d['x'], 'y': d['y'],
                                'w': d['w'], 'h': d['h'], 'missed': 0})
         else:
@@ -67,7 +69,8 @@ def update_tracks(prev_tracks, detections, next_id, max_missed, dist_threshold):
                            'w': d['w'], 'h': d['h'], 'missed': 0})
         next_id += 1
         arrived += 1
-    return {'tracks': out_tracks, 'next_id': next_id, 'arrived': arrived, 'departed': departed}
+    return {'tracks': out_tracks, 'next_id': next_id, 'arrived': arrived,
+            'departed': departed, 'matched_dists': matched_dists}
 
 
 def stall_rois_for_camera(stall_rois_json, camera):

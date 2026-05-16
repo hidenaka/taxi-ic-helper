@@ -113,6 +113,44 @@ class TestUpdateTracks(unittest.TestCase):
         self.assertTrue(all(t['missed'] == 1 for t in r['tracks']))
 
 
+class TestUpdateTracksMatchedDists(unittest.TestCase):
+    def test_matched_track_records_distance(self):
+        # 同位置マッチ → 距離 ≈ 0
+        r = update_tracks([_trk(1, 0.5, 0.3)], [_det(0.5, 0.3)], 2, 2, 0.06)
+        self.assertEqual(len(r['matched_dists']), 1)
+        self.assertAlmostEqual(r['matched_dists'][0], 0.0)
+
+    def test_matched_distance_value(self):
+        # track (0.5,0.3) と det (0.54,0.3) → 距離 0.04
+        r = update_tracks([_trk(1, 0.5, 0.3)], [_det(0.54, 0.3)], 2, 2, 0.06)
+        self.assertEqual(len(r['matched_dists']), 1)
+        self.assertAlmostEqual(r['matched_dists'][0], 0.04, places=4)
+
+    def test_unmatched_track_not_recorded(self):
+        # 検出なし → マッチ無し → matched_dists 空
+        r = update_tracks([_trk(1, 0.5, 0.3)], [], 2, 2, 0.06)
+        self.assertEqual(r['matched_dists'], [])
+
+    def test_new_detection_not_recorded(self):
+        # 新規検出のみ → マッチ無し → matched_dists 空
+        r = update_tracks([], [_det(0.2, 0.2)], 5, 2, 0.06)
+        self.assertEqual(r['matched_dists'], [])
+
+    def test_multiple_matches_all_recorded(self):
+        r = update_tracks(
+            [_trk(1, 0.2, 0.2), _trk(2, 0.8, 0.8)],
+            [_det(0.2, 0.2), _det(0.8, 0.8)],
+            3, 2, 0.06)
+        self.assertEqual(len(r['matched_dists']), 2)
+
+    def test_distance_rounded_to_4_decimals(self):
+        # 丸め済み: 値は round(値,4) と一致する (4桁超の精度を持たない)
+        r = update_tracks([_trk(1, 0.5, 0.3)], [_det(0.54321, 0.3)], 2, 2, 0.06)
+        self.assertEqual(len(r['matched_dists']), 1)
+        d = r['matched_dists'][0]
+        self.assertEqual(d, round(d, 4))
+
+
 class TestStateFromJson(unittest.TestCase):
     def test_schema_match_returns_cameras(self):
         cams = {'real01_line': {'tracks': [_trk(1, 0.5, 0.3)], 'next_id': 7}}
