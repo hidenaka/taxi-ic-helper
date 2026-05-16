@@ -50,6 +50,50 @@ def decode_yolo_output(output, conf_threshold):
     return dets
 
 
+def count_boxes_per_stall(boxes_by_image, stall_rois):
+    """検出 box を stall ROI に振り分けてカウントする (純関数)。
+
+    boxes_by_image: {画像名: [box,...]}。box は {x,y,...} で x/y は中心の 0-1 正規化座標。
+    stall_rois: stall-rois.json の中身。
+    戻り値: {stall名: 台数}。
+    """
+    meta = stall_rois.get('_meta', {})
+    size = meta.get('image_size', [800, 600])
+    img_w, img_h = size[0], size[1]
+    out = {}
+    for stall_name, stall in (stall_rois.get('stalls') or {}).items():
+        roi = stall.get('roi') or {}
+        image_name = str(stall.get('source', '')).capitalize()
+        boxes = boxes_by_image.get(image_name, [])
+        rx = roi.get('x', 0) / img_w
+        ry = roi.get('y', 0) / img_h
+        rw = roi.get('width', 0) / img_w
+        rh = roi.get('height', 0) / img_h
+        count = 0
+        for b in boxes:
+            x, y = b.get('x'), b.get('y')
+            if x is None or y is None:
+                continue
+            if rx <= x < rx + rw and ry <= y < ry + rh:
+                count += 1
+        out[stall_name] = count
+    return out
+
+
+def build_t1t2_stalls(stall_counts, prev_stalls):
+    """stall 別カウントと前 tick の t1t2_stalls から {stall名:{count,diff_from_prev}} を作る (純関数)。
+
+    prev_stalls が無い・前 count が整数でない場合は diff_from_prev = None。
+    """
+    out = {}
+    for stall_name, count in stall_counts.items():
+        prev = (prev_stalls or {}).get(stall_name)
+        prev_count = prev.get('count') if isinstance(prev, dict) else None
+        diff = (count - prev_count) if isinstance(prev_count, int) else None
+        out[stall_name] = {'count': count, 'diff_from_prev': diff}
+    return out
+
+
 # --- 以下、ネットワーク取得 + ONNX 推論 + 出力 ---
 
 import io

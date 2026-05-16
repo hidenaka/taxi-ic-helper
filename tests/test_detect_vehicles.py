@@ -47,5 +47,67 @@ class TestDecode(unittest.TestCase):
         self.assertEqual(dets[0][0], 100.0)  # cx
 
 
+# --- Phase F-2: T1/T2 stall 別カウント ---
+
+from detect_vehicles import count_boxes_per_stall, build_t1t2_stalls
+
+
+def _box(x, y):
+    return {'cls': 'car', 'conf': 0.8, 'x': x, 'y': y, 'w': 0.05, 'h': 0.05}
+
+
+STALL_ROIS_FIXTURE = {
+    '_meta': {'image_size': [800, 600]},
+    'stalls': {
+        # stall1 正規化: x∈[0.75,1.0) y∈[0.1333,0.4167)
+        'stall1': {'source': 'real01_line', 'roi': {'x': 600, 'y': 80, 'width': 200, 'height': 170}},
+        # stall4 正規化: x∈[0.5,1.0) y∈[0.0,0.4167)
+        'stall4': {'source': 'real02', 'roi': {'x': 400, 'y': 0, 'width': 400, 'height': 250}},
+    },
+}
+
+
+class TestCountBoxesPerStall(unittest.TestCase):
+    def test_box_inside_roi_counted(self):
+        bbi = {'Real01_line': [_box(0.8, 0.2)], 'Real02': []}
+        r = count_boxes_per_stall(bbi, STALL_ROIS_FIXTURE)
+        self.assertEqual(r['stall1'], 1)
+        self.assertEqual(r['stall4'], 0)
+
+    def test_box_outside_roi_not_counted(self):
+        bbi = {'Real01_line': [_box(0.1, 0.2)], 'Real02': []}
+        r = count_boxes_per_stall(bbi, STALL_ROIS_FIXTURE)
+        self.assertEqual(r['stall1'], 0)
+
+    def test_source_isolation(self):
+        # Real02 の box は stall1 (source real01_line) に入らない / stall4 (source real02) に入る
+        bbi = {'Real01_line': [], 'Real02': [_box(0.8, 0.2)]}
+        r = count_boxes_per_stall(bbi, STALL_ROIS_FIXTURE)
+        self.assertEqual(r['stall1'], 0)
+        self.assertEqual(r['stall4'], 1)
+
+    def test_no_boxes(self):
+        r = count_boxes_per_stall({'Real01_line': [], 'Real02': []}, STALL_ROIS_FIXTURE)
+        self.assertEqual(r, {'stall1': 0, 'stall4': 0})
+
+    def test_multiple_boxes(self):
+        bbi = {'Real01_line': [_box(0.8, 0.2), _box(0.9, 0.3), _box(0.1, 0.1)], 'Real02': []}
+        r = count_boxes_per_stall(bbi, STALL_ROIS_FIXTURE)
+        self.assertEqual(r['stall1'], 2)  # 2 個が ROI 内、1 個が外
+
+
+class TestBuildT1t2Stalls(unittest.TestCase):
+    def test_diff_from_prev(self):
+        counts = {'stall1': 5, 'stall2': 3}
+        prev = {'stall1': {'count': 7}, 'stall2': {'count': 3}}
+        r = build_t1t2_stalls(counts, prev)
+        self.assertEqual(r['stall1'], {'count': 5, 'diff_from_prev': -2})
+        self.assertEqual(r['stall2'], {'count': 3, 'diff_from_prev': 0})
+
+    def test_no_prev(self):
+        r = build_t1t2_stalls({'stall1': 5}, None)
+        self.assertEqual(r['stall1'], {'count': 5, 'diff_from_prev': None})
+
+
 if __name__ == '__main__':
     unittest.main()
