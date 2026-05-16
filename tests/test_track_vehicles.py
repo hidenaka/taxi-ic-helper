@@ -3,7 +3,7 @@ import os
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-from track_vehicles import update_tracks, stall_rois_for_camera, filter_to_rois
+from track_vehicles import update_tracks, stall_rois_for_camera, filter_to_rois, state_from_json
 
 
 def _det(x, y):
@@ -109,6 +109,28 @@ class TestUpdateTracks(unittest.TestCase):
         r = update_tracks([_trk(1, 0.1, 0.1), _trk(2, 0.9, 0.9)], [], 3, 2, 0.06)
         self.assertEqual(len(r['tracks']), 2)
         self.assertTrue(all(t['missed'] == 1 for t in r['tracks']))
+
+
+class TestStateFromJson(unittest.TestCase):
+    def test_schema_match_returns_state(self):
+        s = {'schema': 2, 'tracks': [_trk(1, 0.5, 0.3)], 'next_id': 7}
+        tracks, next_id = state_from_json(s)
+        self.assertEqual(len(tracks), 1)
+        self.assertEqual(tracks[0]['id'], 1)
+        self.assertEqual(next_id, 7)
+
+    def test_missing_schema_resets(self):
+        # 旧形式 (schema キー無し) → リセット
+        s = {'tracks': [_trk(1, 0.5, 0.3)], 'next_id': 7}
+        self.assertEqual(state_from_json(s), ([], 1))
+
+    def test_old_schema_resets(self):
+        s = {'schema': 1, 'tracks': [_trk(1, 0.5, 0.3)], 'next_id': 7}
+        self.assertEqual(state_from_json(s), ([], 1))
+
+    def test_non_dict_resets(self):
+        self.assertEqual(state_from_json([]), ([], 1))
+        self.assertEqual(state_from_json('x'), ([], 1))
 
 
 if __name__ == '__main__':

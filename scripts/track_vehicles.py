@@ -24,6 +24,7 @@ TRACK_IMAGE = 'Real01_line'
 STOP_DATE = '2026-06-01'
 MAX_MISSED = 2
 DIST_THRESHOLD = 0.06
+TRACK_STATE_SCHEMA = 2
 
 
 def update_tracks(prev_tracks, detections, next_id, max_missed, dist_threshold):
@@ -124,24 +125,34 @@ def is_past_stop_date():
     return today >= STOP_DATE
 
 
+def state_from_json(s):
+    """track-state.json のパース済み dict から (tracks, next_id) を返す純関数。
+
+    schema が TRACK_STATE_SCHEMA でない (旧形式・キー無し)・dict でない・
+    型不正なら ([], 1) を返す (クリーン開始)。
+    """
+    if not isinstance(s, dict) or s.get('schema') != TRACK_STATE_SCHEMA:
+        return [], 1
+    tracks = s.get('tracks', [])
+    next_id = s.get('next_id', 1)
+    if isinstance(tracks, list) and isinstance(next_id, int):
+        return tracks, next_id
+    return [], 1
+
+
 def load_state():
     """track-state.json を (tracks, next_id) で返す。無い・壊れていれば ([], 1)。"""
     try:
         with open(STATE_PATH, 'r', encoding='utf-8') as f:
-            s = json.load(f)
-        tracks = s.get('tracks', [])
-        next_id = s.get('next_id', 1)
-        if isinstance(tracks, list) and isinstance(next_id, int):
-            return tracks, next_id
+            return state_from_json(json.load(f))
     except Exception:
-        pass
-    return [], 1
+        return [], 1
 
 
 def save_state(tracks, next_id):
-    """track-state.json を上書き保存。"""
+    """track-state.json を上書き保存 (schema マーカー付き)。"""
     with open(STATE_PATH, 'w', encoding='utf-8') as f:
-        json.dump({'tracks': tracks, 'next_id': next_id}, f)
+        json.dump({'schema': TRACK_STATE_SCHEMA, 'tracks': tracks, 'next_id': next_id}, f)
 
 
 def main():
