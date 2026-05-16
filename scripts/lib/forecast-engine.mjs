@@ -84,6 +84,7 @@ export function computeBaseline(history) {
  * @param {Array} recentHistory 直近 N tick の jsonl 行 (各行に ts と total_outflow)
  * @param {{flights: Array}|null} arrivalsJson arrivals.json (flights[].lobbyExitTime, .estimatedTaxiPax)
  * @param {Date} now 現在時刻
+ * @param {{k: number, actual: number}|null} trackTrend 車両追跡 throughput (Phase G-1)。null なら net-diff 経路
  * @returns 予測オブジェクト
  */
 export function computeForecast(baseline, recentHistory, arrivalsJson, now, trackTrend = null) {
