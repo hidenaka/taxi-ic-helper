@@ -25,7 +25,7 @@ STALL_ROIS_PATH = os.path.join(REPO_ROOT, 'scripts', 'lib', 'stall-rois.json')
 TRACK_CAMERAS = [('Real01_line', 'real01_line'), ('Real02', 'real02')]
 STOP_DATE = '2026-06-01'
 MAX_MISSED = 2
-DIST_THRESHOLD = 0.06
+DIST_THRESHOLD = 0.025  # 実測ジッター由来 (matched_dists 累積94%が ≤0.025、駐車間隔 0.035 未満)
 TRACK_STATE_SCHEMA = 3
 
 
