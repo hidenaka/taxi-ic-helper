@@ -4,17 +4,19 @@
 
 ## 次にやること（ユーザー選択）
 
-**Phase G-1（追跡 throughput → forecast 接続）は 2026-05-16 完了・本番稼働中。** 次タスクは未確定。候補：
+**G-1（追跡 throughput → forecast 接続）+ G-2（F-3 トラッカー stall ROI 制限）は 2026-05-16 完了・本番稼働中。** 次タスクは未確定。候補：
 
-- **B 案：baseline 出力の真値化** — G-1 は `trendFactor` の単位合わせに留め、forecast 出力は net-diff 単位のまま。forecast `total` を真の出庫台数にするには D-1 `buildActualMap`・correction-engine・ensemble の単位移行が必要。別 spec。G-1 の直接の続き。
-- **複数カメラ追跡** — F-3 は Real01_line のみ。Real02（stall4）の追跡を追加。
+- **C：トラッカー `DIST_THRESHOLD` の適正化** — `DIST_THRESHOLD=0.06` は駐車間隔（~0.035 正規化）より大きく、混雑時に隣の駐車車へ誤マッチしうる。G-2 で ROI 制限したので、正しい追跡データで YOLO box 中心のフレーム間ジッターを実測 → 適正値を決める。G-2 の直接の続き。
+- **B 案：baseline 出力の真値化** — G-1 は `trendFactor` の単位合わせに留め、forecast 出力は net-diff 単位のまま。forecast `total` を真の出庫台数にするには D-1 `buildActualMap`・correction-engine・ensemble の単位移行が必要。別 spec。
+- **複数カメラ追跡** — F-3/G-2 は Real01_line のみ。Real02（stall4）の追跡を追加。
 - **検出ベースの並行 forecast** — F-2 データ蓄積後。
 
 次セッションはユーザーがどれをやるか決めてから `superpowers:brainstorming` で開始（下記ワークフロー参照）。
 
-### G-1 の状態（参考）
-- spec/plan: `docs/superpowers/{specs,plans}/2026-05-16-throughput-forecast-connection*`。
-- `vehicle-track-history.jsonl` は 2026-05-16 13時頃に稼働開始 → 当面は track データ不足で calibration は `bootstrapping`（net-diff 経路フォールバック）。重複 5 分窓が 12 個溜まると `learning` に遷移し `stall-forecast.json` の `trendWindow.source` が `track` に変わる。
+### G-1 / G-2 の状態（参考）
+- spec/plan: `docs/superpowers/{specs,plans}/2026-05-16-throughput-forecast-connection*`、同 `2026-05-16-tracker-stall-roi-restriction*`。
+- **G-2 で判明・修正した根本問題**: F-3 トラッカーがカメラ全域を追跡し `departed` の約80%が stall 外の道路車両だった（G-1 検証で `k≈7` の異常値から発覚）。G-2 で検出を stall ROI union に絞り、track 行を `schema_version: 2` 化。G-1 calibration は v2 行のみ使う。
+- デプロイ後、`track-state.json` は schema マーカーで自動リセット。`vehicle-track-history.jsonl` の旧 v1（53行・whole-frame）は calibration から無視され、v2 データの蓄積に従い `bootstrapping`→`learning` へ進む。`learning` 到達で `stall-forecast.json` の `trendWindow.source` が `track` に変わる。
 - 観測は `observe-tick-local.sh` の `STOP_DATE=2026-06-01` で約2週間後に停止予定。
 
 ## 厳守ワークフロー（このプロジェクトの全機能で踏襲してきた）
@@ -42,7 +44,7 @@
 - **docs コミットに観測データファイルを混ぜない。** spec/plan commit 前に `git diff --cached --name-only` で確認、混入していたら `git restore --staged data/<file>`。
 - commit メッセージ末尾: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`。
 
-## 実装済みフェーズ（D-1〜F-3、全て本番稼働）
+## 実装済みフェーズ（D-1〜G-2、全て本番稼働）
 
 | Phase | 内容 | 主要ファイル |
 |---|---|---|
@@ -56,13 +58,14 @@
 | F-2 | T1/T2 検出ベース並行占有分析 | `detect_vehicles.py` (`count_boxes_per_stall`) |
 | F-3 | 車両フレーム間追跡（60秒・throughput） | `track_vehicles.py`, `vehicle-track-history.jsonl` |
 | G-1 | 追跡 throughput → forecast 接続（`trendFactor` 単位合わせ係数 `k`、累積比・bootstrap フォールバック） | `throughput-calibration.mjs`, `throughput-calibration.json`, `forecast-engine.mjs`（`trackTrend` 引数） |
+| G-2 | F-3 トラッカーを stall ROI 制限（`departed` を真の出庫 throughput に修正、track 行 schema v2、track-state 自己回復） | `track_vehicles.py`（`stall_rois_for_camera`/`filter_to_rois`/`state_from_json`）, `throughput-calibration.mjs`（`TRACK_SCHEMA_VERSION`） |
 
 各フェーズの spec/plan は `docs/superpowers/{specs,plans}/2026-05-16-*` にある。
 
 ## テスト
 
-- `npm test`（node:test）= 427 件。`.mjs` のみ対象。
-- Python: `.venv*/bin/python3 -m unittest tests/test_detect_vehicles.py tests/test_track_vehicles.py`（detect 13 + track 6 = 19 件）。`.py` は node:test 非対象。
+- `npm test`（node:test）= 429 件。`.mjs` / `.js` 対象。
+- Python: `.venv*/bin/python3 -m unittest tests.test_detect_vehicles tests.test_track_vehicles`（detect 13 + track 18 = 31 件）。`.py` は node:test 非対象。
 - 回帰時は両方確認。
 
 ## 既知の状態 / データタイミング
@@ -73,6 +76,7 @@
 
 ## ロードマップ残
 
+- トラッカー `DIST_THRESHOLD` の適正化（C、G-2 の続き、要ジッター実測）
 - baseline 出力の真値化（B 案、G-1 の続き、別 spec）
-- 複数カメラ追跡（F-3 は Real01_line のみ）
+- 複数カメラ追跡（F-3/G-2 は Real01_line のみ）
 - 検出ベースの並行 forecast（F-2 データ蓄積後）
