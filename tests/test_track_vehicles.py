@@ -63,10 +63,11 @@ class TestFilterToRois(unittest.TestCase):
         self.assertEqual(filter_to_rois([_det(0.8, 0.2)], []), [])
 
     def test_roi_boundary_half_open(self):
-        rois = [{'x': 0.2, 'y': 0.2, 'w': 0.1, 'h': 0.1}]
-        # x == rx (0.2) は含む、x == rx+rw (0.3) は除外
+        # w=0.2 → rx+rw=0.4 (0.2+0.2 は浮動小数点でも厳密に 0.4)
+        rois = [{'x': 0.2, 'y': 0.2, 'w': 0.2, 'h': 0.2}]
+        # x == rx (0.2) は含む、x == rx+rw (0.4) は除外
         self.assertEqual(len(filter_to_rois([_det(0.2, 0.25)], rois)), 1)
-        self.assertEqual(len(filter_to_rois([_det(0.3, 0.25)], rois)), 0)
+        self.assertEqual(len(filter_to_rois([_det(0.4, 0.25)], rois)), 0)
 
 
 class TestUpdateTracks(unittest.TestCase):

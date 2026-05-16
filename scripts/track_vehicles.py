@@ -107,13 +107,7 @@ def filter_to_rois(detections, rois):
         if x is None or y is None:
             continue
         for r in rois:
-            # 浮動小数点誤差対応: 厳密に半開区間を判定
-            x_right = r['x'] + r['w']
-            y_right = r['y'] + r['h']
-            # x は右端と isclose なら除外、そうでなければ < で判定
-            x_in = r['x'] <= x < x_right and not math.isclose(x, x_right, rel_tol=0, abs_tol=1e-9)
-            y_in = r['y'] <= y < y_right and not math.isclose(y, y_right, rel_tol=0, abs_tol=1e-9)
-            if x_in and y_in:
+            if r['x'] <= x < r['x'] + r['w'] and r['y'] <= y < r['y'] + r['h']:
                 out.append(d)
                 break
     return out
