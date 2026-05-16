@@ -170,3 +170,65 @@ test('computeLevelCorrection: 実測過小 → factor は下限 0.5 でクリッ
   const r = computeLevelCorrection(entries, actualMap, NOW);
   assert.equal(r.lead30.factor, 0.5); // 実測25/予測250 = 0.1 → クリップ 0.5
 });
+
+// --- computeShareCorrection ---
+
+import { computeShareCorrection } from '../scripts/lib/correction-engine.mjs';
+
+// transit-share フィクスチャ (noon バケットのみ使用)
+const SHARE_TS = {
+  buckets: [
+    { id: 'noon', fromHHMM: '12:00', toHHMM: '15:00', rates: { T1: 0.035, T2: 0.035, T3: 0.040 } },
+  ],
+};
+// 1 便 = estimatedTaxiPax, lobbyExitTime 13:00 (noon バケット)
+function snapshotRow(ts, flights) {
+  return { ts, tick_seq: 1, flights };
+}
+function flight(fn, taxiPax) {
+  return { flightNumber: fn, estimatedTaxiPax: taxiPax, lobbyExitTime: '13:00', terminal: 'T1' };
+}
+// actualMap: noon バケット (12:00-15:00 = slotIdx 144-179) に outflow を置く
+function noonActualMap(dateStr, totalPerSlot) {
+  const m = new Map();
+  for (let idx = 144; idx < 180; idx++) {
+    m.set(`${dateStr}#${idx}`, [totalPerSlot, 0, 0, 0]);
+  }
+  return m;
+}
+const SHARE_NOW = new Date('2026-06-03T10:00:00+09:00');
+
+test('computeShareCorrection: snapshotRows 0 件 → 全バケット fallback', () => {
+  const r = computeShareCorrection([], new Map(), SHARE_TS, SHARE_NOW);
+  assert.equal(r.noon.source, 'fallback');
+  assert.equal(r.noon.factor, 1.0);
+});
+
+test('computeShareCorrection: 完了日の比率 → factor = Σ実測 / Σ推定', () => {
+  // 6/2 (完了日): 25 便 × estimatedTaxiPax 4 = Σ推定 100。
+  // 実測 noon 36 slot × 5 = Σ実測 180。factor = 180/100 = 1.8。
+  const flights = [];
+  for (let i = 0; i < 25; i++) flights.push(flight(`F${i}`, 4));
+  const rows = [snapshotRow('2026-06-02T13:00:00+09:00', flights)];
+  const actualMap = noonActualMap('2026-06-02', 5);
+  const r = computeShareCorrection(rows, actualMap, SHARE_TS, SHARE_NOW);
+  assert.equal(r.noon.factor, 1.8);
+  assert.equal(r.noon.source, 'learning');
+  assert.equal(r.noon.flightCount, 25);
+});
+
+test('computeShareCorrection: 当日のデータは無視 (完了日のみ)', () => {
+  // SHARE_NOW = 6/3。6/3 のスナップショットは未完了日なので使われない。
+  const flights = [];
+  for (let i = 0; i < 25; i++) flights.push(flight(`F${i}`, 4));
+  const rows = [snapshotRow('2026-06-03T13:00:00+09:00', flights)];
+  const r = computeShareCorrection(rows, noonActualMap('2026-06-03', 5), SHARE_TS, SHARE_NOW);
+  assert.equal(r.noon.source, 'fallback');
+});
+
+test('computeShareCorrection: 便数 < SHARE_MIN_FLIGHTS → fallback', () => {
+  const rows = [snapshotRow('2026-06-02T13:00:00+09:00', [flight('F0', 4), flight('F1', 4)])];
+  const r = computeShareCorrection(rows, noonActualMap('2026-06-02', 5), SHARE_TS, SHARE_NOW);
+  assert.equal(r.noon.source, 'fallback');
+  assert.equal(r.noon.flightCount, 2);
+});

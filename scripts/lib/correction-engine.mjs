@@ -163,3 +163,116 @@ export function computeLevelCorrection(logEntries, actualMap, now) {
   }
   return out;
 }
+
+/**
+ * "YYYY-MM-DD" → 翌日の "YYYY-MM-DD"。
+ */
+function nextDayStr(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return ymdOf(d);
+}
+
+/**
+ * actualMap から、ある日のあるバケット時間範囲に入る slot の実測 outflow 合計を返す。
+ * バケット範囲が 24:00 を超える場合 (midnight バケット等) は翌日の slot を参照する。
+ */
+function sumActualForBucket(actualMap, dateStr, bucket) {
+  const fromMin = hhmmToMinutes(bucket.fromHHMM);
+  const toMin = hhmmToMinutes(bucket.toHHMM);
+  if (fromMin === null || toMin === null) return 0;
+  let sum = 0;
+  for (let slotIdx = Math.floor(fromMin / 5); slotIdx < Math.floor(toMin / 5); slotIdx++) {
+    let day = dateStr;
+    let idx = slotIdx;
+    if (idx >= SLOTS_PER_DAY) { day = nextDayStr(dateStr); idx -= SLOTS_PER_DAY; }
+    const actual = actualMap.get(slotKeyOf(day, idx));
+    if (actual) sum += actual[0] + actual[1] + actual[2] + actual[3];
+  }
+  return sum;
+}
+
+/**
+ * transit-share バケット率の補正係数を計算する。
+ * 直近 SHARE_WINDOW_DAYS の完了日 (当日を除く) について、バケット別に
+ * 「Σ実測outflow ÷ Σ estimatedTaxiPax」の日次比率を求め、直近日ほど重い加重平均をとる。
+ *
+ * @param {Array} snapshotRows  arrivals-snapshots/*.jsonl の行 (各 {ts, flights})
+ * @param {Map} actualMap       buildActualMap の戻り値
+ * @param {Object} transitShare data/transit-share.json (バケット定義)
+ * @param {Date} now
+ * @returns {Object} {<bucketId>: {factor, source, flightCount, dayCount}}
+ */
+export function computeShareCorrection(snapshotRows, actualMap, transitShare, now) {
+  const buckets = (transitShare && Array.isArray(transitShare.buckets)) ? transitShare.buckets : [];
+
+  // 行を日別にグループ化
+  const rowsByDay = new Map();
+  for (const row of snapshotRows) {
+    if (!row || typeof row.ts !== 'string') continue;
+    const day = row.ts.slice(0, 10);
+    if (!rowsByDay.has(day)) rowsByDay.set(day, []);
+    rowsByDay.get(day).push(row);
+  }
+  // 完了日 (当日より前) を昇順で直近 SHARE_WINDOW_DAYS 個
+  const todayStr = ymdOf(now);
+  const targetDays = [...rowsByDay.keys()]
+    .filter(d => d < todayStr)
+    .sort()
+    .slice(-SHARE_WINDOW_DAYS);
+
+  const dayRatios = {};
+  const flightCounts = {};
+  for (const b of buckets) { dayRatios[b.id] = []; flightCounts[b.id] = 0; }
+
+  targetDays.forEach((day, dayIdx) => {
+    const weight = dayIdx + 1; // 最古 = 1 .. 最新 = targetDays.length
+    const rows = [...(rowsByDay.get(day) || [])].sort((a, b) => (a.ts < b.ts ? -1 : 1));
+    // 便ごとに最終スナップショットの flight を採用 (ts 昇順 → 後勝ち)
+    const lastFlightByNumber = new Map();
+    for (const row of rows) {
+      if (!Array.isArray(row.flights)) continue;
+      for (const f of row.flights) {
+        if (f && f.flightNumber) lastFlightByNumber.set(f.flightNumber, f);
+      }
+    }
+    // バケット別 Σ estimatedTaxiPax / 便数
+    const estByBucket = {};
+    for (const b of buckets) estByBucket[b.id] = { sum: 0, count: 0 };
+    for (const f of lastFlightByNumber.values()) {
+      if (typeof f.estimatedTaxiPax !== 'number' || !f.lobbyExitTime) continue;
+      const bucket = pickBucket(f.lobbyExitTime, transitShare);
+      if (!bucket || !estByBucket[bucket.id]) continue;
+      estByBucket[bucket.id].sum += f.estimatedTaxiPax;
+      estByBucket[bucket.id].count += 1;
+    }
+    for (const b of buckets) {
+      const est = estByBucket[b.id];
+      flightCounts[b.id] += est.count;
+      if (est.sum <= 0) continue;
+      const actualSum = sumActualForBucket(actualMap, day, b);
+      dayRatios[b.id].push({ ratio: actualSum / est.sum, weight });
+    }
+  });
+
+  const share = {};
+  for (const b of buckets) {
+    const ratios = dayRatios[b.id];
+    const count = flightCounts[b.id];
+    if (ratios.length === 0 || count < SHARE_MIN_FLIGHTS) {
+      share[b.id] = { factor: 1.0, source: 'fallback', flightCount: count, dayCount: ratios.length };
+    } else {
+      let wSum = 0;
+      let wTotal = 0;
+      for (const r of ratios) { wSum += r.ratio * r.weight; wTotal += r.weight; }
+      const raw = Number((wSum / wTotal).toFixed(4));
+      share[b.id] = {
+        factor: clipFactor(raw, SHARE_FACTOR_MIN, SHARE_FACTOR_MAX),
+        source: 'learning',
+        flightCount: count,
+        dayCount: ratios.length,
+      };
+    }
+  }
+  return share;
+}
