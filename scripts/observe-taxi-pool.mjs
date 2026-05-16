@@ -302,7 +302,9 @@ async function main() {
       netdiff_sum: calibration.netDiffSum,
     }, null, 2) + '\n', 'utf8');
 
-    // trendActual: 直近60分窓 (recent の最古 tick 〜 now) の track departed 合算
+    // trendActual: 直近60分窓 (recent の最古 tick 〜 now) の track departed 合算。
+    // 窓終端は now、computeForecast の trendExpected は recent 末尾 tick (約5分前) 止まり
+    // なので track 側が約1 slot ぶん長い。spec 既知 (design 設計方針) として許容。
     const now = new Date();
     let trackTrend = null;
     if (calibration.state === 'learning' && recent.length >= 12) {
