@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 2,
-  "generatedAt": "2026-05-16T11:39:33+09:00",
+  "schemaVersion": 3,
+  "generatedAt": "2026-05-16T11:42:22+09:00",
   "share": {
     "early": {
       "T1": {
@@ -12,12 +12,14 @@
       "T2": {
         "factor": 1,
         "source": "fallback",
-        "flightCount": 14,
+        "flightCount": 15,
         "dayCount": 1
       },
       "T3": {
         "factor": 1,
-        "source": "unobservable"
+        "source": "fallback",
+        "n": 0,
+        "relativeActivity": null
       }
     },
     "morning": {
@@ -35,7 +37,9 @@
       },
       "T3": {
         "factor": 1,
-        "source": "unobservable"
+        "source": "fallback",
+        "n": 0,
+        "relativeActivity": null
       }
     },
     "noon": {
@@ -53,7 +57,9 @@
       },
       "T3": {
         "factor": 1,
-        "source": "unobservable"
+        "source": "fallback",
+        "n": 0,
+        "relativeActivity": null
       }
     },
     "afternoon": {
@@ -71,7 +77,9 @@
       },
       "T3": {
         "factor": 1,
-        "source": "unobservable"
+        "source": "fallback",
+        "n": 0,
+        "relativeActivity": null
       }
     },
     "peak1": {
@@ -89,43 +97,49 @@
       },
       "T3": {
         "factor": 1,
-        "source": "unobservable"
+        "source": "fallback",
+        "n": 0,
+        "relativeActivity": null
       }
     },
     "evening": {
       "T1": {
         "factor": 0.3,
         "source": "learning",
-        "flightCount": 35,
+        "flightCount": 37,
         "dayCount": 1
       },
       "T2": {
         "factor": 0.3,
         "source": "learning",
-        "flightCount": 40,
+        "flightCount": 41,
         "dayCount": 1
       },
       "T3": {
         "factor": 1,
-        "source": "unobservable"
+        "source": "fallback",
+        "n": 0,
+        "relativeActivity": null
       }
     },
     "peak2": {
       "T1": {
         "factor": 0.3,
         "source": "learning",
-        "flightCount": 31,
+        "flightCount": 29,
         "dayCount": 1
       },
       "T2": {
         "factor": 0.3,
         "source": "learning",
-        "flightCount": 35,
+        "flightCount": 34,
         "dayCount": 1
       },
       "T3": {
         "factor": 1,
-        "source": "unobservable"
+        "source": "fallback",
+        "n": 0,
+        "relativeActivity": null
       }
     },
     "midnight": {
@@ -143,25 +157,27 @@
       },
       "T3": {
         "factor": 1,
-        "source": "unobservable"
+        "source": "fallback",
+        "n": 0,
+        "relativeActivity": null
       }
     }
   },
   "level": {
     "lead30": {
-      "factor": 1.0643,
+      "factor": 0.7857,
       "source": "learning",
-      "n": 261
+      "n": 37
     },
     "lead60": {
-      "factor": 1.2294,
+      "factor": 1.2581,
       "source": "learning",
-      "n": 222
+      "n": 43
     },
     "lead120": {
-      "factor": 1.1481,
-      "source": "learning",
-      "n": 33
+      "factor": 1,
+      "source": "fallback",
+      "n": 7
     }
   }
 }

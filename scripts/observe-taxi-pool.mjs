@@ -23,7 +23,7 @@ import { buildActualMap, evaluateAccuracy } from './lib/accuracy-evaluator.mjs';
 import { computeEnsemble } from './lib/ensemble-engine.mjs';
 import {
   computeShareCorrection, computeLevelCorrection, applyLevelCorrection,
-  CORRECTION_SCHEMA_VERSION,
+  computeT3DirectionalCorrection, CORRECTION_SCHEMA_VERSION,
 } from './lib/correction-engine.mjs';
 import {
   T3_STAND_IMAGES, POOL_IMAGES, FULL_FRAME_ROI,
@@ -362,6 +362,22 @@ async function main() {
       share: computeShareCorrection(snapshotRows, actualMap, transitShare, new Date()),
       level: computeLevelCorrection(logEntries, actualMap, new Date()),
     };
+    // Phase E-2: T3 を方向性補正で上書き (t3-pool-history の先頭活性ベース)
+    try {
+      const t3PoolRows = [];
+      if (existsSync(T3_POOL_HISTORY_PATH)) {
+        for (const line of readFileSync(T3_POOL_HISTORY_PATH, 'utf8').trim().split('\n')) {
+          if (!line.trim()) continue;
+          try { t3PoolRows.push(JSON.parse(line)); } catch { /* skip bad line */ }
+        }
+      }
+      const t3dir = computeT3DirectionalCorrection(t3PoolRows, transitShare, new Date());
+      for (const bucketId of Object.keys(corrections.share)) {
+        if (t3dir[bucketId]) corrections.share[bucketId].T3 = t3dir[bucketId];
+      }
+    } catch (e) {
+      console.error(`[observe] T3 directional correction failed: ${e.message}`);
+    }
     writeFileSync(CORRECTIONS_OUTPUT_PATH, JSON.stringify(corrections, null, 2) + '\n', 'utf8');
     console.log(`[observe] corrections ok: level lead30=${corrections.level.lead30.factor} (${corrections.level.lead30.source})`);
   } catch (e) {
