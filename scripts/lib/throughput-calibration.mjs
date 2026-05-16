@@ -15,13 +15,28 @@ export const MIN_TRACK_TICKS_FOR_TREND = 48;     // trendActual 用 60 分窓の
 export const K_MIN = 0.5;
 export const K_MAX = 5.0;
 export const NIGHT_LUMINANCE_THRESHOLD = 30;     // 信頼サブセット条件
-export const TRACK_SCHEMA_VERSION = 2;           // F-3 stall-ROI 制限版の track 行 schema
+export const TRACK_SCHEMA_VERSION = 3;           // 複数カメラ per-camera 版の track 行 schema
+
+/**
+ * v3 track 行の全カメラ departed 合計を返す。
+ * row.cameras 配下の各カメラの departed (数値のみ) を合算する。
+ */
+function trackRowDeparted(row) {
+  let sum = 0;
+  const cameras = row.cameras;
+  if (cameras && typeof cameras === 'object') {
+    for (const cam of Object.values(cameras)) {
+      if (cam && typeof cam.departed === 'number') sum += cam.departed;
+    }
+  }
+  return sum;
+}
 
 /**
  * net-diff history と track history を5分窓で突き合わせ、累積比 k を返す。
  *
  * 信頼サブセット条件: schema_version=3 ∧ img1.roi.luminance_mean>=30 ∧ stalls 非 null。
- * net-diff outflow = stall1+stall2+stall3 の負 diff の絶対値合算 (stall4 は track 対象外)。
+ * net-diff outflow = stall1〜stall4 の負 diff の絶対値合算。
  *
  * @param {Array} netDiffHistory taxi-pool-history.jsonl の行配列
  * @param {Array} trackHistory   vehicle-track-history.jsonl の行配列
@@ -34,8 +49,7 @@ export function computeThroughputCalibration(netDiffHistory, trackHistory) {
     if (row.schema_version !== TRACK_SCHEMA_VERSION) continue;
     const tsMs = new Date(row.ts).getTime();
     if (Number.isNaN(tsMs)) continue;
-    const departed = typeof row.departed === 'number' ? row.departed : 0;
-    trackParsed.push({ tsMs, departed });
+    trackParsed.push({ tsMs, departed: trackRowDeparted(row) });
   }
 
   let trackSum = 0;
@@ -64,7 +78,7 @@ export function computeThroughputCalibration(netDiffHistory, trackHistory) {
 
     // net-diff outflow = stall1+2+3 の負 diff 絶対値
     let winNetDiff = 0;
-    for (const name of ['stall1', 'stall2', 'stall3']) {
+    for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
       const d = row.stalls[name]?.diff_occupied_from_prev;
       if (typeof d === 'number' && d < 0) winNetDiff += -d;
     }
@@ -105,7 +119,7 @@ export function sumTrackDepartedInWindow(trackHistory, startMs, endMs, minTicks)
     const tsMs = new Date(row.ts).getTime();
     if (Number.isNaN(tsMs)) continue;
     if (tsMs > startMs && tsMs <= endMs) {
-      sum += typeof row.departed === 'number' ? row.departed : 0;
+      sum += trackRowDeparted(row);
       ticks += 1;
     }
   }
