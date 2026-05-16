@@ -66,7 +66,8 @@ export function applyLevelCorrection(forecast, corrections) {
 
 /**
  * transit-share マスターに share 補正係数を掛けた実効版を返す。
- * 純関数 (マスター非破壊)。rates の各 terminal を factor 倍する。
+ * 純関数 (マスター非破壊)。端末別 (v2: entry.T1/T2/T3.factor) と
+ * 旧一律 (v1: entry.factor) の両形状を許容する。
  *
  * @param {Object} transitShareMaster  data/transit-share.json
  * @param {Object|null} corrections    coefficient-corrections.json 相当
@@ -78,10 +79,15 @@ export function buildEffectiveTransitShare(transitShareMaster, corrections) {
   if (!Array.isArray(effective.buckets)) return effective;
   for (const b of effective.buckets) {
     const entry = share[b.id];
-    const factor = (entry && typeof entry.factor === 'number') ? entry.factor : 1.0;
-    if (factor === 1.0 || !b.rates) continue;
+    if (!entry || !b.rates) continue;
     for (const term of Object.keys(b.rates)) {
-      b.rates[term] = b.rates[term] * factor;
+      let factor = 1.0;
+      if (entry[term] && typeof entry[term].factor === 'number') {
+        factor = entry[term].factor;        // v2: 端末別
+      } else if (typeof entry.factor === 'number') {
+        factor = entry.factor;              // v1: 一律
+      }
+      if (factor !== 1.0) b.rates[term] = b.rates[term] * factor;
     }
   }
   return effective;

@@ -68,12 +68,12 @@ test('applyLevelCorrection: 入力 forecast を破壊しない', () => {
   assert.equal(fc.slots[0].stall1, 2); // 元は不変
 });
 
-// --- buildEffectiveTransitShare ---
+// --- buildEffectiveTransitShare (端末別 / Phase D-4) ---
 
 function makeTransitShare() {
   return {
     buckets: [
-      { id: 'noon', fromHHMM: '12:00', toHHMM: '15:00', rates: { T1: 0.035, T2: 0.035, T3: 0.040 } },
+      { id: 'noon', fromHHMM: '12:00', toHHMM: '15:00', rates: { T1: 0.040, T2: 0.040, T3: 0.040 } },
       { id: 'peak1', fromHHMM: '17:00', toHHMM: '19:00', rates: { T1: 0.060, T2: 0.060, T3: 0.055 } },
     ],
     maxRatio: 0.40,
@@ -84,20 +84,49 @@ function makeTransitShare() {
 test('buildEffectiveTransitShare: corrections null → マスターと同値・別オブジェクト', () => {
   const master = makeTransitShare();
   const eff = buildEffectiveTransitShare(master, null);
-  assert.equal(eff.buckets[0].rates.T1, 0.035);
+  assert.equal(eff.buckets[0].rates.T1, 0.040);
   assert.equal(eff.maxRatio, 0.40);
   assert.notEqual(eff, master);
 });
 
-test('buildEffectiveTransitShare: factor 適用 → rates 乗算・maxRatio 不変・マスター非破壊', () => {
+test('buildEffectiveTransitShare: v2 端末別 → rates が端末別に乗算・マスター非破壊', () => {
   const master = makeTransitShare();
-  const corrections = { share: { noon: { factor: 2.0 }, peak1: { factor: 1.0 } } };
+  const corrections = {
+    schemaVersion: 2,
+    share: {
+      noon: {
+        T1: { factor: 2.0, source: 'learning' },
+        T2: { factor: 0.5, source: 'learning' },
+        T3: { factor: 1.0, source: 'unobservable' },
+      },
+    },
+  };
   const eff = buildEffectiveTransitShare(master, corrections);
-  assert.equal(eff.buckets[0].rates.T1, 0.070); // 0.035 * 2.0
-  assert.equal(eff.buckets[0].rates.T3, 0.080); // 0.040 * 2.0
-  assert.equal(eff.buckets[1].rates.T1, 0.060); // peak1 factor 1.0
+  assert.equal(eff.buckets[0].rates.T1, 0.080); // 0.040 * 2.0
+  assert.equal(eff.buckets[0].rates.T2, 0.020); // 0.040 * 0.5
+  assert.equal(eff.buckets[0].rates.T3, 0.040); // 0.040 * 1.0
+  assert.equal(eff.buckets[1].rates.T1, 0.060); // peak1 は補正なし
   assert.equal(eff.maxRatio, 0.40);
-  assert.equal(master.buckets[0].rates.T1, 0.035); // マスター不変
+  assert.equal(master.buckets[0].rates.T1, 0.040); // マスター不変
+});
+
+test('buildEffectiveTransitShare: 旧 v1 一律形状 → 全端末に同じ factor を適用', () => {
+  const master = makeTransitShare();
+  const corrections = { schemaVersion: 1, share: { noon: { factor: 2.0, source: 'learning' } } };
+  const eff = buildEffectiveTransitShare(master, corrections);
+  assert.equal(eff.buckets[0].rates.T1, 0.080); // 0.040 * 2.0
+  assert.equal(eff.buckets[0].rates.T2, 0.080);
+  assert.equal(eff.buckets[0].rates.T3, 0.080);
+});
+
+test('buildEffectiveTransitShare: factor 未定義端末 → 1.0 (補正なし)', () => {
+  const master = makeTransitShare();
+  // noon に T1 のみ補正、T2/T3 エントリなし
+  const corrections = { schemaVersion: 2, share: { noon: { T1: { factor: 1.5 } } } };
+  const eff = buildEffectiveTransitShare(master, corrections);
+  assert.equal(eff.buckets[0].rates.T1, 0.060); // 0.040 * 1.5
+  assert.equal(eff.buckets[0].rates.T2, 0.040); // 補正なし
+  assert.equal(eff.buckets[0].rates.T3, 0.040);
 });
 
 // --- computeLevelCorrection ---
