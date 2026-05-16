@@ -62,3 +62,54 @@ export function computeWeights(accuracy) {
   }
   return out;
 }
+
+function jstNowIsoString(now) {
+  const jst = new Date(now.getTime() + 9 * 3600 * 1000);
+  return jst.toISOString().replace('Z', '+09:00').replace(/\.\d+/, '');
+}
+
+/**
+ * forecast と pattern-match を重み付き平均した統合予測を作る。
+ *
+ * @param {{slots: Array}|null} forecast        stall-forecast.json 相当
+ * @param {{historicalCurve: Array}|null} patternMatch  stall-pattern-match.json 相当
+ * @param {Object|null} accuracy                forecast-accuracy.json 相当
+ * @param {Date} now
+ * @returns 統合予測オブジェクト
+ */
+export function computeEnsemble(forecast, patternMatch, accuracy, now) {
+  const weights = computeWeights(accuracy);
+  const fcSlots = (forecast && Array.isArray(forecast.slots)) ? forecast.slots : [];
+  const pmSlots = (patternMatch && Array.isArray(patternMatch.historicalCurve))
+    ? patternMatch.historicalCurve : [];
+  const pmBySlot = new Map();
+  for (const s of pmSlots) pmBySlot.set(s.slotStart, s);
+
+  const slots = fcSlots.map((fc, i) => {
+    const leadMinutes = (i + 1) * 5;
+    const bucket = leadBucketOf(leadMinutes);
+    const { w_fc, w_pm } = weights[bucket];
+    const pm = pmBySlot.get(fc.slotStart) || null;
+    const out = { slotStart: fc.slotStart, leadBucket: bucket };
+    let total = 0;
+    for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
+      let val;
+      if (pm === null) {
+        val = fc[name];
+      } else {
+        val = Math.round(fc[name] * w_fc + pm[name] * w_pm);
+      }
+      out[name] = val;
+      total += val;
+    }
+    out.total = total;
+    return out;
+  });
+
+  return {
+    schemaVersion: ENSEMBLE_SCHEMA_VERSION,
+    generatedAt: jstNowIsoString(now),
+    weights,
+    slots,
+  };
+}
