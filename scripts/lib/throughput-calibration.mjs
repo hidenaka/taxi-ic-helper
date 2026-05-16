@@ -15,6 +15,7 @@ export const MIN_TRACK_TICKS_FOR_TREND = 48;     // trendActual 用 60 分窓の
 export const K_MIN = 0.5;
 export const K_MAX = 5.0;
 export const NIGHT_LUMINANCE_THRESHOLD = 30;     // 信頼サブセット条件
+export const TRACK_SCHEMA_VERSION = 2;           // F-3 stall-ROI 制限版の track 行 schema
 
 /**
  * net-diff history と track history を5分窓で突き合わせ、累積比 k を返す。
@@ -30,6 +31,7 @@ export function computeThroughputCalibration(netDiffHistory, trackHistory) {
   // track 行を {tsMs, departed} に1回だけパース
   const trackParsed = [];
   for (const row of trackHistory) {
+    if (row.schema_version !== TRACK_SCHEMA_VERSION) continue;
     const tsMs = new Date(row.ts).getTime();
     if (Number.isNaN(tsMs)) continue;
     const departed = typeof row.departed === 'number' ? row.departed : 0;
@@ -99,6 +101,7 @@ export function sumTrackDepartedInWindow(trackHistory, startMs, endMs, minTicks)
   let sum = 0;
   let ticks = 0;
   for (const row of trackHistory) {
+    if (row.schema_version !== TRACK_SCHEMA_VERSION) continue;
     const tsMs = new Date(row.ts).getTime();
     if (Number.isNaN(tsMs)) continue;
     if (tsMs > startMs && tsMs <= endMs) {

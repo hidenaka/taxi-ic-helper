@@ -35,7 +35,7 @@ function buildFixture(windows, opts = {}) {
     netDiffHistory.push(makeNetDiffRow(new Date(endMs).toISOString(), { s1, s2, s3, s4 }));
     for (let j = 0; j < trackPerWindow; j++) {
       const tsMs = endMs - 30000 - j * 60000; // 窓内: -0.5min, -1.5min, ...
-      trackHistory.push({ schema_version: 1, ts: new Date(tsMs).toISOString(), departed: departedPerTick });
+      trackHistory.push({ schema_version: 2, ts: new Date(tsMs).toISOString(), departed: departedPerTick });
     }
   }
   return { netDiffHistory, trackHistory };
@@ -96,7 +96,7 @@ test('computeThroughputCalibration: 信頼サブセット外の net-diff 行は�
   const base = new Date('2026-05-14T10:00:00+09:00').getTime();
   const ts = new Date(base).toISOString();
   const trackHistory = [0, 1, 2, 3, 4].map(j => ({
-    ts: new Date(base - 30000 - j * 60000).toISOString(), departed: 1,
+    schema_version: 2, ts: new Date(base - 30000 - j * 60000).toISOString(), departed: 1,
   }));
   const netDiffHistory = [
     makeNetDiffRow(ts, { s1: -5, schema: 2 }),   // schema≠3
@@ -125,7 +125,7 @@ test('computeThroughputCalibration: 正の diff (入庫) は outflow に数え�
 function makeTrackRows(startMs, count, stepMs, departed) {
   const rows = [];
   for (let i = 0; i < count; i++) {
-    rows.push({ ts: new Date(startMs + i * stepMs).toISOString(), departed });
+    rows.push({ schema_version: 2, ts: new Date(startMs + i * stepMs).toISOString(), departed });
   }
   return rows;
 }
@@ -175,4 +175,29 @@ test('sumTrackDepartedInWindow: 区間は (startMs, endMs] の半開区間', () 
   const endMs = base + 59 * 60000;
   const sum = sumTrackDepartedInWindow(rows, base, endMs, 48);
   assert.equal(sum, 59); // rows[1..59]
+});
+
+test('computeThroughputCalibration: schema_version!==2 の track 行は無視される', () => {
+  // 12 窓ぶんの net-diff + track だが track 行を旧 v1 で作る
+  const base = new Date('2026-05-14T10:00:00+09:00').getTime();
+  const netDiffHistory = [];
+  const trackHistory = [];
+  for (let i = 0; i < 12; i++) {
+    const endMs = base + i * WINDOW_MS;
+    netDiffHistory.push(makeNetDiffRow(new Date(endMs).toISOString(), { s1: -8 }));
+    for (let j = 0; j < 5; j++) {
+      trackHistory.push({ schema_version: 1, ts: new Date(endMs - 30000 - j * 60000).toISOString(), departed: 2 });
+    }
+  }
+  const r = computeThroughputCalibration(netDiffHistory, trackHistory);
+  assert.equal(r.windowCount, 0); // v1 行は無視 → 各窓 track 0 本 → 不採用
+  assert.equal(r.state, 'bootstrapping');
+});
+
+test('sumTrackDepartedInWindow: schema_version!==2 の行は合算しない', () => {
+  const base = new Date('2026-05-14T10:00:00+09:00').getTime();
+  const v2 = makeTrackRows(base, 60, 60000, 1);                                  // 60 本 v2、departed 1
+  const v1 = makeTrackRows(base, 60, 60000, 100).map(r => ({ ...r, schema_version: 1 })); // v1、departed 100
+  const sum = sumTrackDepartedInWindow([...v2, ...v1], base - 1, base + 60 * 60000, 48);
+  assert.equal(sum, 60); // v2 の 60本×1 のみ。v1 は無視
 });
