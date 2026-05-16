@@ -67,6 +67,58 @@ def update_tracks(prev_tracks, detections, next_id, max_missed, dist_threshold):
     return {'tracks': out_tracks, 'next_id': next_id, 'arrived': arrived, 'departed': departed}
 
 
+def stall_rois_for_camera(stall_rois_json, camera):
+    """stall-rois.json から指定カメラの stall ROI を 0-1 正規化した rect list で返す純関数。
+
+    stall_rois_json: stall-rois.json をパースした dict。
+    camera: カメラ名 (例 'real01_line')。source との一致は大文字小文字を無視。
+    戻り値: [{'x','y','w','h'}, ...]。該当 stall が無ければ []。
+    """
+    meta = stall_rois_json.get('_meta', {})
+    size = meta.get('image_size', [800, 600])
+    img_w, img_h = size[0], size[1]
+    rois = []
+    for stall in (stall_rois_json.get('stalls') or {}).values():
+        if str(stall.get('source', '')).lower() != camera.lower():
+            continue
+        roi = stall.get('roi') or {}
+        rois.append({
+            'x': roi.get('x', 0) / img_w,
+            'y': roi.get('y', 0) / img_h,
+            'w': roi.get('width', 0) / img_w,
+            'h': roi.get('height', 0) / img_h,
+        })
+    return rois
+
+
+def filter_to_rois(detections, rois):
+    """detection の中心 (x,y) がいずれかの ROI 内のものだけ返す純関数。
+
+    detections: [{x,y,...}, ...] (x/y は中心の 0-1 正規化座標)。
+    rois: stall_rois_for_camera の戻り (正規化 rect の list)。
+    rois が空なら [] を返す (ROI 不明時に全車を通さない fail-safe)。
+    判定は半開区間 rx <= x < rx+rw かつ ry <= y < ry+rh。
+    """
+    if not rois:
+        return []
+    out = []
+    for d in detections:
+        x, y = d.get('x'), d.get('y')
+        if x is None or y is None:
+            continue
+        for r in rois:
+            # 浮動小数点誤差対応: 厳密に半開区間を判定
+            x_right = r['x'] + r['w']
+            y_right = r['y'] + r['h']
+            # x は右端と isclose なら除外、そうでなければ < で判定
+            x_in = r['x'] <= x < x_right and not math.isclose(x, x_right, rel_tol=0, abs_tol=1e-9)
+            y_in = r['y'] <= y < y_right and not math.isclose(y, y_right, rel_tol=0, abs_tol=1e-9)
+            if x_in and y_in:
+                out.append(d)
+                break
+    return out
+
+
 def jst_now_iso():
     """現在時刻の JST ISO 文字列 (秒精度)。"""
     return datetime.now(timezone(timedelta(hours=9))).isoformat(timespec='seconds')

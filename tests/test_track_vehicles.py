@@ -3,7 +3,7 @@ import os
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-from track_vehicles import update_tracks
+from track_vehicles import update_tracks, stall_rois_for_camera, filter_to_rois
 
 
 def _det(x, y):
@@ -12,6 +12,61 @@ def _det(x, y):
 
 def _trk(tid, x, y, missed=0):
     return {'id': tid, 'x': x, 'y': y, 'w': 0.05, 'h': 0.05, 'missed': missed}
+
+
+SAMPLE_STALL_ROIS = {
+    '_meta': {'image_size': [800, 600]},
+    'stalls': {
+        'stall1': {'source': 'real01_line', 'roi': {'x': 600, 'y': 80, 'width': 200, 'height': 170}},
+        'stall2': {'source': 'real01_line', 'roi': {'x': 600, 'y': 250, 'width': 200, 'height': 150}},
+        'stall4': {'source': 'real02', 'roi': {'x': 400, 'y': 0, 'width': 400, 'height': 250}},
+    },
+}
+
+
+class TestStallRoisForCamera(unittest.TestCase):
+    def test_filters_by_source_and_normalizes(self):
+        rois = stall_rois_for_camera(SAMPLE_STALL_ROIS, 'real01_line')
+        self.assertEqual(len(rois), 2)  # stall1, stall2 のみ (stall4 は real02)
+        self.assertAlmostEqual(rois[0]['x'], 600 / 800)
+        self.assertAlmostEqual(rois[0]['y'], 80 / 600)
+        self.assertAlmostEqual(rois[0]['w'], 200 / 800)
+        self.assertAlmostEqual(rois[0]['h'], 170 / 600)
+
+    def test_case_insensitive(self):
+        rois = stall_rois_for_camera(SAMPLE_STALL_ROIS, 'Real01_line')
+        self.assertEqual(len(rois), 2)
+
+    def test_no_match_returns_empty(self):
+        self.assertEqual(stall_rois_for_camera(SAMPLE_STALL_ROIS, 'real99'), [])
+
+
+class TestFilterToRois(unittest.TestCase):
+    def test_keeps_detection_inside_roi(self):
+        rois = [{'x': 0.75, 'y': 0.1, 'w': 0.25, 'h': 0.3}]
+        dets = [_det(0.8, 0.2)]
+        self.assertEqual(filter_to_rois(dets, rois), dets)
+
+    def test_drops_detection_outside_roi(self):
+        rois = [{'x': 0.75, 'y': 0.1, 'w': 0.25, 'h': 0.3}]
+        self.assertEqual(filter_to_rois([_det(0.1, 0.2)], rois), [])
+
+    def test_union_of_multiple_rois(self):
+        rois = [
+            {'x': 0.0, 'y': 0.0, 'w': 0.1, 'h': 0.1},
+            {'x': 0.75, 'y': 0.1, 'w': 0.25, 'h': 0.3},
+        ]
+        d = _det(0.8, 0.2)  # 2 つ目の ROI 内
+        self.assertEqual(filter_to_rois([d], rois), [d])
+
+    def test_empty_rois_returns_empty(self):
+        self.assertEqual(filter_to_rois([_det(0.8, 0.2)], []), [])
+
+    def test_roi_boundary_half_open(self):
+        rois = [{'x': 0.2, 'y': 0.2, 'w': 0.1, 'h': 0.1}]
+        # x == rx (0.2) は含む、x == rx+rw (0.3) は除外
+        self.assertEqual(len(filter_to_rois([_det(0.2, 0.25)], rois)), 1)
+        self.assertEqual(len(filter_to_rois([_det(0.3, 0.25)], rois)), 0)
 
 
 class TestUpdateTracks(unittest.TestCase):
