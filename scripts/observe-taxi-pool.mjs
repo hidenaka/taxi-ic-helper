@@ -21,6 +21,10 @@ import { loadHolidaysSet } from './lib/calendar-context.mjs';
 import { buildLogEntry } from './lib/forecast-logger.mjs';
 import { buildActualMap, evaluateAccuracy } from './lib/accuracy-evaluator.mjs';
 import { computeEnsemble } from './lib/ensemble-engine.mjs';
+import {
+  computeShareCorrection, computeLevelCorrection, applyLevelCorrection,
+  CORRECTION_SCHEMA_VERSION,
+} from './lib/correction-engine.mjs';
 
 const REAL01_URL = 'https://ttc.taxi-inf.jp/Real01_line.jpg';
 const REAL02_URL = 'https://ttc.taxi-inf.jp/Real02.jpg';
@@ -33,6 +37,8 @@ const HOLIDAYS_PATH = './data/japan-holidays.json';
 const FORECAST_LOG_PATH = './data/forecast-log.jsonl';
 const FORECAST_ACCURACY_PATH = './data/forecast-accuracy.json';
 const ENSEMBLE_OUTPUT_PATH = './data/stall-ensemble.json';
+const CORRECTIONS_OUTPUT_PATH = './data/coefficient-corrections.json';
+const TRANSIT_SHARE_PATH = './data/transit-share.json';
 const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
 const TIMEOUT_MS = 15000;
 const STALL_ROIS_PATH = './scripts/lib/stall-rois.json';
@@ -296,6 +302,8 @@ async function main() {
 
   // Phase D-1: 予測ログ記録 + 精度評価
   let accuracyResult = null;
+  let logEntries = [];
+  let actualMap = new Map();
   try {
     const logEntry = buildLogEntry(
       forecastResult,
@@ -306,7 +314,6 @@ async function main() {
     if (logEntry) {
       appendFileSync(FORECAST_LOG_PATH, JSON.stringify(logEntry) + '\n', 'utf8');
     }
-    let logEntries = [];
     if (existsSync(FORECAST_LOG_PATH)) {
       const logLines = readFileSync(FORECAST_LOG_PATH, 'utf8').trim().split('\n');
       for (const line of logLines) {
@@ -320,7 +327,7 @@ async function main() {
       if (!line.trim()) continue;
       try { accHistory.push(JSON.parse(line)); } catch { /* skip bad line */ }
     }
-    const actualMap = buildActualMap(accHistory);
+    actualMap = buildActualMap(accHistory);
     accuracyResult = evaluateAccuracy(logEntries, actualMap, new Date());
     writeFileSync(FORECAST_ACCURACY_PATH, JSON.stringify(accuracyResult, null, 2) + '\n', 'utf8');
     console.log(`[observe] accuracy ok: logEntries=${accuracyResult.logEntryCount} recent24h winner lead30=${accuracyResult.recent24h.winner.lead30}`);
@@ -328,10 +335,39 @@ async function main() {
     console.error(`[observe] accuracy evaluation failed: ${e.message}`);
   }
 
-  // Phase D-2: アンサンブル統合予測
+  // Phase D-3: 係数オンライン補正
+  let corrections = null;
   try {
+    // 直近 SHARE_WINDOW_DAYS+1 日分の arrivals-snapshot を読む (完了日判定は純関数側)
+    const snapshotRows = [];
+    for (let back = 0; back <= 7; back++) {
+      const d = new Date(Date.now() - back * 86400000);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const path = `${SNAPSHOTS_DIR}/arrivals-${dateStr}.jsonl`;
+      if (!existsSync(path)) continue;
+      for (const line of readFileSync(path, 'utf8').trim().split('\n')) {
+        if (!line.trim()) continue;
+        try { snapshotRows.push(JSON.parse(line)); } catch { /* skip bad line */ }
+      }
+    }
+    const transitShare = JSON.parse(readFileSync(TRANSIT_SHARE_PATH, 'utf8'));
+    corrections = {
+      schemaVersion: CORRECTION_SCHEMA_VERSION,
+      generatedAt: ts,
+      share: computeShareCorrection(snapshotRows, actualMap, transitShare, new Date()),
+      level: computeLevelCorrection(logEntries, actualMap, new Date()),
+    };
+    writeFileSync(CORRECTIONS_OUTPUT_PATH, JSON.stringify(corrections, null, 2) + '\n', 'utf8');
+    console.log(`[observe] corrections ok: level lead30=${corrections.level.lead30.factor} (${corrections.level.lead30.source})`);
+  } catch (e) {
+    console.error(`[observe] correction generation failed: ${e.message}`);
+  }
+
+  // Phase D-2: アンサンブル統合予測 (D-3 level 補正済み forecast を入力)
+  try {
+    const correctedForecast = applyLevelCorrection(forecastResult, corrections);
     const ensemble = computeEnsemble(
-      forecastResult,
+      correctedForecast,
       patternMatchResult ? { historicalCurve: patternMatchResult.historicalCurve } : null,
       accuracyResult,
       new Date()
