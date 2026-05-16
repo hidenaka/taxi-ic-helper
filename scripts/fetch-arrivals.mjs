@@ -2,6 +2,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fetchHndArrivals } from './lib/odpt-client.mjs';
 import { transformArrivals } from './lib/arrival-transformer.mjs';
+import { buildEffectiveTransitShare } from './lib/correction-engine.mjs';
 
 const TOKEN = process.env.ODPT_TOKEN;
 if (!TOKEN) {
@@ -22,6 +23,13 @@ if (jstHour < 5) {
 const seatsMaster = JSON.parse(readFileSync('./data/aircraft-seats.json', 'utf8'));
 const factorsMaster = JSON.parse(readFileSync('./data/load-factors.json', 'utf8'));
 const transitShareMaster = JSON.parse(readFileSync('./data/transit-share.json', 'utf8'));
+let coefficientCorrections = null;
+try {
+  coefficientCorrections = JSON.parse(readFileSync('./data/coefficient-corrections.json', 'utf8'));
+} catch {
+  coefficientCorrections = null; // 欠損・不正時は補正なし (係数 1.0)
+}
+const effectiveTransitShare = buildEffectiveTransitShare(transitShareMaster, coefficientCorrections);
 const routesMaster = JSON.parse(readFileSync('./data/last-mile-routes.json', 'utf8'));
 const egressMaster = JSON.parse(readFileSync('./data/terminal-egress.json', 'utf8'));
 
@@ -72,7 +80,7 @@ const out = transformArrivals(
   seatsMaster,
   factorsMaster,
   {
-    transitShare: transitShareMaster,
+    transitShare: effectiveTransitShare,
     routes: routesMaster,
     egress: egressMaster,
     railStatus: railStatusOperators,
