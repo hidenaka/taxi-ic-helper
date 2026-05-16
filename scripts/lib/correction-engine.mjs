@@ -11,7 +11,7 @@ import { slotKeyOf } from './accuracy-evaluator.mjs';
 import { pickBucket } from './taxi-estimator.mjs';
 import { hhmmToMinutes } from './route-reachability.mjs';
 
-export const CORRECTION_SCHEMA_VERSION = 1;
+export const CORRECTION_SCHEMA_VERSION = 2;
 export const SHARE_WINDOW_DAYS = 7;
 export const SHARE_MIN_FLIGHTS = 20;
 export const SHARE_FACTOR_MIN = 0.3;
@@ -24,6 +24,9 @@ export const SLOTS_PER_HOUR = 12;
 export const SLOTS_PER_DAY = 288;
 
 const STALL_NAMES = ['stall1', 'stall2', 'stall3', 'stall4'];
+
+// stall 添字 (buildActualMap の [s1,s2,s3,s4] 配列) → 端末。stall-rois.json 準拠。
+const TERMINAL_STALLS = { T1: [0, 1], T2: [2, 3] };
 
 /**
  * 数値を [min, max] にクリップ。NaN・非有限・非数は 1.0。
@@ -175,9 +178,10 @@ function nextDayStr(dateStr) {
 
 /**
  * actualMap から、ある日のあるバケット時間範囲に入る slot の実測 outflow 合計を返す。
+ * stallIndices で集計対象の stall 添字を指定する (T1=[0,1], T2=[2,3])。
  * バケット範囲が 24:00 を超える場合 (midnight バケット等) は翌日の slot を参照する。
  */
-function sumActualForBucket(actualMap, dateStr, bucket) {
+function sumActualForBucket(actualMap, dateStr, bucket, stallIndices) {
   const fromMin = hhmmToMinutes(bucket.fromHHMM);
   const toMin = hhmmToMinutes(bucket.toHHMM);
   if (fromMin === null || toMin === null) return 0;
@@ -187,21 +191,27 @@ function sumActualForBucket(actualMap, dateStr, bucket) {
     let idx = slotIdx;
     if (idx >= SLOTS_PER_DAY) { day = nextDayStr(dateStr); idx -= SLOTS_PER_DAY; }
     const actual = actualMap.get(slotKeyOf(day, idx));
-    if (actual) sum += actual[0] + actual[1] + actual[2] + actual[3];
+    if (actual) {
+      for (const si of stallIndices) sum += actual[si];
+    }
   }
   return sum;
 }
 
 /**
- * transit-share バケット率の補正係数を計算する。
- * 直近 SHARE_WINDOW_DAYS の完了日 (当日を除く) について、バケット別に
+ * transit-share バケット率の補正係数を端末別 (T1/T2/T3) に計算する。
+ * 直近 SHARE_WINDOW_DAYS の完了日について、バケット×端末別に
  * 「Σ実測outflow ÷ Σ estimatedTaxiPax」の日次比率を求め、直近日ほど重い加重平均をとる。
+ *
+ * T1 = stall1+stall2 outflow / terminal=="T1" 便。
+ * T2 = stall3+stall4 outflow / terminal=="T2" 便。
+ * T3 = 観測 stall が無いため常に factor 1.0・source "unobservable"。
  *
  * @param {Array} snapshotRows  arrivals-snapshots/*.jsonl の行 (各 {ts, flights})
  * @param {Map} actualMap       buildActualMap の戻り値
  * @param {Object} transitShare data/transit-share.json (バケット定義)
  * @param {Date} now
- * @returns {Object} {<bucketId>: {factor, source, flightCount, dayCount}}
+ * @returns {Object} {<bucketId>: {T1, T2, T3}} 各端末 {factor, source, flightCount?, dayCount?}
  */
 export function computeShareCorrection(snapshotRows, actualMap, transitShare, now) {
   const buckets = (transitShare && Array.isArray(transitShare.buckets)) ? transitShare.buckets : [];
@@ -221,9 +231,13 @@ export function computeShareCorrection(snapshotRows, actualMap, transitShare, no
     .sort()
     .slice(-SHARE_WINDOW_DAYS);
 
+  // dayRatios[bucketId][term] = [{ratio, weight}]、flightCounts[bucketId][term] = 件数
   const dayRatios = {};
   const flightCounts = {};
-  for (const b of buckets) { dayRatios[b.id] = []; flightCounts[b.id] = 0; }
+  for (const b of buckets) {
+    dayRatios[b.id] = { T1: [], T2: [] };
+    flightCounts[b.id] = { T1: 0, T2: 0 };
+  }
 
   targetDays.forEach((day, dayIdx) => {
     const weight = dayIdx + 1; // 最古 = 1 .. 最新 = targetDays.length
@@ -236,43 +250,51 @@ export function computeShareCorrection(snapshotRows, actualMap, transitShare, no
         if (f && f.flightNumber) lastFlightByNumber.set(f.flightNumber, f);
       }
     }
-    // バケット別 Σ estimatedTaxiPax / 便数
+    // バケット×端末別 Σ estimatedTaxiPax / 便数 (T1/T2 のみ。T3・不明は除外)
     const estByBucket = {};
-    for (const b of buckets) estByBucket[b.id] = { sum: 0, count: 0 };
+    for (const b of buckets) estByBucket[b.id] = { T1: { sum: 0, count: 0 }, T2: { sum: 0, count: 0 } };
     for (const f of lastFlightByNumber.values()) {
       if (typeof f.estimatedTaxiPax !== 'number' || !f.lobbyExitTime) continue;
+      const term = f.terminal;
+      if (term !== 'T1' && term !== 'T2') continue;
       const bucket = pickBucket(f.lobbyExitTime, transitShare);
       if (!bucket || !estByBucket[bucket.id]) continue;
-      estByBucket[bucket.id].sum += f.estimatedTaxiPax;
-      estByBucket[bucket.id].count += 1;
+      estByBucket[bucket.id][term].sum += f.estimatedTaxiPax;
+      estByBucket[bucket.id][term].count += 1;
     }
     for (const b of buckets) {
-      const est = estByBucket[b.id];
-      flightCounts[b.id] += est.count;
-      if (est.sum <= 0) continue;
-      const actualSum = sumActualForBucket(actualMap, day, b);
-      dayRatios[b.id].push({ ratio: actualSum / est.sum, weight });
+      for (const term of ['T1', 'T2']) {
+        const est = estByBucket[b.id][term];
+        flightCounts[b.id][term] += est.count;
+        if (est.sum <= 0) continue;
+        const actualSum = sumActualForBucket(actualMap, day, b, TERMINAL_STALLS[term]);
+        dayRatios[b.id][term].push({ ratio: actualSum / est.sum, weight });
+      }
     }
   });
 
   const share = {};
   for (const b of buckets) {
-    const ratios = dayRatios[b.id];
-    const count = flightCounts[b.id];
-    if (ratios.length === 0 || count < SHARE_MIN_FLIGHTS) {
-      share[b.id] = { factor: 1.0, source: 'fallback', flightCount: count, dayCount: ratios.length };
-    } else {
-      let wSum = 0;
-      let wTotal = 0;
-      for (const r of ratios) { wSum += r.ratio * r.weight; wTotal += r.weight; }
-      const raw = Number((wSum / wTotal).toFixed(4));
-      share[b.id] = {
-        factor: clipFactor(raw, SHARE_FACTOR_MIN, SHARE_FACTOR_MAX),
-        source: 'learning',
-        flightCount: count,
-        dayCount: ratios.length,
-      };
+    share[b.id] = {};
+    for (const term of ['T1', 'T2']) {
+      const ratios = dayRatios[b.id][term];
+      const count = flightCounts[b.id][term];
+      if (ratios.length === 0 || count < SHARE_MIN_FLIGHTS) {
+        share[b.id][term] = { factor: 1.0, source: 'fallback', flightCount: count, dayCount: ratios.length };
+      } else {
+        let wSum = 0;
+        let wTotal = 0;
+        for (const r of ratios) { wSum += r.ratio * r.weight; wTotal += r.weight; }
+        const raw = Number((wSum / wTotal).toFixed(4));
+        share[b.id][term] = {
+          factor: clipFactor(raw, SHARE_FACTOR_MIN, SHARE_FACTOR_MAX),
+          source: 'learning',
+          flightCount: count,
+          dayCount: ratios.length,
+        };
+      }
     }
+    share[b.id].T3 = { factor: 1.0, source: 'unobservable' };
   }
   return share;
 }

@@ -171,7 +171,7 @@ test('computeLevelCorrection: 実測過小 → factor は下限 0.5 でクリッ
   assert.equal(r.lead30.factor, 0.5); // 実測25/予測250 = 0.1 → クリップ 0.5
 });
 
-// --- computeShareCorrection ---
+// --- computeShareCorrection (端末別 / Phase D-4) ---
 
 import { computeShareCorrection } from '../scripts/lib/correction-engine.mjs';
 
@@ -181,54 +181,99 @@ const SHARE_TS = {
     { id: 'noon', fromHHMM: '12:00', toHHMM: '15:00', rates: { T1: 0.035, T2: 0.035, T3: 0.040 } },
   ],
 };
-// 1 便 = estimatedTaxiPax, lobbyExitTime 13:00 (noon バケット)
+// 1 便: estimatedTaxiPax + terminal、lobbyExitTime 13:00 (noon バケット)
+function flight(fn, taxiPax, terminal) {
+  return { flightNumber: fn, estimatedTaxiPax: taxiPax, lobbyExitTime: '13:00', terminal };
+}
 function snapshotRow(ts, flights) {
   return { ts, tick_seq: 1, flights };
 }
-function flight(fn, taxiPax) {
-  return { flightNumber: fn, estimatedTaxiPax: taxiPax, lobbyExitTime: '13:00', terminal: 'T1' };
-}
-// actualMap: noon バケット (12:00-15:00 = slotIdx 144-179) に outflow を置く
-function noonActualMap(dateStr, totalPerSlot) {
+// actualMap: noon バケット (slotIdx 144-179) に stall 別 outflow を置く
+function noonActualMap(dateStr, s1, s2, s3, s4) {
   const m = new Map();
   for (let idx = 144; idx < 180; idx++) {
-    m.set(`${dateStr}#${idx}`, [totalPerSlot, 0, 0, 0]);
+    m.set(`${dateStr}#${idx}`, [s1, s2, s3, s4]);
   }
   return m;
 }
 const SHARE_NOW = new Date('2026-06-03T10:00:00+09:00');
 
-test('computeShareCorrection: snapshotRows 0 件 → 全バケット fallback', () => {
+test('computeShareCorrection: snapshotRows 0 件 → T1/T2 fallback・T3 unobservable', () => {
   const r = computeShareCorrection([], new Map(), SHARE_TS, SHARE_NOW);
-  assert.equal(r.noon.source, 'fallback');
-  assert.equal(r.noon.factor, 1.0);
+  assert.equal(r.noon.T1.source, 'fallback');
+  assert.equal(r.noon.T1.factor, 1.0);
+  assert.equal(r.noon.T2.source, 'fallback');
+  assert.equal(r.noon.T3.source, 'unobservable');
+  assert.equal(r.noon.T3.factor, 1.0);
 });
 
-test('computeShareCorrection: 完了日の比率 → factor = Σ実測 / Σ推定', () => {
-  // 6/2 (完了日): 25 便 × estimatedTaxiPax 4 = Σ推定 100。
-  // 実測 noon 36 slot × 5 = Σ実測 180。factor = 180/100 = 1.8。
+test('computeShareCorrection: T1 便 × stall1+2 outflow → T1 factor 算出', () => {
+  // 6/2 完了日: T1 便 25 × estimatedTaxiPax 4 = Σ推定 100。
+  // stall1=3 + stall2=2 = 5/slot × 36 slot = Σ実測 180。T1 factor = 1.8。
   const flights = [];
-  for (let i = 0; i < 25; i++) flights.push(flight(`F${i}`, 4));
+  for (let i = 0; i < 25; i++) flights.push(flight(`T1F${i}`, 4, 'T1'));
   const rows = [snapshotRow('2026-06-02T13:00:00+09:00', flights)];
-  const actualMap = noonActualMap('2026-06-02', 5);
+  const actualMap = noonActualMap('2026-06-02', 3, 2, 0, 0);
   const r = computeShareCorrection(rows, actualMap, SHARE_TS, SHARE_NOW);
-  assert.equal(r.noon.factor, 1.8);
-  assert.equal(r.noon.source, 'learning');
-  assert.equal(r.noon.flightCount, 25);
+  assert.equal(r.noon.T1.factor, 1.8);
+  assert.equal(r.noon.T1.source, 'learning');
+  assert.equal(r.noon.T1.flightCount, 25);
+  // T2 便なし → T2 fallback
+  assert.equal(r.noon.T2.source, 'fallback');
+});
+
+test('computeShareCorrection: T2 便 × stall3+4 outflow → T2 factor 算出', () => {
+  // T2 便 25 × 4 = Σ推定 100。stall3=4 + stall4=1 = 5/slot × 36 = 180。T2 factor 1.8。
+  const flights = [];
+  for (let i = 0; i < 25; i++) flights.push(flight(`T2F${i}`, 4, 'T2'));
+  const rows = [snapshotRow('2026-06-02T13:00:00+09:00', flights)];
+  const actualMap = noonActualMap('2026-06-02', 0, 0, 4, 1);
+  const r = computeShareCorrection(rows, actualMap, SHARE_TS, SHARE_NOW);
+  assert.equal(r.noon.T2.factor, 1.8);
+  assert.equal(r.noon.T2.source, 'learning');
+});
+
+test('computeShareCorrection: T1/T2 混在 → 端末別に独立算出', () => {
+  // T1: 25 便 × 4 = 100、stall1+2 = 2/slot × 36 = 72 → factor 0.72。
+  // T2: 25 便 × 4 = 100、stall3+4 = 6/slot × 36 = 216 → factor 2.16。
+  const flights = [];
+  for (let i = 0; i < 25; i++) flights.push(flight(`T1F${i}`, 4, 'T1'));
+  for (let i = 0; i < 25; i++) flights.push(flight(`T2F${i}`, 4, 'T2'));
+  const rows = [snapshotRow('2026-06-02T13:00:00+09:00', flights)];
+  const actualMap = noonActualMap('2026-06-02', 1, 1, 3, 3);
+  const r = computeShareCorrection(rows, actualMap, SHARE_TS, SHARE_NOW);
+  assert.equal(r.noon.T1.factor, 0.72);
+  assert.equal(r.noon.T2.factor, 2.16);
+});
+
+test('computeShareCorrection: T3 便は集計除外・常に unobservable', () => {
+  const flights = [];
+  for (let i = 0; i < 25; i++) flights.push(flight(`T3F${i}`, 4, 'T3'));
+  const rows = [snapshotRow('2026-06-02T13:00:00+09:00', flights)];
+  const r = computeShareCorrection(rows, noonActualMap('2026-06-02', 3, 2, 0, 0), SHARE_TS, SHARE_NOW);
+  assert.equal(r.noon.T3.source, 'unobservable');
+  assert.equal(r.noon.T3.factor, 1.0);
+  // T3 便は T1/T2 に数えない
+  assert.equal(r.noon.T1.flightCount, 0);
+  assert.equal(r.noon.T2.flightCount, 0);
+});
+
+test('computeShareCorrection: 端末別の便数不足 → 当該端末のみ fallback', () => {
+  // T1 便 2 のみ (< 20) → T1 fallback。T2 便 25 → T2 learning。
+  const flights = [flight('T1a', 4, 'T1'), flight('T1b', 4, 'T1')];
+  for (let i = 0; i < 25; i++) flights.push(flight(`T2F${i}`, 4, 'T2'));
+  const rows = [snapshotRow('2026-06-02T13:00:00+09:00', flights)];
+  const r = computeShareCorrection(rows, noonActualMap('2026-06-02', 1, 1, 3, 3), SHARE_TS, SHARE_NOW);
+  assert.equal(r.noon.T1.source, 'fallback');
+  assert.equal(r.noon.T1.flightCount, 2);
+  assert.equal(r.noon.T2.source, 'learning');
 });
 
 test('computeShareCorrection: 当日のデータは無視 (完了日のみ)', () => {
-  // SHARE_NOW = 6/3。6/3 のスナップショットは未完了日なので使われない。
+  // SHARE_NOW = 6/3。6/3 のスナップショットは未完了日。
   const flights = [];
-  for (let i = 0; i < 25; i++) flights.push(flight(`F${i}`, 4));
+  for (let i = 0; i < 25; i++) flights.push(flight(`T1F${i}`, 4, 'T1'));
   const rows = [snapshotRow('2026-06-03T13:00:00+09:00', flights)];
-  const r = computeShareCorrection(rows, noonActualMap('2026-06-03', 5), SHARE_TS, SHARE_NOW);
-  assert.equal(r.noon.source, 'fallback');
-});
-
-test('computeShareCorrection: 便数 < SHARE_MIN_FLIGHTS → fallback', () => {
-  const rows = [snapshotRow('2026-06-02T13:00:00+09:00', [flight('F0', 4), flight('F1', 4)])];
-  const r = computeShareCorrection(rows, noonActualMap('2026-06-02', 5), SHARE_TS, SHARE_NOW);
-  assert.equal(r.noon.source, 'fallback');
-  assert.equal(r.noon.flightCount, 2);
+  const r = computeShareCorrection(rows, noonActualMap('2026-06-03', 3, 2, 0, 0), SHARE_TS, SHARE_NOW);
+  assert.equal(r.noon.T1.source, 'fallback');
 });
