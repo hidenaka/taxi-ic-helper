@@ -168,3 +168,49 @@ export function renderAccuracy(metaEl, tableEl, accuracy) {
     <tbody>${rows}</tbody>
   </table>`;
 }
+
+// --- Phase D-2: 統合予測描画 ---
+
+const ENSEMBLE_TIER_HIGH = 8;
+const ENSEMBLE_TIER_VERY_HIGH = 12;
+
+export function renderEnsemble(metaEl, tableEl, ensemble) {
+  if (!metaEl || !tableEl || !ensemble) return;
+  const w = ensemble.weights || {};
+  const wText = ['lead30', 'lead60', 'lead120'].map(k => {
+    const e = w[k];
+    if (!e) return '';
+    const label = { lead30: '30分先', lead60: '60分先', lead120: '120分先' }[k];
+    const pct = `fc${Math.round(e.w_fc * 100)}%/pm${Math.round(e.w_pm * 100)}%`;
+    const note = e.source === 'fallback' ? ' (様子見)' : '';
+    return `${label} ${pct}${note}`;
+  }).filter(Boolean).join(' / ');
+  const ts = (ensemble.generatedAt || '').slice(0, 16).replace('T', ' ');
+  metaEl.innerHTML = `予測時刻 <strong>${ts} JST</strong><br>重み: ${wText}`;
+
+  const slots = ensemble.slots || [];
+  if (slots.length === 0) {
+    tableEl.innerHTML = '<p class="ensemble-meta">統合予測なし</p>';
+    return;
+  }
+  const rows = slots.map(s => {
+    let tierClass = '';
+    let mark = '';
+    if (s.total >= ENSEMBLE_TIER_VERY_HIGH) { tierClass = 'tier-very-high'; mark = ' <span class="star">★★</span>'; }
+    else if (s.total >= ENSEMBLE_TIER_HIGH) { tierClass = 'tier-high'; mark = ' <span class="star">★</span>'; }
+    return `<tr class="${tierClass}">
+      <td class="time">${s.slotStart}</td>
+      <td>${s.stall1}</td>
+      <td>${s.stall2}</td>
+      <td>${s.stall3}</td>
+      <td>${s.stall4}</td>
+      <td class="total-cell">${s.total}${mark}</td>
+    </tr>`;
+  }).join('');
+  tableEl.innerHTML = `<table class="ensemble-table">
+    <thead><tr>
+      <th>時刻</th><th>stall1</th><th>stall2</th><th>stall3</th><th>stall4</th><th>合計</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}

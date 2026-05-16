@@ -44,6 +44,15 @@
     .accuracy-table td.lead { text-align: left; font-weight: 600; }
     .winner-fc { color: var(--accent); }
     .winner-pm { color: var(--high); }
+    .ensemble-section { margin-bottom: 24px; }
+    .ensemble-section h2 { font-size: 17px; margin: 0 0 8px 0; color: var(--accent); }
+    .ensemble-meta { color: var(--sub); font-size: 12px; margin-bottom: 12px; line-height: 1.5; }
+    .ensemble-table { border-collapse: collapse; width: 100%; }
+    .ensemble-table th, .ensemble-table td { padding: 6px 8px; border-bottom: 1px solid #222; text-align: right; font-variant-numeric: tabular-nums; }
+    .ensemble-table th { background: #16161c; color: var(--sub); font-weight: 500; font-size: 12px; }
+    .ensemble-table td.time { text-align: left; font-weight: 600; }
+    .ensemble-table tr.tier-high td { background: rgba(255, 184, 77, 0.10); }
+    .ensemble-table tr.tier-very-high td { background: rgba(255, 82, 82, 0.14); }
   </style>
 </head>
 <body>
@@ -52,6 +61,13 @@
     <nav><a href="arrivals.html">← 到着便一覧へ</a></nav>
   </header>
   <main>
+    <section class="ensemble-section" id="ensemble-section">
+      <h2>統合予測 (今後 2 時間)</h2>
+      <div id="ensemble-meta" class="ensemble-meta">読み込み中...</div>
+      <div id="ensemble-table-wrap"></div>
+    </section>
+
+    <h2 style="font-size:15px;margin:24px 0 8px;color:var(--sub);">内訳: 短期予測 (ルールベース)</h2>
     <div id="forecast-meta" class="forecast-meta">読み込み中...</div>
     <div id="forecast-table-wrap"></div>
 

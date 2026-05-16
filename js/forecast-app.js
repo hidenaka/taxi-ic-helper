@@ -1,10 +1,12 @@
 import {
   renderForecastMeta, renderForecastTable,
   renderPatternMeta, renderSimilarDays, renderHistoricalCurve,
-  renderAccuracy,
+  renderAccuracy, renderEnsemble,
 } from './forecast-render.js';
 
 async function main() {
+  const ensembleMetaEl = document.getElementById('ensemble-meta');
+  const ensembleTableEl = document.getElementById('ensemble-table-wrap');
   const metaEl = document.getElementById('forecast-meta');
   const tableEl = document.getElementById('forecast-table-wrap');
   const patternMetaEl = document.getElementById('pattern-meta');
@@ -12,6 +14,17 @@ async function main() {
   const curveEl = document.getElementById('historical-curve-wrap');
   const accuracyMetaEl = document.getElementById('accuracy-meta');
   const accuracyTableEl = document.getElementById('accuracy-table-wrap');
+
+  // 統合予測 (Phase D-2) — メイン予測、最初に描画
+  try {
+    const res = await fetch('data/stall-ensemble.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const ensemble = await res.json();
+    renderEnsemble(ensembleMetaEl, ensembleTableEl, ensemble);
+  } catch (e) {
+    ensembleMetaEl.textContent = `統合予測データの読み込みに失敗: ${e.message}`;
+    ensembleTableEl.innerHTML = '';
+  }
 
   // 短期予測 (Phase C-1)
   try {
