@@ -2,9 +2,11 @@ import {
   renderForecastMeta, renderForecastTable,
   renderPatternMeta, renderSimilarDays, renderHistoricalCurve,
   renderAccuracy, renderEnsemble, renderCorrections,
+  renderThroughputBanner,
 } from './forecast-render.js';
 
 async function main() {
+  const bannerEl = document.getElementById('throughput-banner');
   const ensembleMetaEl = document.getElementById('ensemble-meta');
   const ensembleTableEl = document.getElementById('ensemble-table-wrap');
   const metaEl = document.getElementById('forecast-meta');
@@ -24,6 +26,7 @@ async function main() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const ensemble = await res.json();
     renderEnsemble(ensembleMetaEl, ensembleTableEl, ensemble);
+    renderThroughputBanner(bannerEl, ensemble);
   } catch (e) {
     ensembleMetaEl.textContent = `統合予測データの読み込みに失敗: ${e.message}`;
     ensembleTableEl.innerHTML = '';
