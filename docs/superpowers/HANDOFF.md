@@ -12,8 +12,9 @@
 
 ### 次タスク候補
 
-- **C の再測定（要データ蓄積）** — G-7 で `DIST_THRESHOLD` を 0.06→0.025 にした。デプロイ後 `matched_dists` を再蓄積し、real01_line のマッチ距離分布が締まったか確認。締まらず 0.03 付近に厚いままなら、貪欲＋距離マッチを IoU ベース等に変える別タスクへエスカレーション（`2026-05-17-dist-threshold-tuning-design.md` スコープ外節）。
-- **検出ベースの並行 forecast** — F-2 データ蓄積後。
+- **検出ベースの並行 forecast** — F-2 データ蓄積後。F-1/F-2 は 5/16 稼働開始、まだ蓄積初期。着手前に検出データ量を確認。
+
+（C の再測定は 2026-05-17 完了。0.025 デプロイ後 matched_dists を集計し real01_line p90 0.033→0.0038・両カメラ100%≤0.025 でクリーン確定。IoU エスカレーション不要。詳細は `docs/superpowers/specs/2026-05-17-dist-threshold-tuning-design.md` の「後続検証」節。）
 
 次セッションはユーザーがどれをやるか決めてから `superpowers:brainstorming` で開始（下記ワークフロー参照）。
 
@@ -22,7 +23,7 @@
 - **G-4**: `update_tracks` がマッチ距離を `matched_dists` で返し、v3 行の `cameras[*].matched_dists` に記録（加算的、schema 3 不変）。C 後半の `DIST_THRESHOLD` 設定はこのデータ蓄積待ち。
 - **G-5**: `applyThroughputScale` で `stall-forecast.json`/`stall-ensemble.json` を書き出し時に `k` 倍（真の出庫台数）。内部（log・accuracy・correction・ensemble 計算）は net-diff 据え置き。`k=bootstrapping` 中は ×1.0 で出力不変、`learning` 到達後に効く。出力に `throughputScaleK` マーカー。
 - **G-6**: `applyThroughputScaleToAccuracy` で `forecast-accuracy.json` の MAE を書き出し時に `k` 倍（MAE は同次なので k 倍で真値化）。in-memory `accuracyResult` は net-diff 据え置き → `computeWeights`/ensemble 不変。`evaluateAccuracy`・`forecast-log.jsonl` も net-diff のまま。
-- **G-7**: `matched_dists` 実測 3154 サンプル分析（main cluster≤0.005、累積94%≤0.025、駐車間隔0.035）→ `DIST_THRESHOLD` 0.06→0.025。real02 はジッター極小、real01_line はマッチ距離が広がる（p90 0.033）— 0.025 で再測定し締まらなければ IoU マッチへエスカレーション検討。
+- **G-7**: `matched_dists` 実測 3154 サンプル分析（main cluster≤0.005、累積94%≤0.025、駐車間隔0.035）→ `DIST_THRESHOLD` 0.06→0.025。**C 再測定（2026-05-17 完了）**: 0.025 デプロイ後の matched_dists で real01_line p90 0.033→0.0038・両カメラ100%≤0.025 → 分布クリーン確定、IoU マッチへのエスカレーション不要。
 - **G-8**: `applyThroughputScale` を `slotsKey` 引数で一般化（既定 `'slots'`、後方互換）し、`stall-pattern-match.json` の `historicalCurve` を書き出し時に `k` 倍。in-memory `patternMatchResult` は net-diff 据え置き（ensemble 入力不変）。これで4出力 JSON が真値単位で統一。
 - **G-9**: 予測画面 `forecast.html` の `<main>` 冒頭に校正バナー（`#throughput-banner`）を追加。`forecast-render.js` の `renderThroughputBanner(el, obj)` が ensemble の `throughputScaleK` を読み、`>1` なら「🚕 予測台数は車両追跡の実測で校正済み（校正係数 ×k）」、それ以外は「占有差分ベース（校正データ蓄積中）」を表示。`forecast-app.js` が ensemble fetch 後に呼ぶ。表示のみ・JSON 側不変。spec/plan: `docs/superpowers/{specs,plans}/2026-05-17-forecast-ui-throughput-label*`。
 - **G-2 で判明・修正した根本問題**: F-3 トラッカーがカメラ全域を追跡し `departed` の約80%が stall 外の道路車両だった（G-1 検証で `k≈7` の異常値から発覚）。G-2 で検出を stall ROI union に絞った。
@@ -94,5 +95,4 @@
 
 ## ロードマップ残
 
-- C の再測定（`DIST_THRESHOLD` 0.025 デプロイ後の `matched_dists` 再蓄積・確認、要データ蓄積）
 - 検出ベースの並行 forecast（F-2 データ蓄積後）
