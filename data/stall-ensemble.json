@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-05-18T06:21:01+09:00",
+  "generatedAt": "2026-05-18T06:26:13+09:00",
   "weights": {
     "lead30": {
-      "w_fc": 0.4833,
-      "w_pm": 0.5167,
+      "w_fc": 0.4829,
+      "w_pm": 0.5171,
       "source": "mae"
     },
     "lead60": {
@@ -13,21 +13,12 @@
       "source": "mae"
     },
     "lead120": {
-      "w_fc": 0.4365,
-      "w_pm": 0.5635,
+      "w_fc": 0.438,
+      "w_pm": 0.562,
       "source": "mae"
     }
   },
   "slots": [
-    {
-      "slotStart": "06:25",
-      "leadBucket": "lead30",
-      "stall1": 0,
-      "stall2": 0,
-      "stall3": 0,
-      "stall4": 0,
-      "total": 0
-    },
     {
       "slotStart": "06:30",
       "leadBucket": "lead30",
@@ -42,9 +33,9 @@
       "leadBucket": "lead30",
       "stall1": 0,
       "stall2": 0,
-      "stall3": 30,
+      "stall3": 35,
       "stall4": 0,
-      "total": 30
+      "total": 35
     },
     {
       "slotStart": "06:40",
@@ -67,11 +58,11 @@
     {
       "slotStart": "06:50",
       "leadBucket": "lead30",
-      "stall1": 0,
+      "stall1": 5,
       "stall2": 0,
       "stall3": 0,
       "stall4": 0,
-      "total": 0
+      "total": 5
     },
     {
       "slotStart": "06:55",
@@ -102,7 +93,7 @@
     },
     {
       "slotStart": "07:10",
-      "leadBucket": "lead60",
+      "leadBucket": "lead30",
       "stall1": 0,
       "stall2": 0,
       "stall3": 0,
@@ -210,12 +201,12 @@
     },
     {
       "slotStart": "08:10",
-      "leadBucket": "lead120",
+      "leadBucket": "lead60",
       "stall1": 0,
       "stall2": 0,
-      "stall3": 10,
+      "stall3": 15,
       "stall4": 0,
-      "total": 10
+      "total": 15
     },
     {
       "slotStart": "08:15",
@@ -234,6 +225,15 @@
       "stall3": 0,
       "stall4": 0,
       "total": 0
+    },
+    {
+      "slotStart": "08:25",
+      "leadBucket": "lead120",
+      "stall1": 0,
+      "stall2": 5,
+      "stall3": 15,
+      "stall4": 0,
+      "total": 20
     }
   ],
   "throughputScaleK": 5
