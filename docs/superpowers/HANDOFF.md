@@ -4,20 +4,20 @@
 
 ## 次にやること（ユーザー選択）
 
-**G-1〜G-7 は完了・本番稼働中**（G-1 throughput→forecast 接続 / G-2 トラッカー stall ROI 制限 / G-3 複数カメラ追跡 / G-4 jitter 計装＝C 前半 / G-5 baseline 出力の真値化＝B案 / G-6 forecast-accuracy.json の真値単位移行 / G-7 DIST_THRESHOLD 適正化＝C 後半）。次タスクは未確定。候補：
+**G-1〜G-8 は完了・本番稼働中**（G-1 throughput→forecast 接続 / G-2 トラッカー stall ROI 制限 / G-3 複数カメラ追跡 / G-4 jitter 計装＝C 前半 / G-5 baseline 出力の真値化＝B案 / G-6 forecast-accuracy.json の真値単位移行 / G-7 DIST_THRESHOLD 適正化＝C 後半 / G-8 stall-pattern-match.json の真値化）。**forecast/ensemble/accuracy/pattern-match の4出力 JSON はすべて真値単位で揃った。** 次タスクは未確定。候補：
 
 - **C の再測定（要データ蓄積）** — G-7 で `DIST_THRESHOLD` を 0.06→0.025 にした。デプロイ後 `matched_dists` を再蓄積し、real01_line のマッチ距離分布が締まったか確認。締まらず 0.03 付近に厚いままなら、貪欲＋距離マッチを IoU ベース等に変える別タスクへエスカレーション（`2026-05-17-dist-threshold-tuning-design.md` スコープ外節）。
-- **`stall-pattern-match.json` の真値化** — G-5/G-6 は forecast/ensemble/accuracy のみ。pattern-match 出力も揃える。
 - **検出ベースの並行 forecast** — F-2 データ蓄積後。
 
 次セッションはユーザーがどれをやるか決めてから `superpowers:brainstorming` で開始（下記ワークフロー参照）。
 
-### G-1 〜 G-7 の状態（参考）
+### G-1 〜 G-8 の状態（参考）
 - spec/plan: `docs/superpowers/{specs,plans}/2026-05-16-throughput-forecast-connection*`、同 `2026-05-16-tracker-stall-roi-restriction*`、同 `2026-05-16-multi-camera-tracking*`、同 `2026-05-16-tracker-jitter-instrumentation*`、同 `2026-05-16-baseline-output-truthification*`。
 - **G-4**: `update_tracks` がマッチ距離を `matched_dists` で返し、v3 行の `cameras[*].matched_dists` に記録（加算的、schema 3 不変）。C 後半の `DIST_THRESHOLD` 設定はこのデータ蓄積待ち。
 - **G-5**: `applyThroughputScale` で `stall-forecast.json`/`stall-ensemble.json` を書き出し時に `k` 倍（真の出庫台数）。内部（log・accuracy・correction・ensemble 計算）は net-diff 据え置き。`k=bootstrapping` 中は ×1.0 で出力不変、`learning` 到達後に効く。出力に `throughputScaleK` マーカー。
 - **G-6**: `applyThroughputScaleToAccuracy` で `forecast-accuracy.json` の MAE を書き出し時に `k` 倍（MAE は同次なので k 倍で真値化）。in-memory `accuracyResult` は net-diff 据え置き → `computeWeights`/ensemble 不変。`evaluateAccuracy`・`forecast-log.jsonl` も net-diff のまま。
 - **G-7**: `matched_dists` 実測 3154 サンプル分析（main cluster≤0.005、累積94%≤0.025、駐車間隔0.035）→ `DIST_THRESHOLD` 0.06→0.025。real02 はジッター極小、real01_line はマッチ距離が広がる（p90 0.033）— 0.025 で再測定し締まらなければ IoU マッチへエスカレーション検討。
+- **G-8**: `applyThroughputScale` を `slotsKey` 引数で一般化（既定 `'slots'`、後方互換）し、`stall-pattern-match.json` の `historicalCurve` を書き出し時に `k` 倍。in-memory `patternMatchResult` は net-diff 据え置き（ensemble 入力不変）。これで4出力 JSON が真値単位で統一。
 - **G-2 で判明・修正した根本問題**: F-3 トラッカーがカメラ全域を追跡し `departed` の約80%が stall 外の道路車両だった（G-1 検証で `k≈7` の異常値から発覚）。G-2 で検出を stall ROI union に絞った。
 - **G-3**: トラッカーを Real02（stall4）にも拡張。`track-state.json`・`vehicle-track-history.jsonl` を per-camera 構造（schema 3）に。G-1 calibration は v3 行のみ採用・全カメラ `departed` 合算・net-diff を stall1〜4 に拡張。
 - デプロイ後、`track-state.json` は schema マーカーで自動リセット。`vehicle-track-history.jsonl` の旧 v1/v2 行は calibration から無視され、v3 データ蓄積に従い `bootstrapping`→`learning` へ進む。`learning` 到達で `stall-forecast.json` の `trendWindow.source` が `track` に変わる。
@@ -48,7 +48,7 @@
 - **docs コミットに観測データファイルを混ぜない。** spec/plan commit 前に `git diff --cached --name-only` で確認、混入していたら `git restore --staged data/<file>`。
 - commit メッセージ末尾: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`。
 
-## 実装済みフェーズ（D-1〜G-7、全て本番稼働）
+## 実装済みフェーズ（D-1〜G-8、全て本番稼働）
 
 | Phase | 内容 | 主要ファイル |
 |---|---|---|
@@ -68,12 +68,13 @@
 | G-5 | baseline 出力の真値化（`stall-forecast.json`/`stall-ensemble.json` を書き出し時に `k` 倍、B案） | `throughput-calibration.mjs`（`applyThroughputScale`）, `observe-taxi-pool.mjs` |
 | G-6 | forecast-accuracy.json の真値単位移行（MAE を書き出し時に `k` 倍） | `throughput-calibration.mjs`（`applyThroughputScaleToAccuracy`）, `observe-taxi-pool.mjs` |
 | G-7 | `DIST_THRESHOLD` 適正化（実測ジッター由来 0.06→0.025、C 後半） | `track_vehicles.py`（`DIST_THRESHOLD` 定数） |
+| G-8 | stall-pattern-match.json の真値化（`historicalCurve` を書き出し時に `k` 倍） | `throughput-calibration.mjs`（`applyThroughputScale` を `slotsKey` 引数で一般化）, `observe-taxi-pool.mjs` |
 
 各フェーズの spec/plan は `docs/superpowers/{specs,plans}/2026-05-16-*` にある。
 
 ## テスト
 
-- `npm test`（node:test）= 447 件。`.mjs` / `.js` 対象。
+- `npm test`（node:test）= 451 件。`.mjs` / `.js` 対象。
 - Python: `.venv*/bin/python3 -m unittest tests.test_detect_vehicles tests.test_track_vehicles`（detect 13 + track 29 = 42 件）。`.py` は node:test 非対象。
 - 回帰時は両方確認。
 
