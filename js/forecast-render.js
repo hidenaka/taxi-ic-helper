@@ -275,3 +275,23 @@ export function renderCorrections(metaEl, levelEl, shareEl, corrections) {
       <tbody>${shareRows}</tbody>
     </table>`;
 }
+
+// --- G-9: スループット校正バナー描画 ---
+
+/**
+ * 出力 JSON の throughputScaleK を読み、予測台数が車両追跡実測で
+ * 校正済みかどうかを示す1行バナーを描画する。
+ * @param {HTMLElement} el - バナー要素 (#throughput-banner)
+ * @param {object} obj - throughputScaleK を持つ出力 JSON (ensemble など)
+ */
+export function renderThroughputBanner(el, obj) {
+  if (!el || !obj) return;
+  const k = Number(obj.throughputScaleK);
+  if (Number.isFinite(k) && k > 1) {
+    el.className = 'throughput-banner calibrated';
+    el.textContent = `🚕 予測台数は車両追跡の実測で校正済み（校正係数 ×${k.toFixed(2)}）`;
+  } else {
+    el.className = 'throughput-banner pending';
+    el.textContent = '予測台数は占有差分ベース（車両追跡の校正データ蓄積中）';
+  }
+}
