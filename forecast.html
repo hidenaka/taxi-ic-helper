@@ -63,6 +63,9 @@
     .correction-table td.label { text-align: left; font-weight: 600; }
     .src-learning { color: var(--accent); }
     .src-fallback { color: var(--sub); }
+    .throughput-banner { font-size: 13px; padding: 8px 10px; border-radius: 6px; margin-bottom: 12px; }
+    .throughput-banner.calibrated { background: rgba(78, 161, 255, 0.12); color: var(--accent); }
+    .throughput-banner.pending { background: #16161c; color: var(--sub); }
   </style>
 </head>
 <body>
@@ -71,6 +74,7 @@
     <nav><a href="arrivals.html">← 到着便一覧へ</a></nav>
   </header>
   <main>
+    <div id="throughput-banner" class="throughput-banner"></div>
     <section class="ensemble-section" id="ensemble-section">
       <h2>統合予測 (今後 2 時間)</h2>
       <div id="ensemble-meta" class="ensemble-meta">読み込み中...</div>
