@@ -345,7 +345,7 @@ async function main() {
       holidaysSet = loadHolidaysSet({ holidays: [] });
     }
     patternMatchResult = computePatternMatch(allHistory, holidaysSet, new Date());
-    writeFileSync(PATTERN_MATCH_OUTPUT_PATH, JSON.stringify(patternMatchResult, null, 2) + '\n', 'utf8');
+    writeFileSync(PATTERN_MATCH_OUTPUT_PATH, JSON.stringify(applyThroughputScale(patternMatchResult, throughputK, 'historicalCurve'), null, 2) + '\n', 'utf8');
     console.log(`[observe] pattern-match ok: today=${patternMatchResult.today.dayType} tier=${patternMatchResult.today.filterTier} similar=${patternMatchResult.similarDays.length}`);
   } catch (e) {
     console.error(`[observe] pattern-match generation failed: ${e.message}`);
