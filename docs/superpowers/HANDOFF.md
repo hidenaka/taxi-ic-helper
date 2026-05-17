@@ -4,12 +4,22 @@
 
 ## 次にやること（ユーザー選択）
 
-**G-1〜G-8 は完了・本番稼働中**（G-1 throughput→forecast 接続 / G-2 トラッカー stall ROI 制限 / G-3 複数カメラ追跡 / G-4 jitter 計装＝C 前半 / G-5 baseline 出力の真値化＝B案 / G-6 forecast-accuracy.json の真値単位移行 / G-7 DIST_THRESHOLD 適正化＝C 後半 / G-8 stall-pattern-match.json の真値化）。**forecast/ensemble/accuracy/pattern-match の4出力 JSON はすべて真値単位で揃った。** 次タスクは未確定。候補：
+**G-1〜G-8 は完了・本番稼働中**（G-1 throughput→forecast 接続 / G-2 トラッカー stall ROI 制限 / G-3 複数カメラ追跡 / G-4 jitter 計装＝C 前半 / G-5 baseline 出力の真値化＝B案 / G-6 forecast-accuracy.json の真値単位移行 / G-7 DIST_THRESHOLD 適正化＝C 後半 / G-8 stall-pattern-match.json の真値化）。**forecast/ensemble/accuracy/pattern-match の4出力 JSON はすべて真値単位で揃った。**
+
+### 🔧 進行中タスク（中断点 — ここから再開）
+
+**G-9: 本番画面 `forecast.html` に「実測校正済み」ラベル表示。**
+- 状態: **brainstorming 完了・spec 作成済み・commit 済み**（`2dccfad`、`docs/superpowers/specs/2026-05-17-forecast-ui-throughput-label-design.md`）。
+- 次の一手: ユーザーが spec をレビュー → 承認なら `superpowers:writing-plans` で plan 作成 → `subagent-driven-development` で実装。**brainstorming はやり直さない**（spec は完成済み）。
+- 内容: `forecast.html` 冒頭に `throughput-banner` div 追加、`forecast-render.js` に `renderThroughputBanner` 新規、`forecast-app.js` から ensemble fetch 後に呼ぶ。`throughputScaleK>1` で「校正済み ×k」表示。
+- 文言案「🚕 予測台数は車両追跡の実測で校正済み（校正係数 ×4.74）」はユーザー調整可。
+
+### 次タスク候補（G-9 完了後）
 
 - **C の再測定（要データ蓄積）** — G-7 で `DIST_THRESHOLD` を 0.06→0.025 にした。デプロイ後 `matched_dists` を再蓄積し、real01_line のマッチ距離分布が締まったか確認。締まらず 0.03 付近に厚いままなら、貪欲＋距離マッチを IoU ベース等に変える別タスクへエスカレーション（`2026-05-17-dist-threshold-tuning-design.md` スコープ外節）。
 - **検出ベースの並行 forecast** — F-2 データ蓄積後。
 
-次セッションはユーザーがどれをやるか決めてから `superpowers:brainstorming` で開始（下記ワークフロー参照）。
+次セッションはユーザーがどれをやるか決めてから `superpowers:brainstorming` で開始（下記ワークフロー参照。ただし G-9 は spec まで完了済なので writing-plans から）。
 
 ### G-1 〜 G-8 の状態（参考）
 - spec/plan: `docs/superpowers/{specs,plans}/2026-05-16-throughput-forecast-connection*`、同 `2026-05-16-tracker-stall-roi-restriction*`、同 `2026-05-16-multi-camera-tracking*`、同 `2026-05-16-tracker-jitter-instrumentation*`、同 `2026-05-16-baseline-output-truthification*`。
