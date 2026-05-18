@@ -212,22 +212,28 @@ def main():
             new_cameras[camera_key] = {
                 'tracks': result['tracks'], 'next_id': result['next_id'],
             }
+            # 消失トラックを最後位置の乗り場 ROI へ振り分ける
+            departed_by_stall = {}
+            for dt in result['departedTracks']:
+                stall = stall_of_point(dt['x'], dt['y'], rois)
+                if stall is not None:
+                    departed_by_stall[stall] = departed_by_stall.get(stall, 0) + 1
             row_cameras[camera_key] = {
                 'detected': len(detections),
                 'active': len(result['tracks']),
                 'arrived': result['arrived'],
-                'departed': result['departed'],
+                'departedByStall': departed_by_stall,
                 'matched_dists': result['matched_dists'],
             }
     except Exception as e:
         print(f'[track] detect/roi failed, skip tick: {e}', file=sys.stderr)
         return
     save_state(new_cameras)
-    row = {'schema_version': 3, 'ts': jst_now_iso(), 'cameras': row_cameras}
+    row = {'schema_version': 4, 'ts': jst_now_iso(), 'cameras': row_cameras}
     with open(OUTPUT_PATH, 'a', encoding='utf-8') as f:
         f.write(json.dumps(row) + '\n')
     summary = ' '.join(
-        f"{k}(d={v['detected']},a={v['active']},in={v['arrived']},out={v['departed']})"
+        f"{k}(d={v['detected']},a={v['active']},in={v['arrived']},out={sum(v['departedByStall'].values())})"
         for k, v in row_cameras.items())
     print(f'[track] ok: {summary}')
 
