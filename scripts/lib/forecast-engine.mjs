@@ -78,6 +78,40 @@ export function computeBaseline(history) {
 }
 
 /**
+ * フライト需要を算出する。
+ * @param {{flights: Array}|null} arrivalsJson arrivals.json
+ * @param {number} nowSlot 現在スロット index
+ * @returns {{futureSums: number[], recentSum: number}}
+ *   futureSums[i] = 将来スロット i (now+1+i) の estimatedTaxiPax 合計、
+ *   recentSum = 直近 TREND_WINDOW_TICKS スロット (nowSlot-11..nowSlot) の合計。
+ */
+export function flightDemand(arrivalsJson, nowSlot) {
+  const futureSums = new Array(FORECAST_SLOT_COUNT).fill(0);
+  let recentSum = 0;
+  if (!arrivalsJson || !Array.isArray(arrivalsJson.flights)) {
+    return { futureSums, recentSum };
+  }
+  const recentSlots = new Set();
+  for (let k = 0; k < TREND_WINDOW_TICKS; k++) {
+    recentSlots.add((nowSlot - k + SLOTS_PER_DAY) % SLOTS_PER_DAY);
+  }
+  for (const f of arrivalsJson.flights) {
+    if (!f.lobbyExitTime || typeof f.estimatedTaxiPax !== 'number') continue;
+    const [h, m] = f.lobbyExitTime.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) continue;
+    const lobbySlot = slotKey(h, m);
+    if (recentSlots.has(lobbySlot)) recentSum += f.estimatedTaxiPax;
+    for (let i = 0; i < FORECAST_SLOT_COUNT; i++) {
+      if (((nowSlot + 1 + i) % SLOTS_PER_DAY) === lobbySlot) {
+        futureSums[i] += f.estimatedTaxiPax;
+        break;
+      }
+    }
+  }
+  return { futureSums, recentSum };
+}
+
+/**
  * 現在時刻から +5min〜+120min (24 slot) の予測を返す。
  *
  * @param {{slots: Array, sampleCount: number}} baseline computeBaseline の戻り値
