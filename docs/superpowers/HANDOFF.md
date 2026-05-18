@@ -12,8 +12,11 @@
 
 **直近完了（2026-05-18）: 予測の早すぎる四捨五入バグ修正** — `stall-ensemble.json` が「ほぼ0＋5の倍数スパイク」になる不具合を解消。小数の出庫レート（中央値0.333）を `Math.round` で整数化してから校正係数 `×k` を掛けるため0に潰れていた。早すぎる丸めを **4か所** 除去（`forecast-engine.mjs` `computeForecast` / `pattern-matcher.mjs` `historicalCurve` / `ensemble-engine.mjs` `computeEnsemble` / `correction-engine.mjs` `applyLevelCorrection`）。整数化は書き出し時の `applyThroughputScale` の `round(値×k)` 1回に集約。4つ目の `applyLevelCorrection` は当初の診断（3か所想定）が見落としていた段で、最終レビューで発覚し追加修正した（`stall-ensemble.json` パイプラインは `computeForecast → applyLevelCorrection → computeEnsemble → applyThroughputScale`）。診断書 `docs/research/2026-05-18-forecast-rounding-bug-diagnosis.md`・設計書/計画 `docs/superpowers/{specs,plans}/2026-05-18-forecast-rounding-bug-fix*`。全455テストpass。`origin/main 5f6eb9e3`。実データ検証で baseline スロットの 0→非0 回復を確認済み。
 
+**直近完了（2026-05-18）: トラッカー実測アンカー型 予測土台 再設計** — 予測が需要ピーク（満車）時に「全スロット0」になる構造欠陥を解消。原因＝予測の土台 baseline が net-diff（占有数の変化）由来で、満車時は出庫しても即埋まり diff=0 になり「出庫0」と読む。一方 F-3 トラッカーは満車でも実出庫を検出（実測で直近60分69台）。対策＝`computeForecast` に**トラッカーアンカー経路**を追加（`trackTrend` 有効時は予測レベルをトラッカー実測出庫レートにアンカー、前向き形状はフライト需要比、乗り場別は占有比で按分。`trackTrend` 無効時は従来の net-diff 経路へフォールバック）。`computeEnsemble` に pattern-match 構造的0スロットの希釈ガード。新ヘルパー `flightDemand`/`splitTotalToStalls`。`trendWindow.levelSource`（`track-anchored`/`netdiff-fallback`）追加。設計書/計画 `docs/superpowers/{specs,plans}/2026-05-18-tracker-anchored-forecast*`。全466テスト＋Python42pass。`origin/main 661a3c40`。実データ検証で満車・net-diff=0 でも `track-anchored` で24/24スロット非0を確認。
+
 ### 次タスク候補
 
+- **pattern-match（類似日マッチ）のトラッカー実測ベース化** — `historicalCurve` はまだ net-diff 由来で満車時0。現状は ensemble の希釈ガードで forecast 100% に倒して凌いでいる。トラッカーアンカー型予測の follow-up として `computePatternMatch` の土台もトラッカー化する。設計書 `2026-05-18-tracker-anchored-forecast-design.md` の §3「スコープ外」参照。
 - **検出ベースの並行 forecast** — F-2 データ蓄積後。F-1/F-2 は 5/16 稼働開始、まだ蓄積初期。着手前に検出データ量を確認。
 
 （C の再測定は 2026-05-17 完了。0.025 デプロイ後 matched_dists を集計し real01_line p90 0.033→0.0038・両カメラ100%≤0.025 でクリーン確定。IoU エスカレーション不要。詳細は `docs/superpowers/specs/2026-05-17-dist-threshold-tuning-design.md` の「後続検証」節。）
