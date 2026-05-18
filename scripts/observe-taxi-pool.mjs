@@ -20,6 +20,7 @@ import {
   computeThroughputCalibration,
   applyThroughputScale,
   applyThroughputScaleToAccuracy,
+  forecastOutputK,
 } from './lib/throughput-calibration.mjs';
 import { computePatternMatch } from './lib/pattern-matcher.mjs';
 import { loadHolidaysSet } from './lib/calendar-context.mjs';
@@ -323,7 +324,7 @@ async function main() {
     }
 
     forecastResult = computeForecast(baseline, recent, arrivalsJson, now, trackTrend);
-    writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(applyThroughputScale(forecastResult, throughputK), null, 2) + '\n', 'utf8');
+    writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(applyThroughputScale(forecastResult, forecastOutputK(forecastResult, throughputK)), null, 2) + '\n', 'utf8');
     console.log(`[observe] forecast ok: trendFactor=${forecastResult.trendFactor.toFixed(2)} baselineSamples=${forecastResult.baselineSampleCount}`);
     // 出庫実績（直近2時間・15分スロット）を書き出す。到着便ページの実績表示用。
     // trackHistory が在スコープのこのブロック内で書き出す（独立 try/catch で隔離）。
@@ -444,14 +445,22 @@ async function main() {
 
   // Phase D-2: アンサンブル統合予測 (D-3 level 補正済み forecast を入力)
   try {
+    // 混ぜる前に各要素を実台数単位へ揃える（k はネット差分単位のものにだけ適用）。
+    // forecast: track-anchored は実台数なので forecastOutputK が 1.0 を返す。level 補正は乗算で k と可換。
     const correctedForecast = applyLevelCorrection(forecastResult, corrections);
+    const realForecast = applyThroughputScale(correctedForecast, forecastOutputK(forecastResult, throughputK));
+    // historicalCurve は常にネット差分単位なので ×k。
+    const realPatternMatch = patternMatchResult
+      ? applyThroughputScale({ historicalCurve: patternMatchResult.historicalCurve }, throughputK, 'historicalCurve')
+      : null;
     const ensemble = computeEnsemble(
-      correctedForecast,
-      patternMatchResult ? { historicalCurve: patternMatchResult.historicalCurve } : null,
+      realForecast,
+      realPatternMatch ? { historicalCurve: realPatternMatch.historicalCurve } : null,
       accuracyResult,
       new Date()
     );
-    writeFileSync(ENSEMBLE_OUTPUT_PATH, JSON.stringify(applyThroughputScale(ensemble, throughputK), null, 2) + '\n', 'utf8');
+    // 混合済みは既に実台数単位。丸めのみ（k=1.0、追加スケールなし）。
+    writeFileSync(ENSEMBLE_OUTPUT_PATH, JSON.stringify(applyThroughputScale(ensemble, 1.0), null, 2) + '\n', 'utf8');
     console.log(`[observe] ensemble ok: slots=${ensemble.slots.length} lead30 weight fc=${ensemble.weights.lead30.w_fc}`);
   } catch (e) {
     console.error(`[observe] ensemble generation failed: ${e.message}`);
