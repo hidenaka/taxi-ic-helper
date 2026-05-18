@@ -14,6 +14,8 @@
 
 **直近完了（2026-05-18）: トラッカー実測アンカー型 予測土台 再設計** — 予測が需要ピーク（満車）時に「全スロット0」になる構造欠陥を解消。原因＝予測の土台 baseline が net-diff（占有数の変化）由来で、満車時は出庫しても即埋まり diff=0 になり「出庫0」と読む。一方 F-3 トラッカーは満車でも実出庫を検出（実測で直近60分69台）。対策＝`computeForecast` に**トラッカーアンカー経路**を追加（`trackTrend` 有効時は予測レベルをトラッカー実測出庫レートにアンカー、前向き形状はフライト需要比、乗り場別は占有比で按分。`trackTrend` 無効時は従来の net-diff 経路へフォールバック）。`computeEnsemble` に pattern-match 構造的0スロットの希釈ガード。新ヘルパー `flightDemand`/`splitTotalToStalls`。`trendWindow.levelSource`（`track-anchored`/`netdiff-fallback`）追加。設計書/計画 `docs/superpowers/{specs,plans}/2026-05-18-tracker-anchored-forecast*`。全466テスト＋Python42pass。`origin/main 661a3c40`。実データ検証で満車・net-diff=0 でも `track-anchored` で24/24スロット非0を確認。
 
+**直近完了（2026-05-18）: 出庫実績 `stall-actuals.json` 出力＋relay配信** — 日報アプリの到着便ページに「出庫実績（直近2時間）」表示を追加するため、taxi-ic-helper 側で実績データを出力。新ヘルパー `scripts/lib/track-actuals.mjs` `computeTrackActuals`（`vehicle-track-history` の `departed` を直近2時間ぶん15分スロットに集計、`trackRowDeparted` を再利用するため export 化）。observe-tick が `data/stall-actuals.json`（`{schemaVersion,generatedAt,slots:[{slotStart,slotEnd,total}]}`）を書き出す（ensemble 書き出し直後・独自 try/catch で隔離）。relay `relay-taxi-data.yml` の `FILES` に追加、初回 cp 失敗回避のシードもコミット。全469テストpass。`origin/main`（main直）。日報アプリ側UI（実績/予測プルダウン）は日報リポジトリの `feat/arrivals-actuals-toggle`→dev、本番未反映。設計書/計画は日報アプリ側 `docs/superpowers/{specs,plans}/2026-05-18-arrivals-actuals-toggle*`。
+
 ### 次タスク候補
 
 - **pattern-match（類似日マッチ）のトラッカー実測ベース化** — `historicalCurve` はまだ net-diff 由来で満車時0。現状は ensemble の希釈ガードで forecast 100% に倒して凌いでいる。トラッカーアンカー型予測の follow-up として `computePatternMatch` の土台もトラッカー化する。設計書 `2026-05-18-tracker-anchored-forecast-design.md` の §3「スコープ外」参照。
