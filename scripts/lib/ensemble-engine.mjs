@@ -97,7 +97,8 @@ export function computeEnsemble(forecast, patternMatch, accuracy, now) {
       if (pm === null) {
         val = fc[name];
       } else {
-        val = Math.round(fc[name] * w_fc + pm[name] * w_pm);
+        // 小数のまま保持する。整数化は書き出し時の applyThroughputScale (round(値×k)) で1回だけ行う。
+        val = fc[name] * w_fc + pm[name] * w_pm;
       }
       out[name] = val;
       total += val;

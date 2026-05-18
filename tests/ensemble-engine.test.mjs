@@ -108,3 +108,19 @@ test('computeEnsemble: 正常入力 → 重み付き平均 + leadBucket 付与',
   assert.equal(r.slots[0].leadBucket, 'lead30');
   assert.equal(r.weights.lead30.source, 'mae');
 });
+
+test('computeEnsemble: 加重平均の小数値を丸めず保持する (早すぎる四捨五入バグ回帰)', () => {
+  // forecast stall1 = 1、pattern-match stall1 = 0、mae 同値 → 重み w_fc=w_pm=0.5。
+  // 加重平均 = 1*0.5 + 0*0.5 = 0.5。Math.round(0.5)=1 で潰してはいけない。
+  const fc = makeForecast([[1, 0, 0, 0]]);
+  const pm = makePatternMatch([[0, 0, 0, 0]]);
+  const accuracy = {
+    recent24h: {
+      forecast:     { lead30: { mae_total: 1, n: 50 }, lead60: { mae_total: 1, n: 50 }, lead120: { mae_total: 1, n: 50 } },
+      patternMatch: { lead30: { mae_total: 1, n: 50 }, lead60: { mae_total: 1, n: 50 }, lead120: { mae_total: 1, n: 50 } },
+    },
+  };
+  const r = computeEnsemble(fc, pm, accuracy, new Date('2026-06-01T17:00:00+09:00'));
+  assert.equal(r.slots[0].stall1, 0.5);
+  assert.equal(r.slots[0].total, 0.5);
+});
