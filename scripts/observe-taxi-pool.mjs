@@ -335,6 +335,18 @@ async function main() {
     forecastResult = computeForecast(baseline, recent, arrivalsJson, now, trackTrend, latestOccupancy);
     writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(applyThroughputScale(forecastResult, throughputK), null, 2) + '\n', 'utf8');
     console.log(`[observe] forecast ok: trendFactor=${forecastResult.trendFactor.toFixed(2)} baselineSamples=${forecastResult.baselineSampleCount}`);
+    // 出庫実績（直近2時間・15分スロット）を書き出す。到着便ページの実績表示用。
+    // trackHistory が在スコープのこのブロック内で書き出す（独立 try/catch で隔離）。
+    try {
+      const actualsSlots = computeTrackActuals(trackHistory, new Date());
+      writeFileSync(ACTUALS_OUTPUT_PATH, JSON.stringify({
+        schemaVersion: 1,
+        generatedAt: jstNowIso(),
+        slots: actualsSlots,
+      }, null, 2) + '\n', 'utf8');
+    } catch (e) {
+      console.warn(`[observe] stall-actuals write skipped: ${e.message}`);
+    }
   } catch (e) {
     console.error(`[observe] forecast generation failed: ${e.message}`);
   }
@@ -451,18 +463,6 @@ async function main() {
     );
     writeFileSync(ENSEMBLE_OUTPUT_PATH, JSON.stringify(applyThroughputScale(ensemble, throughputK), null, 2) + '\n', 'utf8');
     console.log(`[observe] ensemble ok: slots=${ensemble.slots.length} lead30 weight fc=${ensemble.weights.lead30.w_fc}`);
-    // 出庫実績（直近2時間・15分スロット）を書き出す。到着便ページの実績表示用。
-    // ensemble 書き出しとは独立した try/catch で囲み、失敗しても ensemble 成功ログを潰さない。
-    try {
-      const actualsSlots = computeTrackActuals(trackHistory, new Date());
-      writeFileSync(ACTUALS_OUTPUT_PATH, JSON.stringify({
-        schemaVersion: 1,
-        generatedAt: jstNowIso(),
-        slots: actualsSlots,
-      }, null, 2) + '\n', 'utf8');
-    } catch (e) {
-      console.warn(`[observe] stall-actuals write skipped: ${e.message}`);
-    }
   } catch (e) {
     console.error(`[observe] ensemble generation failed: ${e.message}`);
   }
