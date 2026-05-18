@@ -28,6 +28,7 @@ import { loadHolidaysSet } from './lib/calendar-context.mjs';
 import { buildLogEntry } from './lib/forecast-logger.mjs';
 import { buildActualMap, evaluateAccuracy } from './lib/accuracy-evaluator.mjs';
 import { computeEnsemble } from './lib/ensemble-engine.mjs';
+import { computeTrackActuals } from './lib/track-actuals.mjs';
 import {
   computeShareCorrection, computeLevelCorrection, applyLevelCorrection,
   computeT3DirectionalCorrection, CORRECTION_SCHEMA_VERSION,
@@ -48,6 +49,7 @@ const HOLIDAYS_PATH = './data/japan-holidays.json';
 const FORECAST_LOG_PATH = './data/forecast-log.jsonl';
 const FORECAST_ACCURACY_PATH = './data/forecast-accuracy.json';
 const ENSEMBLE_OUTPUT_PATH = './data/stall-ensemble.json';
+const ACTUALS_OUTPUT_PATH = './data/stall-actuals.json';
 const CORRECTIONS_OUTPUT_PATH = './data/coefficient-corrections.json';
 const TRANSIT_SHARE_PATH = './data/transit-share.json';
 const T3_POOL_HISTORY_PATH = './data/t3-pool-history.jsonl';
@@ -448,6 +450,13 @@ async function main() {
       new Date()
     );
     writeFileSync(ENSEMBLE_OUTPUT_PATH, JSON.stringify(applyThroughputScale(ensemble, throughputK), null, 2) + '\n', 'utf8');
+    // 出庫実績（直近2時間・15分スロット）を書き出す。到着便ページの実績表示用。
+    const actualsSlots = computeTrackActuals(trackHistory, new Date());
+    writeFileSync(ACTUALS_OUTPUT_PATH, JSON.stringify({
+      schemaVersion: 1,
+      generatedAt: jstNowIso(),
+      slots: actualsSlots,
+    }, null, 2) + '\n', 'utf8');
     console.log(`[observe] ensemble ok: slots=${ensemble.slots.length} lead30 weight fc=${ensemble.weights.lead30.w_fc}`);
   } catch (e) {
     console.error(`[observe] ensemble generation failed: ${e.message}`);

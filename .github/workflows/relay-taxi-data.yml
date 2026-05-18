@@ -53,7 +53,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           SRC="$GITHUB_WORKSPACE/src/data"
-          FILES="arrivals.json stall-ensemble.json"
+          FILES="arrivals.json stall-ensemble.json stall-actuals.json"
 
           publish() {
             local dir="$1"
