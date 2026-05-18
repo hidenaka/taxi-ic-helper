@@ -89,7 +89,11 @@ export function computeEnsemble(forecast, patternMatch, accuracy, now) {
     const leadMinutes = (i + 1) * 5;
     const bucket = leadBucketOf(leadMinutes);
     const { w_fc, w_pm } = weights[bucket];
-    const pm = pmBySlot.get(fc.slotStart) || null;
+    const pmRaw = pmBySlot.get(fc.slotStart) || null;
+    // pattern-match slot が構造的に0 (total=0) のときは「利用不可」とみなす。
+    // net-diff 由来の historicalCurve は満車時0になり、トラッカーアンカー型の
+    // forecast を希釈してしまうため、その slot は forecast 100% にする。
+    const pm = (pmRaw !== null && (pmRaw.total || 0) > 0) ? pmRaw : null;
     const out = { slotStart: fc.slotStart, leadBucket: bucket };
     let total = 0;
     for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
