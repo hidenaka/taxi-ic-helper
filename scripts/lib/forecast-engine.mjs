@@ -112,51 +112,29 @@ export function flightDemand(arrivalsJson, nowSlot) {
 }
 
 /**
- * 出庫総数を乗り場別に按分する。
- * @param {number} total 5分スロットの出庫総数
- * @param {{stall1,stall2,stall3,stall4}|null} occupancy 直近の各乗り場占有数。
- *   null または合計0なら均等配分。負の占有数は 0 として扱う。
- * @returns {{stall1,stall2,stall3,stall4}}
- */
-export function splitTotalToStalls(total, occupancy) {
-  const names = ['stall1', 'stall2', 'stall3', 'stall4'];
-  let occSum = 0;
-  if (occupancy) {
-    for (const n of names) {
-      const v = occupancy[n];
-      if (typeof v === 'number' && v > 0) occSum += v;
-    }
-  }
-  const out = {};
-  for (const n of names) {
-    const share = occSum > 0 ? ((occupancy?.[n] > 0 ? occupancy[n] : 0) / occSum) : 0.25;
-    out[n] = total * share;
-  }
-  return out;
-}
-
-/**
  * 現在時刻から +5min〜+120min (24 slot) の予測を返す。
  *
  * @param {{slots: Array, sampleCount: number}} baseline computeBaseline の戻り値
  * @param {Array} recentHistory 直近 N tick の jsonl 行 (各行に ts と total_outflow)
  * @param {{flights: Array}|null} arrivalsJson arrivals.json (flights[].lobbyExitTime, .estimatedTaxiPax)
  * @param {Date} now 現在時刻
- * @param {{k: number, actual: number}|null} trackTrend 車両追跡 throughput (Phase G-1)。null なら net-diff 経路。
- *   actual = 0（トラッカーが健全で出庫0を観測）はそのまま予測0にアンカーされる。
+ * @param {{perStall: {stall1,stall2,stall3,stall4}}|null} trackTrend 車両追跡 throughput (Phase G)。
+ *   形は単一: {perStall} または null。null なら net-diff フォールバック経路。
+ *   perStall の各値は直近 TREND_WINDOW_TICKS スロット窓の乗り場別実測出庫数。
+ *   各乗り場の予測 = (その乗り場の実測レート = 値/TREND_WINDOW_TICKS) × 便需要比。
+ *   値 0（トラッカーが健全で出庫0を観測）はそのまま予測0にアンカーされる。
  *   トラッカー欠測時は呼び出し側（observe-taxi-pool）が trackTrend を null にしてフォールバックさせる責務を持つ。
  * @returns 予測オブジェクト
  */
-export function computeForecast(baseline, recentHistory, arrivalsJson, now, trackTrend = null, latestOccupancy = null) {
+export function computeForecast(baseline, recentHistory, arrivalsJson, now, trackTrend = null) {
   const nowSlot = slotKey(now.getHours(), now.getMinutes());
 
   // --- trendFactor ---
-  // trackTrend ({ k, actual }) があれば track 経路、無ければ net-diff 経路 (Phase G-1)。
+  // trendFactor は常に net-diff ベース。net-diff フォールバック経路 (levelSource==='netdiff-fallback')
+  // の slot 計算でのみ使われる。trackTrend ({perStall}) 有効時は track-anchored 経路となり未使用 (Phase G-1)。
   let trendFactor = 1.0;
   let trendActual = 0;
   let trendExpected = 0;
-  let trendSource = 'netdiff';
-  let trendK = null;
   if (recentHistory.length >= TREND_WINDOW_TICKS) {
     const window = recentHistory.slice(-TREND_WINDOW_TICKS);
     for (const row of window) {
@@ -171,22 +149,10 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now, trac
         }
       }
     }
-    const useTrack = trackTrend !== null
-      && typeof trackTrend.actual === 'number'
-      && typeof trackTrend.k === 'number'
-      && trackTrend.k > 0
-      && trendExpected > 0;
-    if (useTrack) {
-      // track 経路: k で net-diff baseline と単位を揃える
-      trendActual = trackTrend.actual;
-      trendSource = 'track';
-      trendK = trackTrend.k;
-      trendFactor = clip(trendActual / (trackTrend.k * trendExpected), TREND_FACTOR_MIN, TREND_FACTOR_MAX);
-    } else if (trendExpected > 0) {
+    if (trendExpected > 0) {
       trendFactor = clip(trendActual / trendExpected, TREND_FACTOR_MIN, TREND_FACTOR_MAX);
     }
   }
-  // 注: levelSource==='track-anchored' のときこの trendFactor は slot 計算に使われない（net-diff フォールバック経路専用）
 
   // --- flightFactor[slot_t] ---
   const flightSums = new Array(FORECAST_SLOT_COUNT).fill(0);
@@ -212,21 +178,26 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now, trac
   });
 
   // --- トラッカーアンカー経路の判定 ---
-  // trackTrend ({k, actual}) が有効なら、予測レベルを net-diff baseline でなく
-  // トラッカー実測出庫レートにアンカーする。満車で baseline=0 でも予測が出る。
+  // trackTrend ({perStall}) が有効なら、予測レベルを net-diff baseline でなく
+  // 乗り場別トラッカー実測出庫レートにアンカーする。満車で baseline=0 でも予測が出る。
   const useTrackAnchor = trackTrend !== null
-    && typeof trackTrend.actual === 'number'
-    && trackTrend.actual >= 0;
+    && trackTrend.perStall
+    && typeof trackTrend.perStall === 'object';
   const levelSource = useTrackAnchor ? 'track-anchored' : 'netdiff-fallback';
 
   const fmt = (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 
   // --- 各 slot の予測 ---
   const outSlots = [];
-  let trackRatePerSlot = 0;
+  let perStallRate = null;
   let demandRatios = null;
   if (useTrackAnchor) {
-    trackRatePerSlot = trackTrend.actual / TREND_WINDOW_TICKS;
+    // 乗り場別の実測レート（直近窓合計 / 窓スロット数）。
+    perStallRate = {};
+    for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
+      const v = trackTrend.perStall[name];
+      perStallRate[name] = (typeof v === 'number' ? v : 0) / TREND_WINDOW_TICKS;
+    }
     const demand = flightDemand(arrivalsJson, nowSlot);
     const recentPerSlot = demand.recentSum / TREND_WINDOW_TICKS;
     demandRatios = demand.futureSums.map(s => {
@@ -248,12 +219,11 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now, trac
     const slotOut = { slotStart: fmt(startH, startM), slotEnd: fmt(endH, endM), flightFactor: f };
     let total = 0;
     if (useTrackAnchor) {
-      // トラッカーアンカー: 実測レート × 便需要比 → 乗り場別按分。
-      const slotTotal = trackRatePerSlot * demandRatios[i];
-      const split = splitTotalToStalls(slotTotal, latestOccupancy);
+      // トラッカーアンカー: 乗り場別実測レート × 便需要比（按分しない）。
       for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
-        slotOut[name] = split[name];
-        total += split[name];
+        const val = perStallRate[name] * demandRatios[i];
+        slotOut[name] = val;
+        total += val;
       }
     } else {
       // net-diff フォールバック経路（従来どおり）。
@@ -277,7 +247,7 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now, trac
     schemaVersion: FORECAST_SCHEMA_VERSION,
     generatedAt,
     trendFactor,
-    trendWindow: { actual: trendActual, expected: trendExpected, ticks: Math.min(recentHistory.length, TREND_WINDOW_TICKS), source: trendSource, k: trendK, levelSource },
+    trendWindow: { actual: trendActual, expected: trendExpected, ticks: Math.min(recentHistory.length, TREND_WINDOW_TICKS), levelSource },
     baselineSampleCount: baseline.sampleCount,
     slots: outSlots,
   };
