@@ -15,21 +15,52 @@ export const MIN_TRACK_TICKS_FOR_TREND = 48;     // trendActual 用 60 分窓の
 export const K_MIN = 0.5;
 export const K_MAX = 5.0;
 export const NIGHT_LUMINANCE_THRESHOLD = 30;     // 信頼サブセット条件
-export const TRACK_SCHEMA_VERSION = 3;           // 複数カメラ per-camera 版の track 行 schema
+export const TRACK_SCHEMA_VERSION = 3;           // 複数カメラ per-camera 版 (v3: departed) の track 行 schema
+export const TRACK_SCHEMA_VERSIONS = [3, 4];     // 受理する track 行 schema (v3=departed / v4=departedByStall)
+
+const STALL_NAMES = ['stall1', 'stall2', 'stall3', 'stall4'];
 
 /**
- * v3 track 行の全カメラ departed 合計を返す。
- * row.cameras 配下の各カメラの departed (数値のみ) を合算する。
+ * track 行の総出庫数を返す。v4 (departedByStall) / v3 (departed) 両対応。
  */
 export function trackRowDeparted(row) {
   let sum = 0;
   const cameras = row.cameras;
   if (cameras && typeof cameras === 'object') {
     for (const cam of Object.values(cameras)) {
-      if (cam && typeof cam.departed === 'number') sum += cam.departed;
+      if (!cam || typeof cam !== 'object') continue;
+      if (cam.departedByStall && typeof cam.departedByStall === 'object') {
+        for (const name of STALL_NAMES) {
+          const v = cam.departedByStall[name];
+          if (typeof v === 'number') sum += v;
+        }
+      } else if (typeof cam.departed === 'number') {
+        sum += cam.departed;
+      }
     }
   }
   return sum;
+}
+
+/**
+ * track 行の乗り場別出庫を {stall1..4} で返す。v4 のみ対応、v3 行は null。
+ */
+export function trackRowDepartedByStall(row) {
+  const cameras = row.cameras;
+  if (!cameras || typeof cameras !== 'object') return null;
+  const out = { stall1: 0, stall2: 0, stall3: 0, stall4: 0 };
+  let sawV4 = false;
+  for (const cam of Object.values(cameras)) {
+    if (!cam || typeof cam !== 'object') continue;
+    if (cam.departedByStall && typeof cam.departedByStall === 'object') {
+      sawV4 = true;
+      for (const name of STALL_NAMES) {
+        const v = cam.departedByStall[name];
+        if (typeof v === 'number') out[name] += v;
+      }
+    }
+  }
+  return sawV4 ? out : null;
 }
 
 /**
@@ -46,7 +77,7 @@ export function computeThroughputCalibration(netDiffHistory, trackHistory) {
   // track 行を {tsMs, departed} に1回だけパース
   const trackParsed = [];
   for (const row of trackHistory) {
-    if (row.schema_version !== TRACK_SCHEMA_VERSION) continue;
+    if (!TRACK_SCHEMA_VERSIONS.includes(row.schema_version)) continue;
     const tsMs = new Date(row.ts).getTime();
     if (Number.isNaN(tsMs)) continue;
     trackParsed.push({ tsMs, departed: trackRowDeparted(row) });
@@ -115,7 +146,7 @@ export function sumTrackDepartedInWindow(trackHistory, startMs, endMs, minTicks)
   let sum = 0;
   let ticks = 0;
   for (const row of trackHistory) {
-    if (row.schema_version !== TRACK_SCHEMA_VERSION) continue;
+    if (!TRACK_SCHEMA_VERSIONS.includes(row.schema_version)) continue;
     const tsMs = new Date(row.ts).getTime();
     if (Number.isNaN(tsMs)) continue;
     if (tsMs > startMs && tsMs <= endMs) {

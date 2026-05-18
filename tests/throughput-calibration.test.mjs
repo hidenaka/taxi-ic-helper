@@ -8,6 +8,9 @@ import {
   sumTrackDepartedInWindow,
   applyThroughputScale,
   applyThroughputScaleToAccuracy,
+  trackRowDeparted,
+  trackRowDepartedByStall,
+  TRACK_SCHEMA_VERSIONS,
 } from '../scripts/lib/throughput-calibration.mjs';
 
 // net-diff 1 行を作る。s1/s2/s3/s4 は diff_occupied_from_prev。
@@ -455,4 +458,88 @@ test('applyThroughputScale: slotsKey 配下が配列でない → throughputScal
   assert.equal(r.throughputScaleK, 2);
   assert.equal(r.schemaVersion, 1);
   assert.equal(r.historicalCurve, undefined);
+});
+
+test('trackRowDeparted: v4 行 (departedByStall) を合算する', () => {
+  const row = { schema_version: 4, ts: '2026-05-19T12:00:00+09:00', cameras: {
+    real01_line: { departedByStall: { stall1: 2, stall2: 1 } },
+    real02: { departedByStall: { stall4: 3 } },
+  } };
+  assert.equal(trackRowDeparted(row), 6);
+});
+
+test('trackRowDeparted: v3 行 (departed) は従来どおり合算', () => {
+  const row = { schema_version: 3, ts: '2026-05-19T12:00:00+09:00', cameras: {
+    real01_line: { departed: 4 }, real02: { departed: 1 },
+  } };
+  assert.equal(trackRowDeparted(row), 5);
+});
+
+test('trackRowDepartedByStall: v4 行は乗り場別 dict を返す', () => {
+  const row = { schema_version: 4, ts: '2026-05-19T12:00:00+09:00', cameras: {
+    real01_line: { departedByStall: { stall1: 2, stall2: 1 } },
+    real02: { departedByStall: { stall4: 3 } },
+  } };
+  assert.deepEqual(trackRowDepartedByStall(row), { stall1: 2, stall2: 1, stall3: 0, stall4: 3 });
+});
+
+test('trackRowDepartedByStall: v3 行は null を返す', () => {
+  const row = { schema_version: 3, ts: '2026-05-19T12:00:00+09:00', cameras: { real01_line: { departed: 4 } } };
+  assert.equal(trackRowDepartedByStall(row), null);
+});
+
+// --- v4 schema filter acceptance ---
+
+// v4 track 行を作る (departedByStall)
+function makeTrackRowV4(ts, byStall) {
+  return {
+    schema_version: 4,
+    ts,
+    cameras: { real01_line: { departedByStall: byStall } },
+  };
+}
+
+test('TRACK_SCHEMA_VERSIONS: v3 と v4 の両方を含む', () => {
+  assert.ok(TRACK_SCHEMA_VERSIONS.includes(3));
+  assert.ok(TRACK_SCHEMA_VERSIONS.includes(4));
+});
+
+test('sumTrackDepartedInWindow: v4 行 (departedByStall) は合算される (schema フィルタで落とされない)', () => {
+  const base = new Date('2026-05-14T10:00:00+09:00').getTime();
+  // 60 本の v4 行、各 stall1:1 stall2:1 stall3:1 stall4:1 → 1行あたり departed=4
+  const rows = [];
+  for (let i = 0; i < 60; i++) {
+    rows.push(makeTrackRowV4(
+      new Date(base + i * 60000).toISOString(),
+      { stall1: 1, stall2: 1, stall3: 1, stall4: 1 },
+    ));
+  }
+  const sum = sumTrackDepartedInWindow(rows, base - 1, base + 60 * 60000, 48);
+  assert.equal(sum, 240); // 60 本 × 4
+});
+
+test('computeThroughputCalibration: v4 track 行を受理して k を算出する', () => {
+  // 12 窓ぶんの net-diff + v4 track 行
+  // 各窓 5 本 × stall1:1 stall2:1 = departed 2/本 → trackSum = 12*5*2 = 120
+  // netDiff 8/窓 × 12 = 96 → k = 1.25
+  const base = new Date('2026-05-14T10:00:00+09:00').getTime();
+  const netDiffHistory = [];
+  const trackHistory = [];
+  for (let i = 0; i < 12; i++) {
+    const endMs = base + i * WINDOW_MS;
+    netDiffHistory.push(makeNetDiffRow(new Date(endMs).toISOString(), { s1: -8 }));
+    for (let j = 0; j < 5; j++) {
+      const tsMs = endMs - 30000 - j * 60000;
+      trackHistory.push(makeTrackRowV4(
+        new Date(tsMs).toISOString(),
+        { stall1: 1, stall2: 1, stall3: 0, stall4: 0 },
+      ));
+    }
+  }
+  const r = computeThroughputCalibration(netDiffHistory, trackHistory);
+  assert.equal(r.windowCount, 12);
+  assert.equal(r.state, 'learning');
+  assert.equal(r.trackSum, 120);
+  assert.equal(r.netDiffSum, 96);
+  assert.equal(r.k, 1.25);
 });
