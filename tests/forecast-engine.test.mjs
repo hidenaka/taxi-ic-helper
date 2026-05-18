@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
 import {
-  slotKey, clip, computeBaseline, SLOTS_PER_DAY, flightDemand,
+  slotKey, clip, computeBaseline, SLOTS_PER_DAY, flightDemand, splitTotalToStalls,
 } from '../scripts/lib/forecast-engine.mjs';
 
 test('slotKey: 17:30 → 17*12 + 6 = 210', () => {
@@ -258,4 +258,29 @@ test('flightDemand: arrivals が null → 全0', () => {
   assert.equal(r.futureSums.length, 24);
   assert.equal(r.futureSums.every(v => v === 0), true);
   assert.equal(r.recentSum, 0);
+});
+
+test('splitTotalToStalls: 占有比で按分する', () => {
+  // 占有 2/2/4/2 = 計10 → 比 0.2/0.2/0.4/0.2
+  const r = splitTotalToStalls(10, { stall1: 2, stall2: 2, stall3: 4, stall4: 2 });
+  assert.equal(r.stall1, 2);
+  assert.equal(r.stall2, 2);
+  assert.equal(r.stall3, 4);
+  assert.equal(r.stall4, 2);
+});
+
+test('splitTotalToStalls: 占有が null → 均等配分', () => {
+  const r = splitTotalToStalls(8, null);
+  assert.equal(r.stall1, 2);
+  assert.equal(r.stall2, 2);
+  assert.equal(r.stall3, 2);
+  assert.equal(r.stall4, 2);
+});
+
+test('splitTotalToStalls: 占有合計が0 → 均等配分', () => {
+  const r = splitTotalToStalls(8, { stall1: 0, stall2: 0, stall3: 0, stall4: 0 });
+  assert.equal(r.stall1, 2);
+  assert.equal(r.stall2, 2);
+  assert.equal(r.stall3, 2);
+  assert.equal(r.stall4, 2);
 });

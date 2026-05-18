@@ -112,6 +112,30 @@ export function flightDemand(arrivalsJson, nowSlot) {
 }
 
 /**
+ * 出庫総数を乗り場別に按分する。
+ * @param {number} total 5分スロットの出庫総数
+ * @param {{stall1,stall2,stall3,stall4}|null} occupancy 直近の各乗り場占有数。
+ *   null または合計0なら均等配分。負の占有数は 0 として扱う。
+ * @returns {{stall1,stall2,stall3,stall4}}
+ */
+export function splitTotalToStalls(total, occupancy) {
+  const names = ['stall1', 'stall2', 'stall3', 'stall4'];
+  let occSum = 0;
+  if (occupancy) {
+    for (const n of names) {
+      const v = occupancy[n];
+      if (typeof v === 'number' && v > 0) occSum += v;
+    }
+  }
+  const out = {};
+  for (const n of names) {
+    const share = occSum > 0 ? ((occupancy?.[n] > 0 ? occupancy[n] : 0) / occSum) : 0.25;
+    out[n] = total * share;
+  }
+  return out;
+}
+
+/**
  * 現在時刻から +5min〜+120min (24 slot) の予測を返す。
  *
  * @param {{slots: Array, sampleCount: number}} baseline computeBaseline の戻り値
