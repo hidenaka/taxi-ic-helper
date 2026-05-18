@@ -62,3 +62,19 @@
 - 更新した3エンジンのユニットテストが小数出力前提でパスする。
 - `npm test` 451件 ＋ Python 42件が全てパスする（回帰なし）。
 - 実データ再生成で 0→非0 転換スロットが診断書の約24%と整合し、出力が「ほぼ0＋5の倍数」でなくなる。
+
+## 追補（2026-05-18）— 4つ目の修正対象（applyLevelCorrection）
+
+3か所の修正実装後の最終レビューで、`stall-ensemble.json` パイプラインに4つ目の早すぎる
+丸めが判明した。実際のパイプラインは `observe-taxi-pool.mjs` 行 435-437 で
+`computeForecast → applyLevelCorrection → computeEnsemble → applyThroughputScale`。
+本設計書当初の波及分析は `applyLevelCorrection` の段を見落としていた。
+
+| ファイル | 関数 | 変更 |
+|---|---|---|
+| `scripts/lib/correction-engine.mjs` | `applyLevelCorrection`（61行付近） | `const v = Math.round((slot[name] \|\| 0) * factor)` → `const v = (slot[name] \|\| 0) * factor`。`total` は小数和になる |
+
+`applyLevelCorrection` の出力 `correctedForecast` は `computeEnsemble` にしか渡らず、
+`computeEnsemble` は本修正で小数対応済みのため波及なし。既存テスト
+`tests/correction-engine.test.mjs` の「`factor 1.5 → round 乗算`」テストは整数出力前提の
+ため、小数出力前提に更新する。これにより `stall-ensemble.json` が完全に修正される。

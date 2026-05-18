@@ -67,3 +67,21 @@
 「占有数の負の差分＝出庫」という観測方式自体の系統的過小評価は残る（同一 tick で出庫＋入庫が
 相殺されると net-diff 0）。`throughputScaleK` は平均的なズレを補正するが、丸めバグ修正は
 「補正が機能する状態に戻す」もの。方式そのものの精度向上は別課題。
+
+## 追補（2026-05-18）— 4つ目の早すぎる丸めを発見
+
+3か所の修正実装後の最終レビューで、**4つ目の早すぎる丸め**が判明した。本診断は
+`stall-ensemble.json` のパイプラインを `computeForecast → computeEnsemble → applyThroughputScale`
+と捉えていたが、実際の `observe-taxi-pool.mjs`（行 435-437）は
+`computeForecast → applyLevelCorrection → computeEnsemble → applyThroughputScale`
+であり、間の `applyLevelCorrection`（レベル補正）の段を見落としていた。
+
+`scripts/lib/correction-engine.mjs` の `applyLevelCorrection`（61行）が
+`Math.round((slot[name] || 0) * factor)` で forecast を整数化している。`computeForecast` で
+小数化した forecast が ensemble に入る前にここで再び潰れる。特に `factor=1.0`
+（学習20件未満のブートストラップ既定値）では `round(0.333×1.0)=0` で完全に潰れ、
+`stall-ensemble.json` が「ほぼ0」のまま残る。修正は他3か所と同型（`Math.round` 除去）。
+`applyLevelCorrection` の出力 `correctedForecast` は `computeEnsemble` にしか渡らないため波及なし。
+
+**教訓**: パイプライン診断は、エンジン関数の呼び出しグラフだけでなく、実呼び出し元
+（`observe-taxi-pool.mjs`）の中間段（補正・整形ステップ）まで追うこと。

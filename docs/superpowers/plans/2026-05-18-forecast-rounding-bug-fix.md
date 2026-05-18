@@ -383,3 +383,113 @@ rebase で再生成系 JSON（`data/stall-*.json` 等）が衝突したら `git 
 - **Spec coverage:** 設計書の変更内容4ファイル → forecast-engine(Task1)/pattern-matcher(Task2)/ensemble-engine(Task3)、throughput-calibration は「変更なし」で Task 不要。テスト方針 → Task1-3 のTDD＋Task4の全回帰。実データ検証 → Task5。波及・確認事項 → Task4で回帰確認。全要件にタスクが対応。
 - **Placeholder scan:** TBD/TODO なし。全ステップに実コード・実コマンド・期待出力を記載。
 - **Type consistency:** `computeForecast` / `computePatternMatch` / `computeEnsemble` のシグネチャは既存テストの呼び出しと一致。`makeRow`(6引数: ts,lum,s1d..s4d)、`makeForecast`/`makePatternMatch`(slotStalls 配列)、`makeArrivals`(flights) は各テストファイルの既存定義と一致。`computeBaseline` は forecast-engine.mjs の既存 export。
+
+---
+
+## Task 6: correction-engine.mjs（applyLevelCorrection）の中間丸めを除去
+
+> **追加タスク（2026-05-18）** — Task 1-5 完了後の最終レビューで判明した4つ目の早すぎる丸め。
+> `stall-ensemble.json` のパイプラインは `observe-taxi-pool.mjs` 行 435-437 で
+> `computeForecast → applyLevelCorrection → computeEnsemble → applyThroughputScale` であり、
+> `applyLevelCorrection` が forecast を再び整数化していた。Task 1-3 と同型の修正。
+
+**Files:**
+- Modify: `scripts/lib/correction-engine.mjs`（`applyLevelCorrection` 内、61行付近）
+- Test: `tests/correction-engine.test.mjs`（既存テスト1件を小数前提に更新＋回帰テスト1件を追加）
+
+- [ ] **Step 1: 既存テストを小数前提に更新し、回帰テストを追加**
+
+`tests/correction-engine.test.mjs` の既存テスト（`applyLevelCorrection: lead30 factor 1.5 → round 乗算・total 再計算`）を以下に置き換える。
+
+置き換え前:
+```javascript
+test('applyLevelCorrection: lead30 factor 1.5 → round 乗算・total 再計算', () => {
+  const fc = makeForecast([[2, 1, 3, 0]]); // slot0 = lead 5min → lead30
+  const corrections = { level: { lead30: { factor: 1.5 }, lead60: { factor: 1.0 }, lead120: { factor: 1.0 } } };
+  const r = applyLevelCorrection(fc, corrections);
+  assert.equal(r.slots[0].stall1, 3); // round(2*1.5)
+  assert.equal(r.slots[0].stall3, 5); // round(3*1.5=4.5)
+  assert.equal(r.slots[0].total, 3 + 2 + 5 + 0);
+});
+```
+
+置き換え後（小数前提に更新＋直後に回帰テストを追加）:
+```javascript
+test('applyLevelCorrection: lead30 factor 1.5 → 小数乗算・total 再計算 (丸めない)', () => {
+  const fc = makeForecast([[2, 1, 3, 0]]); // slot0 = lead 5min → lead30
+  const corrections = { level: { lead30: { factor: 1.5 }, lead60: { factor: 1.0 }, lead120: { factor: 1.0 } } };
+  const r = applyLevelCorrection(fc, corrections);
+  // 早すぎる四捨五入を行わない。整数化は書き出し時の applyThroughputScale で1回だけ。
+  assert.equal(r.slots[0].stall1, 3);   // 2 * 1.5
+  assert.equal(r.slots[0].stall3, 4.5); // 3 * 1.5 — round で 5 に潰してはいけない
+  assert.equal(r.slots[0].total, 3 + 1.5 + 4.5 + 0); // 9
+});
+
+test('applyLevelCorrection: 小数の forecast 値を factor 1.0 で 0 に潰さない (早すぎる四捨五入バグ回帰)', () => {
+  // computeForecast は小数を出す。factor=1.0 (学習20件未満のブートストラップ既定) で
+  // round すると 0.333 → 0 に潰れ stall-ensemble.json がほぼ0になる。丸めてはいけない。
+  const fc = makeForecast([[1 / 3, 0, 0, 0]]);
+  const corrections = { level: { lead30: { factor: 1.0 }, lead60: { factor: 1.0 }, lead120: { factor: 1.0 } } };
+  const r = applyLevelCorrection(fc, corrections);
+  assert.equal(r.slots[0].stall1, 1 / 3);
+  assert.equal(r.slots[0].total, 1 / 3);
+});
+```
+
+- [ ] **Step 2: テストを実行して失敗を確認**
+
+Run: `node --test tests/correction-engine.test.mjs`
+Expected: FAIL — 更新したテストで `r.slots[0].stall3` が `5`（`Math.round(4.5)`）、`total` が `10` になり期待値 `4.5` / `9` と一致しない。回帰テストでも `stall1` が `0`（`Math.round(1/3)`）になり `1/3` と一致しない。
+
+- [ ] **Step 3: 中間丸めを除去**
+
+`scripts/lib/correction-engine.mjs` の `applyLevelCorrection` 内、61行付近。
+
+変更前:
+```javascript
+    for (const name of STALL_NAMES) {
+      const v = Math.round((slot[name] || 0) * factor);
+      out[name] = v;
+      total += v;
+    }
+```
+
+変更後:
+```javascript
+    for (const name of STALL_NAMES) {
+      // 小数のまま保持する。整数化は書き出し時の applyThroughputScale (round(値×k)) で1回だけ行う。
+      const v = (slot[name] || 0) * factor;
+      out[name] = v;
+      total += v;
+    }
+```
+
+- [ ] **Step 4: テストを実行して成功を確認**
+
+Run: `node --test tests/correction-engine.test.mjs`
+Expected: PASS — 更新したテストと新規回帰テストを含む correction-engine の全テストがパス。
+
+- [ ] **Step 5: 全回帰テスト**
+
+Run: `cd 乗務地図関係 && npm test`
+Expected: PASS — 全件パス（Task 1-3 で 454 件、本タスクで回帰テスト1件追加 = 455 件）。失敗が出たら停止してユーザーに報告する。
+
+- [ ] **Step 6: コミット**
+
+```bash
+cd 乗務地図関係
+git add scripts/lib/correction-engine.mjs tests/correction-engine.test.mjs
+git diff --cached --name-only   # data/ が含まれないことを確認
+git commit -m "$(cat <<'EOF'
+fix(correction-engine): applyLevelCorrection の早すぎる四捨五入を除去
+
+stall-ensemble.json パイプラインは computeForecast → applyLevelCorrection →
+computeEnsemble → applyThroughputScale。applyLevelCorrection が forecast を
+Math.round((slot[name]||0)*factor) で再整数化し、小数を 0 に潰していた
+(特に factor=1.0 のブートストラップ時)。中間丸めを外す。これで ensemble
+パイプライン全体が小数を保持し、整数化は applyThroughputScale に一本化。
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
