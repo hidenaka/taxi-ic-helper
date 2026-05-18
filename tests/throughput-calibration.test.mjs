@@ -11,6 +11,7 @@ import {
   trackRowDeparted,
   trackRowDepartedByStall,
   TRACK_SCHEMA_VERSIONS,
+  forecastOutputK,
 } from '../scripts/lib/throughput-calibration.mjs';
 
 // net-diff 1 行を作る。s1/s2/s3/s4 は diff_occupied_from_prev。
@@ -516,6 +517,24 @@ test('sumTrackDepartedInWindow: v4 行 (departedByStall) は合算される (sch
   }
   const sum = sumTrackDepartedInWindow(rows, base - 1, base + 60 * 60000, 48);
   assert.equal(sum, 240); // 60 本 × 4
+});
+
+test('forecastOutputK: track-anchored 予測は 1.0（k を掛けない）', () => {
+  const fc = { trendWindow: { levelSource: 'track-anchored' } };
+  assert.equal(forecastOutputK(fc, 5), 1.0);
+});
+
+test('forecastOutputK: netdiff-fallback 予測は k', () => {
+  const fc = { trendWindow: { levelSource: 'netdiff-fallback' } };
+  assert.equal(forecastOutputK(fc, 5), 5);
+});
+
+test('forecastOutputK: forecastResult が null なら k（安全側）', () => {
+  assert.equal(forecastOutputK(null, 5), 5);
+});
+
+test('forecastOutputK: trendWindow 欠落なら k（安全側）', () => {
+  assert.equal(forecastOutputK({}, 3), 3);
 });
 
 test('computeThroughputCalibration: v4 track 行を受理して k を算出する', () => {

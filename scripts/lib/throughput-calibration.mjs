@@ -158,6 +158,19 @@ export function sumTrackDepartedInWindow(trackHistory, startMs, endMs, minTicks)
 }
 
 /**
+ * forecast 結果に適用すべき throughput スケール係数を返す。
+ * トラッカーアンカー経路の予測はすでに実台数単位なので 1.0（k を掛けない）。
+ * net-diff フォールバック経路はネット差分単位なので k。
+ * @param {object|null} forecastResult computeForecast の戻り値
+ * @param {number} calibrationK throughput 校正の k
+ * @returns {number}
+ */
+export function forecastOutputK(forecastResult, calibrationK) {
+  const tw = forecastResult && forecastResult.trendWindow;
+  return (tw && tw.levelSource === 'track-anchored') ? 1.0 : calibrationK;
+}
+
+/**
  * forecast / ensemble / pattern-match の出力オブジェクトの slot outflow を k 倍した新オブジェクトを返す。
  *
  * slotsKey 配下の配列の各 slot の stall1-4 を round(値×k)、total はスケール後 stall1-4 の
