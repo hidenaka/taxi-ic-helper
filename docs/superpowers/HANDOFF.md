@@ -1,6 +1,6 @@
 # セッション引き継ぎ (HANDOFF)
 
-> 最終更新: 2026-05-17 / このファイルは「次セッションが即座に作業を再開する」ための引き継ぎ。
+> 最終更新: 2026-05-18 / このファイルは「次セッションが即座に作業を再開する」ための引き継ぎ。
 
 ## 次にやること（ユーザー選択）
 
@@ -8,7 +8,9 @@
 
 ### 進行中タスク
 
-なし。G-9 まで完了・push 済み（`686d0d9`）。次タスクは下記候補からユーザーが選択。
+なし。
+
+**直近完了（2026-05-18）: 予測の早すぎる四捨五入バグ修正** — `stall-ensemble.json` が「ほぼ0＋5の倍数スパイク」になる不具合を解消。小数の出庫レート（中央値0.333）を `Math.round` で整数化してから校正係数 `×k` を掛けるため0に潰れていた。早すぎる丸めを **4か所** 除去（`forecast-engine.mjs` `computeForecast` / `pattern-matcher.mjs` `historicalCurve` / `ensemble-engine.mjs` `computeEnsemble` / `correction-engine.mjs` `applyLevelCorrection`）。整数化は書き出し時の `applyThroughputScale` の `round(値×k)` 1回に集約。4つ目の `applyLevelCorrection` は当初の診断（3か所想定）が見落としていた段で、最終レビューで発覚し追加修正した（`stall-ensemble.json` パイプラインは `computeForecast → applyLevelCorrection → computeEnsemble → applyThroughputScale`）。診断書 `docs/research/2026-05-18-forecast-rounding-bug-diagnosis.md`・設計書/計画 `docs/superpowers/{specs,plans}/2026-05-18-forecast-rounding-bug-fix*`。全455テストpass。`origin/main 5f6eb9e3`。実データ検証で baseline スロットの 0→非0 回復を確認済み。
 
 ### 次タスク候補
 
