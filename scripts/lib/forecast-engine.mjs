@@ -142,10 +142,12 @@ export function splitTotalToStalls(total, occupancy) {
  * @param {Array} recentHistory 直近 N tick の jsonl 行 (各行に ts と total_outflow)
  * @param {{flights: Array}|null} arrivalsJson arrivals.json (flights[].lobbyExitTime, .estimatedTaxiPax)
  * @param {Date} now 現在時刻
- * @param {{k: number, actual: number}|null} trackTrend 車両追跡 throughput (Phase G-1)。null なら net-diff 経路
+ * @param {{k: number, actual: number}|null} trackTrend 車両追跡 throughput (Phase G-1)。null なら net-diff 経路。
+ *   actual = 0（トラッカーが健全で出庫0を観測）はそのまま予測0にアンカーされる。
+ *   トラッカー欠測時は呼び出し側（observe-taxi-pool）が trackTrend を null にしてフォールバックさせる責務を持つ。
  * @returns 予測オブジェクト
  */
-export function computeForecast(baseline, recentHistory, arrivalsJson, now, trackTrend = null) {
+export function computeForecast(baseline, recentHistory, arrivalsJson, now, trackTrend = null, latestOccupancy = null) {
   const nowSlot = slotKey(now.getHours(), now.getMinutes());
 
   // --- trendFactor ---
@@ -184,6 +186,7 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now, trac
       trendFactor = clip(trendActual / trendExpected, TREND_FACTOR_MIN, TREND_FACTOR_MAX);
     }
   }
+  // 注: levelSource==='track-anchored' のときこの trendFactor は slot 計算に使われない（net-diff フォールバック経路専用）
 
   // --- flightFactor[slot_t] ---
   const flightSums = new Array(FORECAST_SLOT_COUNT).fill(0);
@@ -208,8 +211,30 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now, trac
     return clip(s / dailyAvg, FLIGHT_FACTOR_MIN, FLIGHT_FACTOR_MAX);
   });
 
+  // --- トラッカーアンカー経路の判定 ---
+  // trackTrend ({k, actual}) が有効なら、予測レベルを net-diff baseline でなく
+  // トラッカー実測出庫レートにアンカーする。満車で baseline=0 でも予測が出る。
+  const useTrackAnchor = trackTrend !== null
+    && typeof trackTrend.actual === 'number'
+    && trackTrend.actual >= 0;
+  const levelSource = useTrackAnchor ? 'track-anchored' : 'netdiff-fallback';
+
+  const fmt = (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
   // --- 各 slot の予測 ---
   const outSlots = [];
+  let trackRatePerSlot = 0;
+  let demandRatios = null;
+  if (useTrackAnchor) {
+    trackRatePerSlot = trackTrend.actual / TREND_WINDOW_TICKS;
+    const demand = flightDemand(arrivalsJson, nowSlot);
+    const recentPerSlot = demand.recentSum / TREND_WINDOW_TICKS;
+    demandRatios = demand.futureSums.map(s => {
+      // 直近窓に便がない時は便需要比を 1.0（横ばい）にする。将来便があっても直近窓に便が出るまで増幅しない保守的挙動。
+      if (recentPerSlot <= 0) return 1.0;
+      return clip(s / recentPerSlot, FLIGHT_FACTOR_MIN, FLIGHT_FACTOR_MAX);
+    });
+  }
   for (let i = 0; i < FORECAST_SLOT_COUNT; i++) {
     const targetSlot = (nowSlot + 1 + i) % SLOTS_PER_DAY;
     const slotStartMin = targetSlot * 5;
@@ -218,17 +243,27 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now, trac
     const endTotal = slotStartMin + 5;
     const endH = Math.floor(endTotal / 60) % 24;
     const endM = endTotal % 60;
-    const fmt = (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     const base = baseline.slots[targetSlot] || { stall1: null, stall2: null, stall3: null, stall4: null };
     const f = flightFactors[i];
     const slotOut = { slotStart: fmt(startH, startM), slotEnd: fmt(endH, endM), flightFactor: f };
     let total = 0;
-    for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
-      const b = base[name];
-      // 小数のまま保持する。整数化は書き出し時の applyThroughputScale (round(値×k)) で1回だけ行う。
-      const val = (b === null || b === undefined) ? 0 : b * trendFactor * f;
-      slotOut[name] = val;
-      total += val;
+    if (useTrackAnchor) {
+      // トラッカーアンカー: 実測レート × 便需要比 → 乗り場別按分。
+      const slotTotal = trackRatePerSlot * demandRatios[i];
+      const split = splitTotalToStalls(slotTotal, latestOccupancy);
+      for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
+        slotOut[name] = split[name];
+        total += split[name];
+      }
+    } else {
+      // net-diff フォールバック経路（従来どおり）。
+      for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
+        const b = base[name];
+        // 小数のまま保持する。整数化は書き出し時の applyThroughputScale (round(値×k)) で1回だけ行う。
+        const val = (b === null || b === undefined) ? 0 : b * trendFactor * f;
+        slotOut[name] = val;
+        total += val;
+      }
     }
     slotOut.total = total;
     outSlots.push(slotOut);
@@ -242,7 +277,7 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now, trac
     schemaVersion: FORECAST_SCHEMA_VERSION,
     generatedAt,
     trendFactor,
-    trendWindow: { actual: trendActual, expected: trendExpected, ticks: Math.min(recentHistory.length, TREND_WINDOW_TICKS), source: trendSource, k: trendK },
+    trendWindow: { actual: trendActual, expected: trendExpected, ticks: Math.min(recentHistory.length, TREND_WINDOW_TICKS), source: trendSource, k: trendK, levelSource },
     baselineSampleCount: baseline.sampleCount,
     slots: outSlots,
   };

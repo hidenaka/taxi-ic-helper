@@ -284,3 +284,66 @@ test('splitTotalToStalls: 占有合計が0 → 均等配分', () => {
   assert.equal(r.stall3, 2);
   assert.equal(r.stall4, 2);
 });
+
+test('computeForecast: トラッカーアンカー経路 — baseline 全0でも非0予測を出す', () => {
+  const baseline = {
+    slots: Array.from({ length: 288 }, () => ({ stall1: 0, stall2: 0, stall3: 0, stall4: 0 })),
+    sampleCount: 100,
+  };
+  const recent = Array.from({ length: 12 }, (_, i) => ({
+    ts: new Date(2026, 4, 15, 11, i * 5, 0).toISOString().replace('Z', '+09:00'),
+    total_outflow: 0,
+  }));
+  const trackTrend = { k: 5, actual: 60 };
+  const r = computeForecast(baseline, recent, makeArrivals([]), new Date('2026-05-15T12:00:00+09:00'), trackTrend, null);
+  assert.equal(r.trendWindow.levelSource, 'track-anchored');
+  // 便需要なし → 各スロット total = trackRatePerSlot = 60/12 = 5。均等配分で各 stall 1.25。
+  assert.equal(r.slots[0].total, 5);
+  assert.equal(r.slots[0].stall1, 1.25);
+});
+
+test('computeForecast: トラッカーアンカー経路 — 便需要比でスロットが変調される', () => {
+  const baseline = {
+    slots: Array.from({ length: 288 }, () => ({ stall1: 0, stall2: 0, stall3: 0, stall4: 0 })),
+    sampleCount: 100,
+  };
+  const recent = Array.from({ length: 12 }, (_, i) => ({
+    ts: new Date(2026, 4, 15, 11, i * 5, 0).toISOString().replace('Z', '+09:00'),
+    total_outflow: 0,
+  }));
+  // 直近窓に便需要 120 → recentPerSlot = 120/12 = 10。将来 slot0 に便需要 20 → demandRatio = clip(20/10)=2.0。
+  // trackRatePerSlot = 60/12 = 5 → slot0 total = 5 * 2.0 = 10。
+  const arrivals = makeArrivals([
+    { lobbyExitTime: '11:30', estimatedTaxiPax: 120 },
+    { lobbyExitTime: '12:05', estimatedTaxiPax: 20 },
+  ]);
+  const r = computeForecast(baseline, recent, arrivals, new Date('2026-05-15T12:00:00+09:00'), { k: 5, actual: 60 }, null);
+  assert.equal(r.trendWindow.levelSource, 'track-anchored');
+  assert.equal(r.slots[0].total, 10);
+});
+
+test('computeForecast: トラッカーアンカー経路 — latestOccupancy で乗り場別按分', () => {
+  const baseline = {
+    slots: Array.from({ length: 288 }, () => ({ stall1: 0, stall2: 0, stall3: 0, stall4: 0 })),
+    sampleCount: 100,
+  };
+  const recent = Array.from({ length: 12 }, (_, i) => ({
+    ts: new Date(2026, 4, 15, 11, i * 5, 0).toISOString().replace('Z', '+09:00'),
+    total_outflow: 0,
+  }));
+  // 占有 4/2/2/0 = 計8 → 比 0.5/0.25/0.25/0。total=5 → 2.5/1.25/1.25/0。
+  const r = computeForecast(baseline, recent, makeArrivals([]), new Date('2026-05-15T12:00:00+09:00'),
+    { k: 5, actual: 60 }, { stall1: 4, stall2: 2, stall3: 2, stall4: 0 });
+  assert.equal(r.trendWindow.levelSource, 'track-anchored');
+  assert.equal(r.slots[0].stall1, 2.5);
+  assert.equal(r.slots[0].stall2, 1.25);
+  assert.equal(r.slots[0].stall4, 0);
+});
+
+test('computeForecast: trackTrend null → 従来の net-diff 経路（後方互換）', () => {
+  const slots = Array.from({ length: 288 }, () => ({ stall1: 1.0, stall2: 0, stall3: 0, stall4: 0 }));
+  const baseline = { slots, sampleCount: 100 };
+  const r = computeForecast(baseline, [], makeArrivals([]), new Date('2026-05-15T12:00:00+09:00'), null);
+  assert.equal(r.trendWindow.levelSource, 'netdiff-fallback');
+  assert.equal(r.slots[0].stall1, 1); // 1.0 * trendFactor(1) * flightFactor(1)
+});
