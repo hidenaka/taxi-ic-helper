@@ -1,0 +1,87 @@
+name: Relay taxi data to dev & prod
+
+# observe-tick / update-arrivals が data/ を更新して main に push するたびに発火し、
+# arrivals.json / stall-ensemble.json を日報アプリの dev・prod リポジトリの
+# tools/data/ へ配信する。
+#
+# 旧方式（dev リポジトリの schedule cron relay）は GitHub の schedule 不発で
+# 止まりやすかったため、確実に発火する push トリガーへ移行した。
+#
+# 必要な secret: RELAY_DEPLOY_TOKEN — dev (-taxi-daily-report-dev) と
+# prod (taxi-daily-report) の両リポジトリへ contents:write できる PAT。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/arrivals.json'
+      - 'data/stall-ensemble.json'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relay-taxi-data
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout taxi-ic-helper (data source)
+        uses: actions/checkout@v4
+        with:
+          path: src
+
+      - name: Checkout dev repo
+        uses: actions/checkout@v4
+        with:
+          repository: hidenaka/-taxi-daily-report-dev
+          token: ${{ secrets.RELAY_DEPLOY_TOKEN }}
+          path: dev
+
+      - name: Checkout prod repo
+        uses: actions/checkout@v4
+        with:
+          repository: hidenaka/taxi-daily-report
+          token: ${{ secrets.RELAY_DEPLOY_TOKEN }}
+          path: prod
+
+      - name: Publish data to dev & prod
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          SRC="$GITHUB_WORKSPACE/src/data"
+          FILES="arrivals.json stall-ensemble.json"
+
+          publish() {
+            local dir="$1"
+            cd "$GITHUB_WORKSPACE/$dir"
+            mkdir -p tools/data
+            for f in $FILES; do cp "$SRC/$f" "tools/data/$f"; done
+            if [ -z "$(git status --porcelain tools/data)" ]; then
+              echo "$dir: no change"
+              return 0
+            fi
+            for i in 1 2 3; do
+              git add tools/data
+              git commit -m "chore(data): relay taxi data $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
+              if git push; then
+                echo "$dir: pushed"
+                return 0
+              fi
+              echo "$dir: push failed (attempt $i), refresh and re-copy"
+              git fetch origin main
+              git reset --hard origin/main
+              for f in $FILES; do cp "$SRC/$f" "tools/data/$f"; done
+              sleep $((i * 3))
+            done
+            echo "$dir: push failed after 3 retries"
+            return 1
+          }
+
+          rc=0
+          publish dev  || rc=1
+          publish prod || rc=1
+          exit $rc
