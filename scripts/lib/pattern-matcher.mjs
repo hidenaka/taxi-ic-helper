@@ -241,10 +241,11 @@ export function computePatternMatch(historyAll, holidaysSet, now) {
       stallSums[3] += slot[3];
       count += 1;
     }
-    const stall1 = count > 0 ? Math.round(stallSums[0] / count) : 0;
-    const stall2 = count > 0 ? Math.round(stallSums[1] / count) : 0;
-    const stall3 = count > 0 ? Math.round(stallSums[2] / count) : 0;
-    const stall4 = count > 0 ? Math.round(stallSums[3] / count) : 0;
+    // 小数のまま保持する。整数化は書き出し時の applyThroughputScale (round(値×k)) で1回だけ行う。
+    const stall1 = count > 0 ? stallSums[0] / count : 0;
+    const stall2 = count > 0 ? stallSums[1] / count : 0;
+    const stall3 = count > 0 ? stallSums[2] / count : 0;
+    const stall4 = count > 0 ? stallSums[3] / count : 0;
     const slotStartMin = idx * 5;
     const startH = Math.floor(slotStartMin / 60) % 24;
     const startM = slotStartMin % 60;

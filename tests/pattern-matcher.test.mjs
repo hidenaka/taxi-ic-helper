@@ -182,3 +182,21 @@ test('computePatternMatch: today consec 情報が出力 today に含まれる', 
   assert.equal(r.today.consecLength, 5);
   assert.equal(r.today.relevantConsec, 5);
 });
+
+test('computePatternMatch: historicalCurve は類似日平均を丸めず小数で保持する (早すぎる四捨五入バグ回帰)', () => {
+  // 2026-05 の平日 3 日に 17:35 の信頼行 (luminance 100) を 1 本ずつ。
+  // stall1 の出庫 (= -diff_occupied_from_prev) は [1, 0, 0] → 3 日平均 = 1/3。
+  // Math.round で 0 に潰れてはいけない。
+  const holidays = loadHolidaysSet({ holidays: [] });
+  const history = [
+    makeRow('2026-05-11T17:35:00+09:00', 100, -1, 0, 0, 0),
+    makeRow('2026-05-12T17:35:00+09:00', 100, 0, 0, 0, 0),
+    makeRow('2026-05-13T17:35:00+09:00', 100, 0, 0, 0, 0),
+  ];
+  // 現在 17:30 → forecast slot 0 = 17:35
+  const r = computePatternMatch(history, holidays, new Date('2026-05-15T17:30:00+09:00'));
+  assert.equal(r.historicalCurve.length, 24);
+  assert.equal(r.historicalCurve[0].slotStart, '17:35');
+  assert.equal(r.historicalCurve[0].stall1, 1 / 3);
+  assert.equal(r.historicalCurve[0].total, 1 / 3);
+});
