@@ -322,7 +322,15 @@ async function main() {
       }
     }
 
-    forecastResult = computeForecast(baseline, recent, arrivalsJson, now, trackTrend);
+    // 直近 tick の各乗り場占有を乗り場別按分に渡す（トラッカーアンカー経路用）。
+    const lastRow = allHistory[allHistory.length - 1];
+    const latestOccupancy = lastRow && lastRow.stalls ? {
+      stall1: lastRow.stalls.stall1?.occupied_estimate,
+      stall2: lastRow.stalls.stall2?.occupied_estimate,
+      stall3: lastRow.stalls.stall3?.occupied_estimate,
+      stall4: lastRow.stalls.stall4?.occupied_estimate,
+    } : null;
+    forecastResult = computeForecast(baseline, recent, arrivalsJson, now, trackTrend, latestOccupancy);
     writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(applyThroughputScale(forecastResult, throughputK), null, 2) + '\n', 'utf8');
     console.log(`[observe] forecast ok: trendFactor=${forecastResult.trendFactor.toFixed(2)} baselineSamples=${forecastResult.baselineSampleCount}`);
   } catch (e) {
