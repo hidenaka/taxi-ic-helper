@@ -167,7 +167,8 @@ export function computeForecast(baseline, recentHistory, arrivalsJson, now, trac
     let total = 0;
     for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
       const b = base[name];
-      const val = (b === null || b === undefined) ? 0 : Math.round(b * trendFactor * f);
+      // 小数のまま保持する。整数化は書き出し時の applyThroughputScale (round(値×k)) で1回だけ行う。
+      const val = (b === null || b === undefined) ? 0 : b * trendFactor * f;
       slotOut[name] = val;
       total += val;
     }
