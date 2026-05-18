@@ -18,8 +18,6 @@ import { summarizeArrivalsWindow } from './lib/arrivals-window-summary.mjs';
 import { computeBaseline, computeForecast } from './lib/forecast-engine.mjs';
 import {
   computeThroughputCalibration,
-  sumTrackDepartedInWindow,
-  MIN_TRACK_TICKS_FOR_TREND,
   applyThroughputScale,
   applyThroughputScaleToAccuracy,
 } from './lib/throughput-calibration.mjs';
@@ -309,30 +307,22 @@ async function main() {
       netdiff_sum: calibration.netDiffSum,
     }, null, 2) + '\n', 'utf8');
 
-    // trendActual: 直近60分窓 (recent の最古 tick 〜 now) の track departed 合算。
-    // 窓終端は now、computeForecast の trendExpected は recent 末尾 tick (約5分前) 止まり
-    // なので track 側が約1 slot ぶん長い。spec 既知 (design 設計方針) として許容。
+    // trackTrend: 直近60分窓の乗り場別実出庫合計（{perStall} 形式）。
+    // computeTrackActuals の 15分スロットを集計して乗り場別合計を作る。
     const now = new Date();
     let trackTrend = null;
     if (calibration.state === 'learning' && recent.length >= 12) {
-      const windowStartMs = new Date(recent[0].ts).getTime();
-      const trackActual = sumTrackDepartedInWindow(
-        trackHistory, windowStartMs, now.getTime(), MIN_TRACK_TICKS_FOR_TREND,
-      );
-      if (trackActual !== null) {
-        trackTrend = { k: calibration.k, actual: trackActual };
+      const win = computeTrackActuals(trackHistory, now, 60);
+      if (win.length > 0) {
+        const perStall = { stall1: 0, stall2: 0, stall3: 0, stall4: 0 };
+        for (const s of win) {
+          for (const n of ['stall1', 'stall2', 'stall3', 'stall4']) perStall[n] += s[n];
+        }
+        trackTrend = { perStall };
       }
     }
 
-    // 直近 tick の各乗り場占有を乗り場別按分に渡す（トラッカーアンカー経路用）。
-    const lastRow = allHistory[allHistory.length - 1];
-    const latestOccupancy = lastRow && lastRow.stalls ? {
-      stall1: lastRow.stalls.stall1?.occupied_estimate,
-      stall2: lastRow.stalls.stall2?.occupied_estimate,
-      stall3: lastRow.stalls.stall3?.occupied_estimate,
-      stall4: lastRow.stalls.stall4?.occupied_estimate,
-    } : null;
-    forecastResult = computeForecast(baseline, recent, arrivalsJson, now, trackTrend, latestOccupancy);
+    forecastResult = computeForecast(baseline, recent, arrivalsJson, now, trackTrend);
     writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(applyThroughputScale(forecastResult, throughputK), null, 2) + '\n', 'utf8');
     console.log(`[observe] forecast ok: trendFactor=${forecastResult.trendFactor.toFixed(2)} baselineSamples=${forecastResult.baselineSampleCount}`);
     // 出庫実績（直近2時間・15分スロット）を書き出す。到着便ページの実績表示用。
