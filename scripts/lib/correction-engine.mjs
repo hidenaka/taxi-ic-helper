@@ -58,7 +58,8 @@ export function applyLevelCorrection(forecast, corrections) {
     const out = { ...slot };
     let total = 0;
     for (const name of STALL_NAMES) {
-      const v = Math.round((slot[name] || 0) * factor);
+      // 小数のまま保持する。整数化は書き出し時の applyThroughputScale (round(値×k)) で1回だけ行う。
+      const v = (slot[name] || 0) * factor;
       out[name] = v;
       total += v;
     }

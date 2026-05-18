@@ -52,13 +52,24 @@ test('applyLevelCorrection: factor 1.0 → 値不変・他キー保持', () => {
   assert.equal(r.trendFactor, 1.0);
 });
 
-test('applyLevelCorrection: lead30 factor 1.5 → round 乗算・total 再計算', () => {
+test('applyLevelCorrection: lead30 factor 1.5 → 小数乗算・total 再計算 (丸めない)', () => {
   const fc = makeForecast([[2, 1, 3, 0]]); // slot0 = lead 5min → lead30
   const corrections = { level: { lead30: { factor: 1.5 }, lead60: { factor: 1.0 }, lead120: { factor: 1.0 } } };
   const r = applyLevelCorrection(fc, corrections);
-  assert.equal(r.slots[0].stall1, 3); // round(2*1.5)
-  assert.equal(r.slots[0].stall3, 5); // round(3*1.5=4.5)
-  assert.equal(r.slots[0].total, 3 + 2 + 5 + 0);
+  // 早すぎる四捨五入を行わない。整数化は書き出し時の applyThroughputScale で1回だけ。
+  assert.equal(r.slots[0].stall1, 3);   // 2 * 1.5
+  assert.equal(r.slots[0].stall3, 4.5); // 3 * 1.5 — round で 5 に潰してはいけない
+  assert.equal(r.slots[0].total, 3 + 1.5 + 4.5 + 0); // 9
+});
+
+test('applyLevelCorrection: 小数の forecast 値を factor 1.0 で 0 に潰さない (早すぎる四捨五入バグ回帰)', () => {
+  // computeForecast は小数を出す。factor=1.0 (学習20件未満のブートストラップ既定) で
+  // round すると 0.333 → 0 に潰れ stall-ensemble.json がほぼ0になる。丸めてはいけない。
+  const fc = makeForecast([[1 / 3, 0, 0, 0]]);
+  const corrections = { level: { lead30: { factor: 1.0 }, lead60: { factor: 1.0 }, lead120: { factor: 1.0 } } };
+  const r = applyLevelCorrection(fc, corrections);
+  assert.equal(r.slots[0].stall1, 1 / 3);
+  assert.equal(r.slots[0].total, 1 / 3);
 });
 
 test('applyLevelCorrection: 入力 forecast を破壊しない', () => {
