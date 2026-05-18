@@ -4,7 +4,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 from track_vehicles import (
-    update_tracks, stall_rois_for_camera, filter_to_rois, state_from_json, camera_state,
+    update_tracks, stall_rois_for_camera, stall_of_point, filter_to_rois, state_from_json, camera_state,
 )
 
 
@@ -79,7 +79,7 @@ class TestUpdateTracks(unittest.TestCase):
         self.assertEqual(r['tracks'][0]['id'], 1)
         self.assertEqual(r['tracks'][0]['missed'], 0)
         self.assertEqual(r['arrived'], 0)
-        self.assertEqual(r['departed'], 0)
+        self.assertEqual(len(r['departedTracks']), 0)
 
     def test_new_detection_new_track(self):
         r = update_tracks([], [_det(0.2, 0.2)], 5, 2, 0.06)
@@ -92,13 +92,13 @@ class TestUpdateTracks(unittest.TestCase):
         r = update_tracks([_trk(1, 0.5, 0.3, missed=0)], [], 2, 2, 0.06)
         self.assertEqual(len(r['tracks']), 1)
         self.assertEqual(r['tracks'][0]['missed'], 1)
-        self.assertEqual(r['departed'], 0)
+        self.assertEqual(len(r['departedTracks']), 0)
 
     def test_track_departs_after_max_missed(self):
         # missed=2、未マッチで 3 になり max_missed=2 超 → departed
         r = update_tracks([_trk(1, 0.5, 0.3, missed=2)], [], 2, 2, 0.06)
         self.assertEqual(len(r['tracks']), 0)
-        self.assertEqual(r['departed'], 1)
+        self.assertEqual(len(r['departedTracks']), 1)
 
     def test_far_detection_not_matched(self):
         # track (0.5,0.3) と detection (0.9,0.9) は距離 > 0.06 → 別物扱い
@@ -196,6 +196,38 @@ class TestCameraState(unittest.TestCase):
         self.assertEqual(camera_state({'c': {'tracks': 'x', 'next_id': 1}}, 'c'), ([], 1))
         self.assertEqual(camera_state({'c': {'tracks': [], 'next_id': 'x'}}, 'c'), ([], 1))
         self.assertEqual(camera_state({'c': 5}, 'c'), ([], 1))
+
+
+class TestStallOfPoint(unittest.TestCase):
+    def test_point_inside_roi_returns_stall(self):
+        rois = stall_rois_for_camera(SAMPLE_STALL_ROIS, 'real01_line')
+        # stall1 ROI: x600 y80 w200 h170 / 画像800x600 → 正規化 x0.75-1.0 y0.133-0.417
+        self.assertEqual(stall_of_point(0.8, 0.2, rois), 'stall1')
+        # stall2 ROI: x600 y250 w200 h150 / 画像800x600 → 正規化 x0.75-1.0 y0.417-0.667
+        self.assertEqual(stall_of_point(0.8, 0.45, rois), 'stall2')
+
+    def test_point_in_no_roi_returns_none(self):
+        rois = stall_rois_for_camera(SAMPLE_STALL_ROIS, 'real01_line')
+        self.assertIsNone(stall_of_point(0.1, 0.1, rois))
+
+
+class TestStallRoisHaveStallName(unittest.TestCase):
+    def test_roi_includes_stall_key(self):
+        rois = stall_rois_for_camera(SAMPLE_STALL_ROIS, 'real01_line')
+        self.assertTrue(all('stall' in r for r in rois))
+        self.assertEqual({r['stall'] for r in rois}, {'stall1', 'stall2'})
+
+
+class TestUpdateTracksDepartedTracks(unittest.TestCase):
+    def test_departed_track_returns_last_position(self):
+        r = update_tracks([_trk(1, 0.8, 0.2, missed=2)], [], 2, 2, 0.06)
+        self.assertEqual(len(r['departedTracks']), 1)
+        self.assertAlmostEqual(r['departedTracks'][0]['x'], 0.8)
+        self.assertAlmostEqual(r['departedTracks'][0]['y'], 0.2)
+
+    def test_no_departure_empty_list(self):
+        r = update_tracks([_trk(1, 0.5, 0.3)], [_det(0.5, 0.3)], 2, 2, 0.06)
+        self.assertEqual(r['departedTracks'], [])
 
 
 if __name__ == '__main__':

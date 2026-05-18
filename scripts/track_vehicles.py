@@ -34,15 +34,15 @@ def update_tracks(prev_tracks, detections, next_id, max_missed, dist_threshold):
 
     prev_tracks: [{id,x,y,w,h,missed}, ...]
     detections:  [{x,y,w,h,...}, ...]
-    戻り値: {tracks, next_id, arrived, departed, matched_dists}
+    戻り値: {tracks, next_id, arrived, departedTracks, matched_dists}
     - マッチ: 中心座標のユークリッド距離が最小かつ dist_threshold 以内
     - 未マッチ検出 → 新トラック (arrived++)
-    - 未マッチトラック → missed++、missed > max_missed で消滅 (departed++)
+    - 未マッチトラック → missed++、missed > max_missed で消滅し departedTracks に最後位置を記録
     """
     unmatched = list(range(len(detections)))
     out_tracks = []
     arrived = 0
-    departed = 0
+    departed_tracks = []
     matched_dists = []
     for tr in prev_tracks:
         best_i, best_d = None, dist_threshold
@@ -60,7 +60,7 @@ def update_tracks(prev_tracks, detections, next_id, max_missed, dist_threshold):
         else:
             missed = tr.get('missed', 0) + 1
             if missed > max_missed:
-                departed += 1
+                departed_tracks.append({'x': tr['x'], 'y': tr['y']})
             else:
                 out_tracks.append({**tr, 'missed': missed})
     for i in unmatched:
@@ -70,7 +70,7 @@ def update_tracks(prev_tracks, detections, next_id, max_missed, dist_threshold):
         next_id += 1
         arrived += 1
     return {'tracks': out_tracks, 'next_id': next_id, 'arrived': arrived,
-            'departed': departed, 'matched_dists': matched_dists}
+            'departedTracks': departed_tracks, 'matched_dists': matched_dists}
 
 
 def stall_rois_for_camera(stall_rois_json, camera):
@@ -78,17 +78,18 @@ def stall_rois_for_camera(stall_rois_json, camera):
 
     stall_rois_json: stall-rois.json をパースした dict。
     camera: カメラ名 (例 'real01_line')。source との一致は大文字小文字を無視。
-    戻り値: [{'x','y','w','h'}, ...]。該当 stall が無ければ []。
+    戻り値: [{'stall','x','y','w','h'}, ...]。該当 stall が無ければ []。
     """
     meta = stall_rois_json.get('_meta', {})
     size = meta.get('image_size', [800, 600])
     img_w, img_h = size[0], size[1]
     rois = []
-    for stall in (stall_rois_json.get('stalls') or {}).values():
+    for stall_name, stall in (stall_rois_json.get('stalls') or {}).items():
         if str(stall.get('source', '')).lower() != camera.lower():
             continue
         roi = stall.get('roi') or {}
         rois.append({
+            'stall': stall_name,
             'x': roi.get('x', 0) / img_w,
             'y': roi.get('y', 0) / img_h,
             'w': roi.get('width', 0) / img_w,
@@ -117,6 +118,17 @@ def filter_to_rois(detections, rois):
                 out.append(d)
                 break
     return out
+
+
+def stall_of_point(x, y, rois):
+    """点 (x,y) を含む ROI の stall 名を返す純関数。どの ROI にも入らなければ None。
+    判定は filter_to_rois と同じ半開区間。"""
+    if x is None or y is None:
+        return None
+    for r in rois:
+        if r['x'] <= x < r['x'] + r['w'] and r['y'] <= y < r['y'] + r['h']:
+            return r.get('stall')
+    return None
 
 
 def jst_now_iso():
