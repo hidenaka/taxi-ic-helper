@@ -1,6 +1,7 @@
 #!/bin/bash
-# launchd ジョブ jp.taxi-ic-helper.track を install / uninstall する (Phase F-3)。
-# 60 秒間隔 (StartInterval 60) で .venv/bin/python3 scripts/track_vehicles.py を呼ぶ。
+# launchd ジョブ jp.taxi-ic-helper.track を install / uninstall する。
+# 60 秒間隔 (StartInterval 60) で node scripts/slot-occupancy-tick.mjs を呼ぶ
+# （旧 YOLO トラッカー track_vehicles.py を置き換え、先頭スロット占有方式へ）。
 #
 # 使い方:
 #   ./scripts/install-track-launchd.sh install    # plist を配置・load
@@ -16,8 +17,8 @@ PLIST_PATH="$PLIST_DIR/$LABEL.plist"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$REPO/.local"
-PYTHON="$REPO/.venv/bin/python3"
-TRACK_SCRIPT="$REPO/scripts/track_vehicles.py"
+NODE="$(command -v node || echo /opt/homebrew/bin/node)"
+TICK_SCRIPT="$REPO/scripts/slot-occupancy-tick.mjs"
 
 case "${1:-help}" in
   install)
@@ -31,17 +32,19 @@ case "${1:-help}" in
   <string>$LABEL</string>
   <key>ProgramArguments</key>
   <array>
-    <string>$PYTHON</string>
-    <string>$TRACK_SCRIPT</string>
+    <string>$NODE</string>
+    <string>$TICK_SCRIPT</string>
   </array>
+  <key>WorkingDirectory</key>
+  <string>$REPO</string>
   <key>StartInterval</key>
   <integer>60</integer>
   <key>RunAtLoad</key>
   <false/>
   <key>StandardOutPath</key>
-  <string>$LOG_DIR/track-stdout.log</string>
+  <string>$LOG_DIR/slot-occupancy-stdout.log</string>
   <key>StandardErrorPath</key>
-  <string>$LOG_DIR/track-stderr.log</string>
+  <string>$LOG_DIR/slot-occupancy-stderr.log</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
@@ -53,7 +56,7 @@ EOF
     launchctl unload "$PLIST_PATH" 2>/dev/null || true
     launchctl load "$PLIST_PATH"
     echo "Installed and loaded: $PLIST_PATH"
-    echo "Logs: $LOG_DIR/track-stdout.log and track-stderr.log"
+    echo "Logs: $LOG_DIR/slot-occupancy-stdout.log and slot-occupancy-stderr.log"
     ;;
   uninstall)
     if [ -f "$PLIST_PATH" ]; then
