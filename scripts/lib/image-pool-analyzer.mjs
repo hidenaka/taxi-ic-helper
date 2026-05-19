@@ -17,7 +17,7 @@ function clipRoi(roi, width, height) {
   return { x, y, width: w, height: h };
 }
 
-async function analyzeROI(jimpImage, roi) {
+export async function analyzeROI(jimpImage, roi) {
   const { width, height } = jimpImage.bitmap;
   const clipped = clipRoi(roi, width, height);
   if (clipped.width === 0 || clipped.height === 0) {
