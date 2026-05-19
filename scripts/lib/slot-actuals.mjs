@@ -26,7 +26,12 @@ export function computeSlotActuals(occHistory, now, windowMinutes = 120) {
   const startMs = endMs - windowMinutes * 60 * 1000;
   const smooth = {};
   for (const name of STALLS) {
-    const raw = rows.map(r => (typeof r.stalls[name]?.occ === 'number' ? r.stalls[name].occ : 0));
+    const backName = `${name}_back`;
+    const raw = rows.map(r => {
+      const front = (typeof r.stalls[name]?.occ === 'number' ? r.stalls[name].occ : 0);
+      const back = (typeof r.stalls[backName]?.occ === 'number' ? r.stalls[backName].occ : 0);
+      return front + back;
+    });
     smooth[name] = raw.map((v, i) =>
       (i === 0 || i === raw.length - 1) ? v : medianOf3(raw[i - 1], v, raw[i + 1]));
   }

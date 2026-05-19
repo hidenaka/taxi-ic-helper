@@ -10,7 +10,6 @@ import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOL
 const TTC_BASE = 'https://ttc.taxi-inf.jp';
 const SLOTS_PATH = './scripts/lib/stall-slots.json';
 const OUTPUT_PATH = './data/slot-occupancy-history.jsonl';
-const STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
 
 function jstNowIso() {
   const jst = new Date(Date.now() + 9 * 3600 * 1000);
@@ -39,6 +38,7 @@ async function main() {
     return;
   }
   const cfg = JSON.parse(readFileSync(SLOTS_PATH, 'utf8'));
+  const STALLS = Object.keys(cfg.stalls || {});
   const threshold = (cfg._meta && cfg._meta.edge_threshold) || DEFAULT_EDGE_THRESHOLD;
   // 必要なカメラを集める
   const cameras = {};
