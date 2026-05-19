@@ -27,7 +27,7 @@ import { loadHolidaysSet } from './lib/calendar-context.mjs';
 import { buildLogEntry } from './lib/forecast-logger.mjs';
 import { buildActualMap, evaluateAccuracy } from './lib/accuracy-evaluator.mjs';
 import { computeEnsemble } from './lib/ensemble-engine.mjs';
-import { computeTrackActuals } from './lib/track-actuals.mjs';
+import { computeSlotActuals } from './lib/slot-actuals.mjs';
 import {
   computeShareCorrection, computeLevelCorrection, applyLevelCorrection,
   computeT3DirectionalCorrection, CORRECTION_SCHEMA_VERSION,
@@ -296,6 +296,13 @@ async function main() {
         try { trackHistory.push(JSON.parse(line)); } catch { /* skip bad line */ }
       }
     }
+    const slotHistory = [];
+    if (existsSync('./data/slot-occupancy-history.jsonl')) {
+      for (const line of readFileSync('./data/slot-occupancy-history.jsonl', 'utf8').trim().split('\n')) {
+        if (!line.trim()) continue;
+        try { slotHistory.push(JSON.parse(line)); } catch { /* skip */ }
+      }
+    }
     const calibration = computeThroughputCalibration(allHistory, trackHistory);
     throughputK = calibration.k;
     writeFileSync(THROUGHPUT_CALIBRATION_PATH, JSON.stringify({
@@ -313,7 +320,7 @@ async function main() {
     const now = new Date();
     let trackTrend = null;
     if (calibration.state === 'learning' && recent.length >= 12) {
-      const win = computeTrackActuals(trackHistory, now, 60);
+      const win = computeSlotActuals(slotHistory, now, 60);
       if (win.length > 0) {
         const perStall = { stall1: 0, stall2: 0, stall3: 0, stall4: 0 };
         for (const s of win) {
@@ -329,7 +336,7 @@ async function main() {
     // 出庫実績（直近2時間・15分スロット）を書き出す。到着便ページの実績表示用。
     // trackHistory が在スコープのこのブロック内で書き出す（独立 try/catch で隔離）。
     try {
-      const actualsSlots = computeTrackActuals(trackHistory, new Date());
+      const actualsSlots = computeSlotActuals(slotHistory, new Date());
       writeFileSync(ACTUALS_OUTPUT_PATH, JSON.stringify({
         schemaVersion: 1,
         generatedAt: jstNowIso(),
