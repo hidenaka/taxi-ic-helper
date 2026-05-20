@@ -6,6 +6,7 @@ import { Jimp } from 'jimp';
 import { analyzeROI } from './lib/image-pool-analyzer.mjs';
 import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOLD }
   from './lib/slot-occupancy.mjs';
+import { saveArchive } from './lib/slot-archive.mjs';
 
 const TTC_BASE = 'https://ttc.taxi-inf.jp';
 const SLOTS_PATH = './scripts/lib/stall-slots.json';
@@ -16,10 +17,10 @@ function jstNowIso() {
   return jst.toISOString().replace('Z', '+09:00').replace(/\.\d+/, '');
 }
 
-async function fetchJimp(name) {
+async function fetchBuffer(name) {
   const res = await fetch(`${TTC_BASE}/${name}.jpg`, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return Jimp.read(Buffer.from(await res.arrayBuffer()));
+  return Buffer.from(await res.arrayBuffer());
 }
 
 // スロット {cx,cy,r}(正規化) → analyzeROI 用ピクセル roi
@@ -51,7 +52,9 @@ async function main() {
       // source 名 'real01_line' → 画像名 'Real01_line'
       const imgName = cam.split('_').map((p, i) =>
         i === 0 ? p[0].toUpperCase() + p.slice(1) : p).join('_');
-      cameras[cam] = await fetchJimp(imgName);
+      const buf = await fetchBuffer(imgName);
+      await saveArchive(cam, buf, new Date());
+      cameras[cam] = await Jimp.read(buf);
     }
   } catch (e) {
     console.error(`[slot] image fetch failed, skip tick: ${e.message}`);
