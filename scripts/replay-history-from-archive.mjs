@@ -125,7 +125,7 @@ for (const pf of fileLists[primary]) {
     if (!img) continue;
     const { width, height } = img.bitmap;
     const stallThreshold = (typeof st.edge_threshold === 'number') ? st.edge_threshold : globalThreshold;
-    const isNight = cameraIsNight[st.source];
+    const isNight = (st.detection_mode === 'lantern') || cameraIsNight[st.source];
     const occupiedById = {};
     for (const slot of st.slots) {
       const baseRoi = slotRoi(slot, width, height);

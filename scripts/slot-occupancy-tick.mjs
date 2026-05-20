@@ -97,7 +97,10 @@ async function main() {
     if (!img) continue;
     const { width, height } = img.bitmap;
     const stallThreshold = (typeof st.edge_threshold === 'number') ? st.edge_threshold : globalThreshold;
-    const isNight = cameraIsNight[st.source];
+    // stall に detection_mode: "lantern" 指定があれば 24時間 lantern 検出。
+    // 画像遠方 (stall1/2) で r=0.010 の小 ROI では 昼の edge_density 検出が
+    // 機能せず常時 14 で動かない問題に対応。 屋根上の点光源で 出入りを捕捉。
+    const isNight = (st.detection_mode === 'lantern') || cameraIsNight[st.source];
     const nightLanternRatio = cfg._meta?.night_lantern_ratio ?? DEFAULT_NIGHT_LANTERN_RATIO;
     const occupiedById = {};
     for (const slot of slotsForStall(cfg, name)) {
