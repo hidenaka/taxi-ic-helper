@@ -40,7 +40,7 @@ async function main() {
   }
   const cfg = JSON.parse(readFileSync(SLOTS_PATH, 'utf8'));
   const STALLS = Object.keys(cfg.stalls || {});
-  const threshold = (cfg._meta && cfg._meta.edge_threshold) || DEFAULT_EDGE_THRESHOLD;
+  const globalThreshold = (cfg._meta && cfg._meta.edge_threshold) || DEFAULT_EDGE_THRESHOLD;
   // 必要なカメラを集める
   const cameras = {};
   for (const name of STALLS) {
@@ -67,10 +67,11 @@ async function main() {
     const img = cameras[st.source];
     if (!img) continue;
     const { width, height } = img.bitmap;
+    const stallThreshold = (typeof st.edge_threshold === 'number') ? st.edge_threshold : globalThreshold;
     const occupiedById = {};
     for (const slot of slotsForStall(cfg, name)) {
       const feat = await analyzeROI(img, slotRoi(slot, width, height));
-      occupiedById[slot.id] = slotOccupied(feat, threshold);
+      occupiedById[slot.id] = slotOccupied(feat, stallThreshold);
     }
     row.stalls[name] = {
       occ: countStallOccupancy(occupiedById, slotsForStall(cfg, name)),
