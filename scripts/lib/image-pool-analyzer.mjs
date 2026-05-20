@@ -4,9 +4,16 @@ import { Jimp } from 'jimp';
 const BLACK_THRESHOLD = 60; // RGB 各値が 60 未満なら「黒」扱い (タクシー車体近似)
 const EDGE_THRESHOLD = 50;  // Sobel 勾配大きさのしきい値
 // 夜の点光源 (タクシー屋根上の会社ロゴ「行灯」) 検出。
-// 行灯の色は会社ごとに固定 (国際=緑/日交=黄/大和=青/ケイエム=黄 etc.) で
-// 単色判定はできない。 RGB のいずれかが高輝度 (>200) ならば点光源として数える。
-// スーパーサイン (助手席ダッシュボード上の空車/賃走表示) は混同しない —
+// 行灯の色は会社ごとに固定 (国際=緑/日交=黄/大和=青/ケイエム=黄 etc.)。
+// **R 単独高輝度は除外** — タクシー後部のテールランプ (左右2個/台) と
+// SOS 緊急表示が赤で光るため、これを拾うと過大カウントになる。
+// G or B が 200 超のみカウント:
+//   緑行灯: G>>R,B → G>200 ✓
+//   黄行灯: R+G 高 → G>200 ✓
+//   青行灯: B>>R,G → B>200 ✓
+//   白行灯: R=G=B 高 → G>200 ✓
+//   テールランプ: R>>G,B → G,B<200 で除外 ✓
+// スーパーサイン (助手席ダッシュボード上の空車/賃走文字表示) は別物。
 // 第1待機所は全車空車なので 行灯は常時点灯、 状態によって変わらない。
 const LANTERN_BRIGHT_MIN = 200;
 
@@ -52,7 +59,7 @@ export async function analyzeROI(jimpImage, roi) {
     const g = roiData[idx + 1];
     const b = roiData[idx + 2];
     if (r < BLACK_THRESHOLD && g < BLACK_THRESHOLD && b < BLACK_THRESHOLD) blackCount++;
-    if (r > LANTERN_BRIGHT_MIN || g > LANTERN_BRIGHT_MIN || b > LANTERN_BRIGHT_MIN) lanternCount++;
+    if (g > LANTERN_BRIGHT_MIN || b > LANTERN_BRIGHT_MIN) lanternCount++;
     const lum = 0.299 * r + 0.587 * g + 0.114 * b;
     luminances[i] = lum;
     lumSum += lum;

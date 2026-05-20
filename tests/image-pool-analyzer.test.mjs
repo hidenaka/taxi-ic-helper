@@ -180,19 +180,14 @@ test('analyzeStalls: 画像なし stall は null を返す', async () => {
   assert.equal(r.stall4, null);
 });
 
-// --- analyzeROI: lantern_pixel_ratio (色問わず高輝度点光源) ---
+// --- analyzeROI: lantern_pixel_ratio (R を除く高輝度点光源) ---
 // 行灯(あんどん)はタクシー屋根上の会社ロゴ照明。 会社ごとに色が固定
-// (赤・緑・黄・青・白など)。 R/G/B のいずれかが LANTERN_BRIGHT_MIN(=200)
-// を超えれば点光源として True。
+// (緑/黄/青/白)。 **赤は SOS 緊急時のみ** で通常時は光らない。
+// R 主体の赤はテールランプ (左右2個/台) なので 拾うと過大カウントになる。
+// → G or B が LANTERN_BRIGHT_MIN(=200) を超えれば点光源として True。
 import { analyzeROI } from '../scripts/lib/image-pool-analyzer.mjs';
 
-test('analyzeROI: 赤行灯 (R=255) は高輝度点光源', async () => {
-  const img = new Jimp({ width: 10, height: 10, color: 0xff0000ff });
-  const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
-  assert.ok(r.lantern_pixel_ratio >= 0.99, `expected ~1.0, got ${r.lantern_pixel_ratio}`);
-});
-
-test('analyzeROI: 緑行灯 (G=255) も高輝度点光源', async () => {
+test('analyzeROI: 緑行灯 (G=255) は高輝度点光源', async () => {
   const img = new Jimp({ width: 10, height: 10, color: 0x00ff00ff });
   const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
   assert.ok(r.lantern_pixel_ratio >= 0.99, `expected ~1.0, got ${r.lantern_pixel_ratio}`);
@@ -204,10 +199,28 @@ test('analyzeROI: 青行灯 (B=255) も高輝度点光源', async () => {
   assert.ok(r.lantern_pixel_ratio >= 0.99, `expected ~1.0, got ${r.lantern_pixel_ratio}`);
 });
 
+test('analyzeROI: 黄行灯 (R+G 高, B 低) も高輝度点光源', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0xffff00ff }); // R=255 G=255 B=0
+  const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
+  assert.ok(r.lantern_pixel_ratio >= 0.99, `expected ~1.0, got ${r.lantern_pixel_ratio}`);
+});
+
 test('analyzeROI: 白行灯 (R=G=B=255) も高輝度点光源', async () => {
   const img = new Jimp({ width: 10, height: 10, color: 0xffffffff });
   const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
   assert.ok(r.lantern_pixel_ratio >= 0.99, `expected ~1.0, got ${r.lantern_pixel_ratio}`);
+});
+
+test('analyzeROI: 赤テールランプ (R=255, G=0, B=0) は除外される', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0xff0000ff });
+  const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
+  assert.equal(r.lantern_pixel_ratio, 0);
+});
+
+test('analyzeROI: 暗い赤 (R=180, G=0, B=0) も除外', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0xb40000ff }); // R=180
+  const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
+  assert.equal(r.lantern_pixel_ratio, 0);
 });
 
 test('analyzeROI: 真っ黒なら lantern_pixel_ratio が 0', async () => {
@@ -217,13 +230,13 @@ test('analyzeROI: 真っ黒なら lantern_pixel_ratio が 0', async () => {
 });
 
 test('analyzeROI: 中輝度 (R=G=B=150) は点光源ではない', async () => {
-  const img = new Jimp({ width: 10, height: 10, color: 0x969696ff }); // R=G=B=150
+  const img = new Jimp({ width: 10, height: 10, color: 0x969696ff });
   const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
   assert.equal(r.lantern_pixel_ratio, 0);
 });
 
 test('analyzeROI: 範囲外 ROI で lantern_pixel_ratio=0', async () => {
-  const img = new Jimp({ width: 10, height: 10, color: 0xff0000ff });
+  const img = new Jimp({ width: 10, height: 10, color: 0x00ff00ff });
   const r = await analyzeROI(img, { x: 100, y: 100, width: 10, height: 10 });
   assert.equal(r.lantern_pixel_ratio, 0);
 });
