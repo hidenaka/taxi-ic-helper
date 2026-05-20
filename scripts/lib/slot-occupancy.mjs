@@ -7,12 +7,18 @@ export const DEFAULT_EDGE_THRESHOLD = 0.08;
  * 画像の平均輝度から「異常フレーム（露出オーバー/アンダー）」を判定する純関数。
  * カメラサーバが時々返す真っ白/真っ黒の壊れフレームを検出し、その tick を
  * スキップして擬似出庫が計上されるのを防ぐ。
+ *
+ * 下限は 5 に設定。羽田の夜時間帯(車ライトが点在する暗い画像)は avg=15-25 程度
+ * になるため、それを誤って skip しないように。avg<5 は本当の真っ黒(取得失敗・
+ * カメラオフ)のみ。
+ * 上限 235 は昼間通常 100-130 から大きく離れた真っ白(露出オーバー)を捕捉。
+ *
  * @param {number} avgBrightness 0-255 の平均輝度
  * @returns {boolean} 異常なら true
  */
 export function isFrameAbnormal(avgBrightness) {
   if (typeof avgBrightness !== 'number' || Number.isNaN(avgBrightness)) return true;
-  return avgBrightness > 235 || avgBrightness < 18;
+  return avgBrightness > 235 || avgBrightness < 5;
 }
 
 /**

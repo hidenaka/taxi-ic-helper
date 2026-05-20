@@ -9,14 +9,19 @@ test('isFrameAbnormal: 真っ白 (>235) は異常', () => {
   assert.equal(isFrameAbnormal(236), true);
 });
 
-test('isFrameAbnormal: 真っ黒 (<18) は異常', () => {
+test('isFrameAbnormal: 真っ黒 (<5) は異常', () => {
   assert.equal(isFrameAbnormal(0), true);
-  assert.equal(isFrameAbnormal(17), true);
+  assert.equal(isFrameAbnormal(4), true);
 });
 
-test('isFrameAbnormal: 通常範囲 (18-235) は正常', () => {
+test('isFrameAbnormal: 夜の暗い画像 (avg 5-30) は正常', () => {
+  assert.equal(isFrameAbnormal(5), false);
+  assert.equal(isFrameAbnormal(15), false); // 羽田 real02 夜
+  assert.equal(isFrameAbnormal(25), false);
+});
+
+test('isFrameAbnormal: 通常範囲 (5-235) は正常', () => {
   assert.equal(isFrameAbnormal(100), false);
-  assert.equal(isFrameAbnormal(18), false);
   assert.equal(isFrameAbnormal(235), false);
 });
 
