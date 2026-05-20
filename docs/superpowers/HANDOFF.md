@@ -36,7 +36,7 @@
 - **G-2 で判明・修正した根本問題**: F-3 トラッカーがカメラ全域を追跡し `departed` の約80%が stall 外の道路車両だった（G-1 検証で `k≈7` の異常値から発覚）。G-2 で検出を stall ROI union に絞った。
 - **G-3**: トラッカーを Real02（stall4）にも拡張。`track-state.json`・`vehicle-track-history.jsonl` を per-camera 構造（schema 3）に。G-1 calibration は v3 行のみ採用・全カメラ `departed` 合算・net-diff を stall1〜4 に拡張。
 - デプロイ後、`track-state.json` は schema マーカーで自動リセット。`vehicle-track-history.jsonl` の旧 v1/v2 行は calibration から無視され、v3 データ蓄積に従い `bootstrapping`→`learning` へ進む。`learning` 到達で `stall-forecast.json` の `trendWindow.source` が `track` に変わる。
-- 観測は `observe-tick-local.sh` の `STOP_DATE=2026-06-01` で約2週間後に停止予定。
+- 観測は手動停止まで継続。`observe-tick-local.sh` / `track_vehicles.py` の `STOP_DATE` は実質無期限 (`2099-01-01`)。停止は `install-observe-launchd.sh uninstall` か `STOP_DATE` 再設定。
 
 ## 厳守ワークフロー（このプロジェクトの全機能で踏襲してきた）
 
