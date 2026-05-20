@@ -23,6 +23,7 @@ import {
   forecastOutputK,
 } from './lib/throughput-calibration.mjs';
 import { computePatternMatch } from './lib/pattern-matcher.mjs';
+import { computeT3SlotActuals } from './lib/t3-occupancy-helpers.mjs';
 import { loadHolidaysSet } from './lib/calendar-context.mjs';
 import { buildLogEntry } from './lib/forecast-logger.mjs';
 import { buildActualMap, evaluateAccuracy } from './lib/accuracy-evaluator.mjs';
@@ -49,6 +50,8 @@ const FORECAST_LOG_PATH = './data/forecast-log.jsonl';
 const FORECAST_ACCURACY_PATH = './data/forecast-accuracy.json';
 const ENSEMBLE_OUTPUT_PATH = './data/stall-ensemble.json';
 const ACTUALS_OUTPUT_PATH = './data/stall-actuals.json';
+const T3_HISTORY_PATH = './data/t3-slot-occupancy-history.jsonl';
+const T3_ACTUALS_OUTPUT_PATH = './data/t3-stall-actuals.json';
 const CORRECTIONS_OUTPUT_PATH = './data/coefficient-corrections.json';
 const TRANSIT_SHARE_PATH = './data/transit-share.json';
 const T3_POOL_HISTORY_PATH = './data/t3-pool-history.jsonl';
@@ -358,6 +361,28 @@ async function main() {
       }, null, 2) + '\n', 'utf8');
     } catch (e) {
       console.warn(`[observe] stall-actuals write skipped: ${e.message}`);
+    }
+    // T3 第5乗り場 actuals (15分スロット × total) を書き出す。
+    // T3 観測 tick は別 launchd ジョブ (t3-slot-occupancy-tick.mjs) が
+    // t3-slot-occupancy-history.jsonl に追記する。 ここでは history を読んで集計のみ。
+    // 既存 T1/T2 処理を巻き込まないよう独立 try/catch で隔離。
+    try {
+      if (existsSync(T3_HISTORY_PATH)) {
+        const t3Lines = readFileSync(T3_HISTORY_PATH, 'utf8').trim().split('\n');
+        const t3History = [];
+        for (const line of t3Lines) {
+          if (!line.trim()) continue;
+          try { t3History.push(JSON.parse(line)); } catch { /* skip bad line */ }
+        }
+        const t3ActualsSlots = computeT3SlotActuals(t3History, new Date(), 720);
+        writeFileSync(T3_ACTUALS_OUTPUT_PATH, JSON.stringify({
+          schemaVersion: 1,
+          generatedAt: jstNowIso(),
+          slots: t3ActualsSlots,
+        }, null, 2) + '\n', 'utf8');
+      }
+    } catch (e) {
+      console.warn(`[observe] t3-stall-actuals write skipped: ${e.message}`);
     }
   } catch (e) {
     console.error(`[observe] forecast generation failed: ${e.message}`);
