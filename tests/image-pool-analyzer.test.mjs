@@ -180,11 +180,32 @@ test('analyzeStalls: 画像なし stall は null を返す', async () => {
   assert.equal(r.stall4, null);
 });
 
-// --- analyzeROI: lantern_pixel_ratio ---
+// --- analyzeROI: lantern_pixel_ratio (色問わず高輝度点光源) ---
+// 行灯(あんどん)はタクシー屋根上の会社ロゴ照明。 会社ごとに色が固定
+// (赤・緑・黄・青・白など)。 R/G/B のいずれかが LANTERN_BRIGHT_MIN(=200)
+// を超えれば点光源として True。
 import { analyzeROI } from '../scripts/lib/image-pool-analyzer.mjs';
 
-test('analyzeROI: 全画像が赤い行灯色なら lantern_pixel_ratio が 1.0 に近い', async () => {
-  const img = new Jimp({ width: 10, height: 10, color: 0xff0000ff }); // R=255 G=0 B=0
+test('analyzeROI: 赤行灯 (R=255) は高輝度点光源', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0xff0000ff });
+  const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
+  assert.ok(r.lantern_pixel_ratio >= 0.99, `expected ~1.0, got ${r.lantern_pixel_ratio}`);
+});
+
+test('analyzeROI: 緑行灯 (G=255) も高輝度点光源', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0x00ff00ff });
+  const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
+  assert.ok(r.lantern_pixel_ratio >= 0.99, `expected ~1.0, got ${r.lantern_pixel_ratio}`);
+});
+
+test('analyzeROI: 青行灯 (B=255) も高輝度点光源', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0x0000ffff });
+  const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
+  assert.ok(r.lantern_pixel_ratio >= 0.99, `expected ~1.0, got ${r.lantern_pixel_ratio}`);
+});
+
+test('analyzeROI: 白行灯 (R=G=B=255) も高輝度点光源', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0xffffffff });
   const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
   assert.ok(r.lantern_pixel_ratio >= 0.99, `expected ~1.0, got ${r.lantern_pixel_ratio}`);
 });
@@ -195,8 +216,8 @@ test('analyzeROI: 真っ黒なら lantern_pixel_ratio が 0', async () => {
   assert.equal(r.lantern_pixel_ratio, 0);
 });
 
-test('analyzeROI: 真っ白 (R=G=B=255) は行灯ではない (G/B が高いため)', async () => {
-  const img = new Jimp({ width: 10, height: 10, color: 0xffffffff });
+test('analyzeROI: 中輝度 (R=G=B=150) は点光源ではない', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0x969696ff }); // R=G=B=150
   const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
   assert.equal(r.lantern_pixel_ratio, 0);
 });

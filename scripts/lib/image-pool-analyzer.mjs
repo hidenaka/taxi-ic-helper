@@ -3,8 +3,12 @@ import { Jimp } from 'jimp';
 
 const BLACK_THRESHOLD = 60; // RGB 各値が 60 未満なら「黒」扱い (タクシー車体近似)
 const EDGE_THRESHOLD = 50;  // Sobel 勾配大きさのしきい値
-const LANTERN_R_MIN = 180;   // 赤チャネルの下限 (空車行灯の赤)
-const LANTERN_GB_MAX = 120;  // 緑・青チャネルの上限 (白色ライトを除外)
+// 夜の点光源 (タクシー屋根上の会社ロゴ「行灯」) 検出。
+// 行灯の色は会社ごとに固定 (国際=緑/日交=黄/大和=青/ケイエム=黄 etc.) で
+// 単色判定はできない。 RGB のいずれかが高輝度 (>200) ならば点光源として数える。
+// スーパーサイン (助手席ダッシュボード上の空車/賃走表示) は混同しない —
+// 第1待機所は全車空車なので 行灯は常時点灯、 状態によって変わらない。
+const LANTERN_BRIGHT_MIN = 200;
 
 // 3x3 Sobel カーネル
 const SOBEL_X = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
@@ -48,7 +52,7 @@ export async function analyzeROI(jimpImage, roi) {
     const g = roiData[idx + 1];
     const b = roiData[idx + 2];
     if (r < BLACK_THRESHOLD && g < BLACK_THRESHOLD && b < BLACK_THRESHOLD) blackCount++;
-    if (r > LANTERN_R_MIN && g < LANTERN_GB_MAX && b < LANTERN_GB_MAX) lanternCount++;
+    if (r > LANTERN_BRIGHT_MIN || g > LANTERN_BRIGHT_MIN || b > LANTERN_BRIGHT_MIN) lanternCount++;
     const lum = 0.299 * r + 0.587 * g + 0.114 * b;
     luminances[i] = lum;
     lumSum += lum;
