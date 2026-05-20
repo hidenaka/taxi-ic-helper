@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-05-21T04:40:03+09:00",
+  "generatedAt": "2026-05-21T04:45:16+09:00",
   "weights": {
     "lead30": {
       "w_fc": 0.2959,
@@ -8,26 +8,17 @@
       "source": "mae"
     },
     "lead60": {
-      "w_fc": 0.3014,
-      "w_pm": 0.6986,
+      "w_fc": 0.3005,
+      "w_pm": 0.6995,
       "source": "mae"
     },
     "lead120": {
-      "w_fc": 0.299,
-      "w_pm": 0.701,
+      "w_fc": 0.2988,
+      "w_pm": 0.7012,
       "source": "mae"
     }
   },
   "slots": [
-    {
-      "slotStart": "04:45",
-      "leadBucket": "lead30",
-      "stall1": 0,
-      "stall2": 0,
-      "stall3": 0,
-      "stall4": 0,
-      "total": 0
-    },
     {
       "slotStart": "04:50",
       "leadBucket": "lead30",
@@ -102,7 +93,7 @@
     },
     {
       "slotStart": "05:30",
-      "leadBucket": "lead60",
+      "leadBucket": "lead30",
       "stall1": 0,
       "stall2": 0,
       "stall3": 0,
@@ -210,7 +201,7 @@
     },
     {
       "slotStart": "06:30",
-      "leadBucket": "lead120",
+      "leadBucket": "lead60",
       "stall1": 0,
       "stall2": 0,
       "stall3": 0,
@@ -234,6 +225,15 @@
       "stall3": 0,
       "stall4": 0,
       "total": 0
+    },
+    {
+      "slotStart": "06:45",
+      "leadBucket": "lead120",
+      "stall1": 0,
+      "stall2": 1,
+      "stall3": 4,
+      "stall4": 0,
+      "total": 5
     }
   ],
   "throughputScaleK": 1
