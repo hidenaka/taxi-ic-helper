@@ -4,7 +4,7 @@
 import { readFileSync, appendFileSync, existsSync } from 'node:fs';
 import { Jimp } from 'jimp';
 import { analyzeROI } from './lib/image-pool-analyzer.mjs';
-import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOLD }
+import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOLD, isFrameAbnormal }
   from './lib/slot-occupancy.mjs';
 import { saveArchive } from './lib/slot-archive.mjs';
 
@@ -59,6 +59,24 @@ async function main() {
   } catch (e) {
     console.error(`[slot] image fetch failed, skip tick: ${e.message}`);
     return;
+  }
+  // 画像の平均輝度をチェック。真っ白/真っ黒の壊れフレームは tick 全体を skip して
+  // 擬似出庫が計上されるのを防ぐ（直近の正常 occ が次の正常 tick まで保持される）。
+  for (const cam of Object.keys(cameras)) {
+    const img = cameras[cam];
+    const { width, height, data } = img.bitmap;
+    let sum = 0;
+    let count = 0;
+    // 50px ごとにサンプル（高速化）
+    for (let i = 0; i < data.length; i += 4 * 50) {
+      sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
+      count += 1;
+    }
+    const avg = count > 0 ? sum / count : 0;
+    if (isFrameAbnormal(avg)) {
+      console.error(`[slot] abnormal frame for ${cam} (avg=${avg.toFixed(1)}), skip tick`);
+      return;
+    }
   }
   const row = { schema_version: 1, ts: jstNowIso(), stalls: {} };
   for (const name of STALLS) {

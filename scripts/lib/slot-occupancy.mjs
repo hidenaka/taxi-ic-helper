@@ -4,6 +4,18 @@
 export const DEFAULT_EDGE_THRESHOLD = 0.08;
 
 /**
+ * 画像の平均輝度から「異常フレーム（露出オーバー/アンダー）」を判定する純関数。
+ * カメラサーバが時々返す真っ白/真っ黒の壊れフレームを検出し、その tick を
+ * スキップして擬似出庫が計上されるのを防ぐ。
+ * @param {number} avgBrightness 0-255 の平均輝度
+ * @returns {boolean} 異常なら true
+ */
+export function isFrameAbnormal(avgBrightness) {
+  if (typeof avgBrightness !== 'number' || Number.isNaN(avgBrightness)) return true;
+  return avgBrightness > 235 || avgBrightness < 18;
+}
+
+/**
  * スロットの画像特徴から在(車あり)/不在を判定する純関数。
  * @param {{edge_density:number}|null} features analyzeROI の戻り
  * @param {number} edgeThreshold エッジ密度しきい値

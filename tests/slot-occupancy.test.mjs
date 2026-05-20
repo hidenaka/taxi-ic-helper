@@ -1,8 +1,30 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
 import {
-  slotOccupied, slotsForStall, countStallOccupancy, departuresBetween, medianOf3,
+  slotOccupied, slotsForStall, countStallOccupancy, departuresBetween, medianOf3, isFrameAbnormal,
 } from '../scripts/lib/slot-occupancy.mjs';
+
+test('isFrameAbnormal: 真っ白 (>235) は異常', () => {
+  assert.equal(isFrameAbnormal(250), true);
+  assert.equal(isFrameAbnormal(236), true);
+});
+
+test('isFrameAbnormal: 真っ黒 (<18) は異常', () => {
+  assert.equal(isFrameAbnormal(0), true);
+  assert.equal(isFrameAbnormal(17), true);
+});
+
+test('isFrameAbnormal: 通常範囲 (18-235) は正常', () => {
+  assert.equal(isFrameAbnormal(100), false);
+  assert.equal(isFrameAbnormal(18), false);
+  assert.equal(isFrameAbnormal(235), false);
+});
+
+test('isFrameAbnormal: NaN/非数値は異常扱い', () => {
+  assert.equal(isFrameAbnormal(NaN), true);
+  assert.equal(isFrameAbnormal(null), true);
+  assert.equal(isFrameAbnormal(undefined), true);
+});
 
 test('slotOccupied: エッジ密度がしきい値以上なら在', () => {
   assert.equal(slotOccupied({ edge_density: 0.20 }, 0.08), true);
