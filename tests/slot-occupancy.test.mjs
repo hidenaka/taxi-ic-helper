@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
 import {
   slotOccupied, slotsForStall, countStallOccupancy, departuresBetween, medianOf3, isFrameAbnormal,
+  expandRoiVertical,
 } from '../scripts/lib/slot-occupancy.mjs';
 
 test('isFrameAbnormal: 真っ白 (>235) は異常', () => {
@@ -63,4 +64,29 @@ test('medianOf3: 3値の中央値（1tickフリッカ除去）', () => {
   assert.equal(medianOf3(8, 0, 8), 8);
   assert.equal(medianOf3(8, 7, 7), 7);
   assert.equal(medianOf3(5, 6, 4), 5);
+});
+
+test('expandRoiVertical: factor=2 で height が 2倍、y が上にシフト', () => {
+  const r = expandRoiVertical({ x: 100, y: 100, width: 20, height: 20 }, 2, 800, 600);
+  assert.deepEqual(r, { x: 100, y: 90, width: 20, height: 40 });
+});
+
+test('expandRoiVertical: 画像上端で y を 0 にクリップ', () => {
+  const r = expandRoiVertical({ x: 100, y: 5, width: 20, height: 20 }, 2, 800, 600);
+  assert.equal(r.y, 0);
+  assert.equal(r.x, 100);
+  assert.equal(r.width, 20);
+  assert.ok(r.height <= 40 && r.height >= 20);
+});
+
+test('expandRoiVertical: 画像下端で height を縮める', () => {
+  const r = expandRoiVertical({ x: 100, y: 580, width: 20, height: 20 }, 2, 800, 600);
+  assert.equal(r.y, 570);
+  assert.equal(r.height, 30);
+});
+
+test('expandRoiVertical: factor=1 は不変', () => {
+  const orig = { x: 100, y: 100, width: 20, height: 20 };
+  const r = expandRoiVertical(orig, 1, 800, 600);
+  assert.deepEqual(r, orig);
 });

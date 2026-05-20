@@ -66,3 +66,33 @@ export function departuresBetween(prevCount, curCount) {
 export function medianOf3(a, b, c) {
   return Math.max(Math.min(a, b), Math.min(Math.max(a, b), c));
 }
+
+/**
+ * ROI の縦方向を factor 倍に拡張する純関数。
+ * 中心 (cx, cy_center) は不変、 height のみ factor 倍。 画像範囲外はクリップ。
+ * 夜の行灯検出で「車屋根上」を含める ROI を作るために使う。
+ *
+ * @param {{x:number, y:number, width:number, height:number}} roi 元 ROI
+ * @param {number} factor 縦方向倍率 (>=1)
+ * @param {number} imgWidth 画像幅
+ * @param {number} imgHeight 画像高
+ * @returns {{x:number, y:number, width:number, height:number}}
+ */
+export function expandRoiVertical(roi, factor, imgWidth, imgHeight) {
+  if (factor <= 1) return { ...roi };
+  const newHeight = roi.height * factor;
+  const offset = (newHeight - roi.height) / 2;
+  let y = Math.round(roi.y - offset);
+  let h = Math.round(newHeight);
+  // 上端クリップ
+  if (y < 0) {
+    h += y; // y が負ぶん height を縮める
+    y = 0;
+  }
+  // 下端クリップ
+  if (y + h > imgHeight) {
+    h = imgHeight - y;
+  }
+  if (h < 0) h = 0;
+  return { x: roi.x, y, width: roi.width, height: h };
+}
