@@ -1,7 +1,9 @@
 #!/bin/bash
 # launchd ジョブ jp.taxi-ic-helper.track を install / uninstall する。
-# 60 秒間隔 (StartInterval 60) で node scripts/slot-occupancy-tick.mjs を呼ぶ
+# 30 秒間隔 (StartInterval 30) で node scripts/slot-occupancy-tick.mjs を呼ぶ
 # （旧 YOLO トラッカー track_vehicles.py を置き換え、先頭スロット占有方式へ）。
+# 30秒に短縮した理由: stall1/4 など出庫→補充が速い乗り場で「補充される前
+# の空き状態」を捕捉する確率を倍増させて在台数の減少を取りこぼさないため。
 #
 # 使い方:
 #   ./scripts/install-track-launchd.sh install    # plist を配置・load
@@ -38,7 +40,7 @@ case "${1:-help}" in
   <key>WorkingDirectory</key>
   <string>$REPO</string>
   <key>StartInterval</key>
-  <integer>60</integer>
+  <integer>30</integer>
   <key>RunAtLoad</key>
   <false/>
   <key>StandardOutPath</key>
