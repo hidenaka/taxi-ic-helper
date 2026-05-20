@@ -333,10 +333,12 @@ async function main() {
     forecastResult = computeForecast(baseline, recent, arrivalsJson, now, trackTrend);
     writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(applyThroughputScale(forecastResult, forecastOutputK(forecastResult, throughputK)), null, 2) + '\n', 'utf8');
     console.log(`[observe] forecast ok: trendFactor=${forecastResult.trendFactor.toFixed(2)} baselineSamples=${forecastResult.baselineSampleCount}`);
-    // 出庫実績（直近2時間・15分スロット）を書き出す。到着便ページの実績表示用。
-    // trackHistory が在スコープのこのブロック内で書き出す（独立 try/catch で隔離）。
+    // 出庫実績（当日全体・15分スロット）を書き出す。到着便ページの実績表示用。
+    // 窓幅 720分 (12時間) で 朝〜現在の全 slot を含める。 日報側で「直近2時間」/
+    // 「今日全部」を toggle 表示。 trackHistory が在スコープのこのブロック内で
+    // 書き出す（独立 try/catch で隔離）。
     try {
-      const actualsSlots = computeSlotActuals(slotHistory, new Date());
+      const actualsSlots = computeSlotActuals(slotHistory, new Date(), 720);
       writeFileSync(ACTUALS_OUTPUT_PATH, JSON.stringify({
         schemaVersion: 1,
         generatedAt: jstNowIso(),
