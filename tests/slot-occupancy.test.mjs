@@ -32,14 +32,14 @@ test('isFrameAbnormal: NaN/非数値は異常扱い', () => {
   assert.equal(isFrameAbnormal(undefined), true);
 });
 
-test('slotOccupied: エッジ密度がしきい値以上なら在', () => {
-  assert.equal(slotOccupied({ edge_density: 0.20 }, 0.08), true);
-  assert.equal(slotOccupied({ edge_density: 0.03 }, 0.08), false);
+test('slotOccupied (昼): edge_density がしきい値以上なら在', () => {
+  assert.equal(slotOccupied({ edge_density: 0.20 }, { edgeThreshold: 0.08 }), true);
+  assert.equal(slotOccupied({ edge_density: 0.03 }, { edgeThreshold: 0.08 }), false);
 });
 
-test('slotOccupied: edge_density 欠落・null は不在', () => {
-  assert.equal(slotOccupied({}, 0.08), false);
-  assert.equal(slotOccupied(null, 0.08), false);
+test('slotOccupied (昼): edge_density 欠落・null は不在', () => {
+  assert.equal(slotOccupied({}, { edgeThreshold: 0.08 }), false);
+  assert.equal(slotOccupied(null, { edgeThreshold: 0.08 }), false);
 });
 
 test('slotsForStall: 指定乗り場の slots を返す', () => {
@@ -89,4 +89,43 @@ test('expandRoiVertical: factor=1 は不変', () => {
   const orig = { x: 100, y: 100, width: 20, height: 20 };
   const r = expandRoiVertical(orig, 1, 800, 600);
   assert.deepEqual(r, orig);
+});
+
+test('slotOccupied (夜): lantern_pixel_ratio が閾値以上なら在', () => {
+  assert.equal(
+    slotOccupied({ lantern_pixel_ratio: 0.010 }, { isNight: true, nightLanternRatio: 0.005 }),
+    true
+  );
+  assert.equal(
+    slotOccupied({ lantern_pixel_ratio: 0.003 }, { isNight: true, nightLanternRatio: 0.005 }),
+    false
+  );
+});
+
+test('slotOccupied (夜): lantern_pixel_ratio 境界 (= ratio) で在', () => {
+  assert.equal(
+    slotOccupied({ lantern_pixel_ratio: 0.005 }, { isNight: true, nightLanternRatio: 0.005 }),
+    true
+  );
+});
+
+test('slotOccupied (夜): lantern_pixel_ratio 欠落は不在', () => {
+  assert.equal(
+    slotOccupied({}, { isNight: true, nightLanternRatio: 0.005 }),
+    false
+  );
+});
+
+test('slotOccupied (夜): isNight=true なら edge_density は無視', () => {
+  assert.equal(
+    slotOccupied({ edge_density: 1.0, lantern_pixel_ratio: 0 }, { isNight: true, nightLanternRatio: 0.005 }),
+    false
+  );
+});
+
+test('slotOccupied (昼): isNight 未指定は false 扱いで edge_density 判定', () => {
+  assert.equal(
+    slotOccupied({ edge_density: 0.20 }, { edgeThreshold: 0.08 }),
+    true
+  );
 });

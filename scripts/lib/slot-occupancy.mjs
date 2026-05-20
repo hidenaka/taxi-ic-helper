@@ -3,6 +3,12 @@
 /** 在/不在のエッジ密度しきい値の既定。空きアスファルトは滑らか・車はエッジが多い。 */
 export const DEFAULT_EDGE_THRESHOLD = 0.08;
 
+/** 夜行灯検出: 赤色高輝度 pixel の ROI 面積比のしきい値の既定。 */
+export const DEFAULT_NIGHT_LANTERN_RATIO = 0.005;
+
+/** 夜時間帯と判定する画像全体 平均輝度の上限 (これ以下が夜)。 */
+export const NIGHT_BRIGHTNESS_THRESHOLD = 50;
+
 /**
  * 画像の平均輝度から「異常フレーム（露出オーバー/アンダー）」を判定する純関数。
  * カメラサーバが時々返す真っ白/真っ黒の壊れフレームを検出し、その tick を
@@ -23,13 +29,26 @@ export function isFrameAbnormal(avgBrightness) {
 
 /**
  * スロットの画像特徴から在(車あり)/不在を判定する純関数。
- * @param {{edge_density:number}|null} features analyzeROI の戻り
- * @param {number} edgeThreshold エッジ密度しきい値
+ * 昼: edge_density >= edgeThreshold で判定。
+ * 夜 (opts.isNight=true): lantern_pixel_ratio >= nightLanternRatio で判定。
+ *
+ * @param {object} features analyzeROI の戻り値
+ * @param {object} opts 判定オプション
+ * @param {number} [opts.edgeThreshold] 昼の edge_density しきい値
+ * @param {boolean} [opts.isNight] 夜モード
+ * @param {number} [opts.nightLanternRatio] 夜の lantern_pixel_ratio しきい値
  * @returns {boolean}
  */
-export function slotOccupied(features, edgeThreshold = DEFAULT_EDGE_THRESHOLD) {
-  if (!features || typeof features.edge_density !== 'number') return false;
-  return features.edge_density >= edgeThreshold;
+export function slotOccupied(features, opts = {}) {
+  if (!features) return false;
+  if (opts.isNight) {
+    const ratio = features.lantern_pixel_ratio;
+    if (typeof ratio !== 'number') return false;
+    return ratio >= (opts.nightLanternRatio ?? DEFAULT_NIGHT_LANTERN_RATIO);
+  }
+  const ed = features.edge_density;
+  if (typeof ed !== 'number') return false;
+  return ed >= (opts.edgeThreshold ?? DEFAULT_EDGE_THRESHOLD);
 }
 
 /**
