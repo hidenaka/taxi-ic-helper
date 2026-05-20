@@ -333,12 +333,24 @@ async function main() {
     forecastResult = computeForecast(baseline, recent, arrivalsJson, now, trackTrend);
     writeFileSync(FORECAST_OUTPUT_PATH, JSON.stringify(applyThroughputScale(forecastResult, forecastOutputK(forecastResult, throughputK)), null, 2) + '\n', 'utf8');
     console.log(`[observe] forecast ok: trendFactor=${forecastResult.trendFactor.toFixed(2)} baselineSamples=${forecastResult.baselineSampleCount}`);
-    // 出庫実績（当日全体・15分スロット）を書き出す。到着便ページの実績表示用。
-    // 窓幅 720分 (12時間) で 朝〜現在の全 slot を含める。 日報側で「直近2時間」/
-    // 「今日全部」を toggle 表示。 trackHistory が在スコープのこのブロック内で
-    // 書き出す（独立 try/catch で隔離）。
+    // 出庫実績（営業日全体・15分スロット）を書き出す。到着便ページの実績表示用。
+    // 営業日 = JST 8:00〜翌7:59 (国内線の偶数日/奇数日待機ルール切替が 8:00)。
+    // windowMinutes を「直近の 8:00」起点に動的に計算 (例: 今 21:00 なら 13時間、
+    // 今 7:00 なら 23時間)。 日報側で「直近2時間」/「今日全部」を toggle 表示。
+    // trackHistory が在スコープのこのブロック内で書き出す（独立 try/catch で隔離）。
     try {
-      const actualsSlots = computeSlotActuals(slotHistory, new Date(), 720);
+      const nowDate = new Date();
+      const jstNow = new Date(nowDate.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+      const jstHour = jstNow.getHours();
+      const jstMinute = jstNow.getMinutes();
+      const BUSINESS_DAY_START_HOUR = 8;
+      // 営業日開始 (直近の 8:00) からの経過分
+      const minutesSinceBusinessStart = (jstHour >= BUSINESS_DAY_START_HOUR)
+        ? (jstHour - BUSINESS_DAY_START_HOUR) * 60 + jstMinute
+        : (24 - BUSINESS_DAY_START_HOUR + jstHour) * 60 + jstMinute;
+      // 最低 120分 (=2時間) は確保し、 営業日開始直後でもデータが取れるように
+      const actualsWindow = Math.max(120, minutesSinceBusinessStart + 15);
+      const actualsSlots = computeSlotActuals(slotHistory, nowDate, actualsWindow);
       writeFileSync(ACTUALS_OUTPUT_PATH, JSON.stringify({
         schemaVersion: 1,
         generatedAt: jstNowIso(),
