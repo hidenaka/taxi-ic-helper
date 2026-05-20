@@ -18,7 +18,7 @@ function fmtJst(ms) {
  */
 export function computeSlotActuals(occHistory, now, windowMinutes = 120) {
   const rows = (occHistory || [])
-    .map(r => ({ tsMs: new Date(r.ts).getTime(), stalls: r.stalls || {} }))
+    .map(r => ({ tsMs: new Date(r.ts).getTime(), stalls: r.stalls || {}, mode: r.mode || null }))
     .filter(r => !Number.isNaN(r.tsMs))
     .sort((a, b) => a.tsMs - b.tsMs);
   if (rows.length < 2) return [];
@@ -38,6 +38,13 @@ export function computeSlotActuals(occHistory, now, windowMinutes = 120) {
   const bins = new Map();
   for (let i = 1; i < rows.length; i++) {
     if (rows[i].tsMs < startMs || rows[i].tsMs > endMs) continue;
+    // 昼/夜モード切替の tick は差分を 0 扱い。 edge_density と lantern_pixel_ratio で
+    // 検出対象 (車本体 vs 屋根点光源) が違うので、 同じ画像でも occ の絶対値が違う。
+    // mode が連続 tick で変化したら 「擬似出庫」 を計上しない。 mode フィールドが
+    // 無い古い history (mode === null) は従来通り差分を取る (互換性維持)。
+    const prevMode = rows[i - 1].mode;
+    const curMode = rows[i].mode;
+    if (prevMode !== null && curMode !== null && prevMode !== curMode) continue;
     const binStart = Math.floor(rows[i].tsMs / SLOT_MS) * SLOT_MS;
     let bin = bins.get(binStart);
     if (!bin) { bin = { stall1: 0, stall2: 0, stall3: 0, stall4: 0, total: 0 }; bins.set(binStart, bin); }

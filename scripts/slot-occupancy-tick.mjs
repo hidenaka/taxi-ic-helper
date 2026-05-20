@@ -83,7 +83,13 @@ async function main() {
     }
     cameraIsNight[cam] = avg < (cfg._meta?.night_brightness_threshold ?? NIGHT_BRIGHTNESS_THRESHOLD);
   }
-  const row = { schema_version: 1, ts: jstNowIso(), stalls: {} };
+  // mode = 'night' if real01_line camera is night, else 'day'.
+  // computeSlotActuals が mode 切替 tick の差分を 0 扱いするのに使う。
+  // (slot-actuals は stall1-4 + stall4_back を集計するが、 stall4_back の
+  // real02 camera は別 brightness。 多くの場合は同じ夜/昼判定なので
+  // real01_line を mode の代表値として使う。)
+  const mode = cameraIsNight['real01_line'] ? 'night' : 'day';
+  const row = { schema_version: 1, ts: jstNowIso(), mode, stalls: {} };
   for (const name of STALLS) {
     const st = cfg.stalls?.[name];
     if (!st) continue;
