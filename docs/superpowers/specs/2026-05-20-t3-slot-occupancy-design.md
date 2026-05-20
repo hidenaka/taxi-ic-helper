@@ -63,7 +63,7 @@ T1/T2 で稼働中の slot-occupancy 方式（`2026-05-20-front-slot-occupancy-d
 
 ## 設計
 
-### 1. マス目格子定義（新ファイル `data/t3-stall-slots.json`）
+### 1. マス目格子定義（新ファイル `scripts/lib/t3-stall-slots.json`）
 
 T3 第5乗り場の **最前列2列ぶん** をマス目格子で覆う。9レーンの並列構造を内部メタ（`lane` / `category` タグ）で持ち、出庫数を集計するときは全マス目を合算する。
 

@@ -5,6 +5,8 @@
 // CLI: `node scripts/t3-slot-occupancy-tick.mjs`
 // import: `import { runT3SlotOccupancyTick } from './t3-slot-occupancy-tick.mjs'`
 import { readFileSync, appendFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { Jimp } from 'jimp';
 import { analyzeROI } from './lib/image-pool-analyzer.mjs';
 import {
@@ -58,7 +60,7 @@ function slotRoi(slot, w, h) {
  * @param {object} [options]
  * @param {string} [options.cfgPath]
  * @param {string} [options.historyPath]
- * @returns {Promise<{ok:boolean, reason?:string, occ?:number}>}
+ * @returns {Promise<{ok:boolean, reason?:string, occ?:number, row1?:number, row2?:number, mode?:string}>}
  */
 export async function runT3SlotOccupancyTick(options = {}) {
   const cfgPath = options.cfgPath || DEFAULT_SLOTS_PATH;
@@ -120,7 +122,11 @@ export async function runT3SlotOccupancyTick(options = {}) {
 }
 
 // CLI 単独実行用 main
-if (import.meta.url === `file://${process.argv[1]}`) {
+// import.meta.url はスペース・日本語パスを %XX エンコードするため、
+// fileURLToPath で正規化して resolve(process.argv[1]) と比較する。
+// (iCloud Drive 配下や "Mobile Documents" を含むパスでも CLI 起動できる)
+// process.argv[1] は -e 実行や import-only ロード時に undefined になりうるので存在チェック。
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   runT3SlotOccupancyTick().then(result => {
     if (result.ok) {
       console.log(`[t3-slot] ok: total=${result.occ} row1=${result.row1} row2=${result.row2} mode=${result.mode}`);
@@ -129,7 +135,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       process.exit(0); // skip は exit 0（launchd ジョブの retry を待たない）
     }
   }).catch(e => {
+    // 真の fatal (uncaught・コードbug) は exit 1 で launchd が検知できるようにする。
+    // 予期した skip (fetch失敗・abnormal frame) は上の result.ok=false 経路で exit 0。
     console.error(`[t3-slot] fatal: ${e.message}`);
-    process.exit(0);
+    process.exit(1);
   });
 }
