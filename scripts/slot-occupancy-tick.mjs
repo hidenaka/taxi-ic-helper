@@ -4,7 +4,7 @@
 import { readFileSync, appendFileSync, existsSync } from 'node:fs';
 import { Jimp } from 'jimp';
 import { analyzeROI } from './lib/image-pool-analyzer.mjs';
-import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOLD, isFrameAbnormal }
+import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOLD, DEFAULT_NIGHT_LANTERN_RATIO, NIGHT_BRIGHTNESS_THRESHOLD, isFrameAbnormal, expandRoiVertical }
   from './lib/slot-occupancy.mjs';
 import { saveArchive } from './lib/slot-archive.mjs';
 
@@ -21,6 +21,18 @@ async function fetchBuffer(name) {
   const res = await fetch(`${TTC_BASE}/${name}.jpg`, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
+}
+
+// 画像全体の平均輝度を 50px 間隔でサンプリングして返す。
+// isFrameAbnormal 用と 夜判定 用の両方で再利用。
+function avgBrightness(img) {
+  const { data } = img.bitmap;
+  let sum = 0, count = 0;
+  for (let i = 0; i < data.length; i += 4 * 50) {
+    sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
+    count += 1;
+  }
+  return count > 0 ? sum / count : 0;
 }
 
 // スロット {cx,cy,r}(正規化) → analyzeROI 用ピクセル roi
@@ -60,23 +72,16 @@ async function main() {
     console.error(`[slot] image fetch failed, skip tick: ${e.message}`);
     return;
   }
-  // 画像の平均輝度をチェック。真っ白/真っ黒の壊れフレームは tick 全体を skip して
-  // 擬似出庫が計上されるのを防ぐ（直近の正常 occ が次の正常 tick まで保持される）。
+  // カメラごとの brightness を計算し、 異常フレームは tick 全体 skip。
+  // 同時に「夜モード」判定を保持する。
+  const cameraIsNight = {};
   for (const cam of Object.keys(cameras)) {
-    const img = cameras[cam];
-    const { width, height, data } = img.bitmap;
-    let sum = 0;
-    let count = 0;
-    // 50px ごとにサンプル（高速化）
-    for (let i = 0; i < data.length; i += 4 * 50) {
-      sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
-      count += 1;
-    }
-    const avg = count > 0 ? sum / count : 0;
+    const avg = avgBrightness(cameras[cam]);
     if (isFrameAbnormal(avg)) {
       console.error(`[slot] abnormal frame for ${cam} (avg=${avg.toFixed(1)}), skip tick`);
       return;
     }
+    cameraIsNight[cam] = avg < (cfg._meta?.night_brightness_threshold ?? NIGHT_BRIGHTNESS_THRESHOLD);
   }
   const row = { schema_version: 1, ts: jstNowIso(), stalls: {} };
   for (const name of STALLS) {
@@ -86,10 +91,19 @@ async function main() {
     if (!img) continue;
     const { width, height } = img.bitmap;
     const stallThreshold = (typeof st.edge_threshold === 'number') ? st.edge_threshold : globalThreshold;
+    const isNight = cameraIsNight[st.source];
+    const nightLanternRatio = cfg._meta?.night_lantern_ratio ?? DEFAULT_NIGHT_LANTERN_RATIO;
     const occupiedById = {};
     for (const slot of slotsForStall(cfg, name)) {
-      const feat = await analyzeROI(img, slotRoi(slot, width, height));
-      occupiedById[slot.id] = slotOccupied(feat, stallThreshold);
+      const baseRoi = slotRoi(slot, width, height);
+      // 夜は ROI を縦×2 に拡張して屋根上 (行灯位置) も含める。
+      const roi = isNight ? expandRoiVertical(baseRoi, 2, width, height) : baseRoi;
+      const feat = await analyzeROI(img, roi);
+      occupiedById[slot.id] = slotOccupied(feat, {
+        edgeThreshold: stallThreshold,
+        isNight,
+        nightLanternRatio,
+      });
     }
     row.stalls[name] = {
       occ: countStallOccupancy(occupiedById, slotsForStall(cfg, name)),
