@@ -5,7 +5,9 @@
       600
     ],
     "edge_threshold": 0.08,
-    "note": "スロット中心は0-1正規化座標"
+    "night_brightness_threshold": 50,
+    "night_lantern_ratio": 0.005,
+    "note": "スロット中心は0-1正規化座標。夜時間帯 (画像 avg brightness < night_brightness_threshold) は行灯検出に切替。"
   },
   "schema_version": 1,
   "stalls": {
