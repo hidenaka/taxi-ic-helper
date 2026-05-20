@@ -179,3 +179,30 @@ test('analyzeStalls: 画像なし stall は null を返す', async () => {
   const r = await analyzeStalls({ real01_line: img }, rois, null);
   assert.equal(r.stall4, null);
 });
+
+// --- analyzeROI: lantern_pixel_ratio ---
+import { analyzeROI } from '../scripts/lib/image-pool-analyzer.mjs';
+
+test('analyzeROI: 全画像が赤い行灯色なら lantern_pixel_ratio が 1.0 に近い', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0xff0000ff }); // R=255 G=0 B=0
+  const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
+  assert.ok(r.lantern_pixel_ratio >= 0.99, `expected ~1.0, got ${r.lantern_pixel_ratio}`);
+});
+
+test('analyzeROI: 真っ黒なら lantern_pixel_ratio が 0', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0x000000ff });
+  const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
+  assert.equal(r.lantern_pixel_ratio, 0);
+});
+
+test('analyzeROI: 真っ白 (R=G=B=255) は行灯ではない (G/B が高いため)', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0xffffffff });
+  const r = await analyzeROI(img, { x: 0, y: 0, width: 10, height: 10 });
+  assert.equal(r.lantern_pixel_ratio, 0);
+});
+
+test('analyzeROI: 範囲外 ROI で lantern_pixel_ratio=0', async () => {
+  const img = new Jimp({ width: 10, height: 10, color: 0xff0000ff });
+  const r = await analyzeROI(img, { x: 100, y: 100, width: 10, height: 10 });
+  assert.equal(r.lantern_pixel_ratio, 0);
+});

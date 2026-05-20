@@ -3,6 +3,8 @@ import { Jimp } from 'jimp';
 
 const BLACK_THRESHOLD = 60; // RGB 各値が 60 未満なら「黒」扱い (タクシー車体近似)
 const EDGE_THRESHOLD = 50;  // Sobel 勾配大きさのしきい値
+const LANTERN_R_MIN = 180;   // 赤チャネルの下限 (空車行灯の赤)
+const LANTERN_GB_MAX = 120;  // 緑・青チャネルの上限 (白色ライトを除外)
 
 // 3x3 Sobel カーネル
 const SOBEL_X = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
@@ -25,7 +27,8 @@ export async function analyzeROI(jimpImage, roi) {
       edge_density: 0,
       roi_black_ratio: 0,
       luminance_mean: 0,
-      luminance_std: 0
+      luminance_std: 0,
+      lantern_pixel_ratio: 0
     };
   }
 
@@ -34,8 +37,9 @@ export async function analyzeROI(jimpImage, roi) {
   const roiData = roiImg.bitmap.data;
   const total = clipped.width * clipped.height;
 
-  // 1. roi_black_ratio と luminance を 1 ループで集計
+  // 1. roi_black_ratio と luminance と lantern_pixel_ratio を 1 ループで集計
   let blackCount = 0;
+  let lanternCount = 0;
   let lumSum = 0;
   const luminances = new Float32Array(total);
   for (let i = 0; i < total; i++) {
@@ -44,6 +48,7 @@ export async function analyzeROI(jimpImage, roi) {
     const g = roiData[idx + 1];
     const b = roiData[idx + 2];
     if (r < BLACK_THRESHOLD && g < BLACK_THRESHOLD && b < BLACK_THRESHOLD) blackCount++;
+    if (r > LANTERN_R_MIN && g < LANTERN_GB_MAX && b < LANTERN_GB_MAX) lanternCount++;
     const lum = 0.299 * r + 0.587 * g + 0.114 * b;
     luminances[i] = lum;
     lumSum += lum;
@@ -55,6 +60,7 @@ export async function analyzeROI(jimpImage, roi) {
   }
   const luminance_std = Math.sqrt(varSum / total);
   const roi_black_ratio = blackCount / total;
+  const lantern_pixel_ratio = lanternCount / total;
 
   // 2. Sobel エッジ密度
   // luminances を 2D グリッドとして扱い、内側 (w-2)*(h-2) ピクセルで Sobel
@@ -82,7 +88,8 @@ export async function analyzeROI(jimpImage, roi) {
     edge_density: Number(edge_density.toFixed(4)),
     roi_black_ratio: Number(roi_black_ratio.toFixed(4)),
     luminance_mean: Number(luminance_mean.toFixed(2)),
-    luminance_std: Number(luminance_std.toFixed(2))
+    luminance_std: Number(luminance_std.toFixed(2)),
+    lantern_pixel_ratio: Number(lantern_pixel_ratio.toFixed(4))
   };
 }
 
