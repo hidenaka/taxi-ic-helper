@@ -4,7 +4,7 @@
 import { readFileSync, appendFileSync, existsSync } from 'node:fs';
 import { Jimp } from 'jimp';
 import { analyzeROI } from './lib/image-pool-analyzer.mjs';
-import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOLD, DEFAULT_NIGHT_LANTERN_RATIO, NIGHT_BRIGHTNESS_THRESHOLD, isFrameAbnormal, expandRoiVertical, nightLanternRatioForWeather, edgeThresholdForWeather }
+import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOLD, DEFAULT_NIGHT_LANTERN_RATIO, NIGHT_BRIGHTNESS_THRESHOLD, isFrameAbnormal, expandRoiVertical }
   from './lib/slot-occupancy.mjs';
 import { saveArchive } from './lib/slot-archive.mjs';
 
@@ -53,12 +53,6 @@ async function main() {
   const cfg = JSON.parse(readFileSync(SLOTS_PATH, 'utf8'));
   const STALLS = Object.keys(cfg.stalls || {});
   const globalThreshold = (cfg._meta && cfg._meta.edge_threshold) || DEFAULT_EDGE_THRESHOLD;
-  // 雨天時の路面反射ノイズ対策: weather.json の降水量で lantern しきい値を調整。
-  let precipitation = null;
-  try {
-    const w = JSON.parse(readFileSync('./data/weather.json', 'utf8'));
-    precipitation = w.current?.precipitation ?? null;
-  } catch { /* weather 無し時は補正なし */ }
   // 必要なカメラを集める
   const cameras = {};
   for (const name of STALLS) {
@@ -102,14 +96,12 @@ async function main() {
     const img = cameras[st.source];
     if (!img) continue;
     const { width, height } = img.bitmap;
-    const baseStallThreshold = (typeof st.edge_threshold === 'number') ? st.edge_threshold : globalThreshold;
-    const stallThreshold = edgeThresholdForWeather(baseStallThreshold, precipitation);
+    const stallThreshold = (typeof st.edge_threshold === 'number') ? st.edge_threshold : globalThreshold;
     // stall に detection_mode: "lantern" 指定があれば 24時間 lantern 検出。
     // 画像遠方 (stall1/2) で r=0.010 の小 ROI では 昼の edge_density 検出が
     // 機能せず常時 14 で動かない問題に対応。 屋根上の点光源で 出入りを捕捉。
     const isNight = (st.detection_mode === 'lantern') || cameraIsNight[st.source];
-    const baseLanternRatio = cfg._meta?.night_lantern_ratio ?? DEFAULT_NIGHT_LANTERN_RATIO;
-    const nightLanternRatio = nightLanternRatioForWeather(baseLanternRatio, precipitation);
+    const nightLanternRatio = cfg._meta?.night_lantern_ratio ?? DEFAULT_NIGHT_LANTERN_RATIO;
     const occupiedById = {};
     for (const slot of slotsForStall(cfg, name)) {
       const baseRoi = slotRoi(slot, width, height);

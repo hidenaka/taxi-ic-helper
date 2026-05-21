@@ -9,48 +9,6 @@ export const DEFAULT_NIGHT_LANTERN_RATIO = 0.005;
 /** 夜時間帯と判定する画像全体 平均輝度の上限 (これ以下が夜)。 */
 export const NIGHT_BRIGHTNESS_THRESHOLD = 50;
 
-/** 雨天時に lantern しきい値へ掛ける倍率。 濡れた路面の弱い反射を除外する。
- *  ×3 では過大が残った (ユーザー現場感覚) ため ×5 に強化。 */
-export const RAIN_LANTERN_MULTIPLIER = 5;
-
-/** 雨天時に edge_density しきい値へ掛ける倍率。 濡れ路面・水たまりの輪郭エッジを除外。
- *  ×1.8 では stall3/4 の過大が残ったため ×2.5 に強化。 */
-export const RAIN_EDGE_MULTIPLIER = 2.5;
-
-/**
- * 天気 (降水量) に応じて夜行灯しきい値を調整する純関数。
- * 雨天 (precipitation > 0) は 濡れた路面・水たまりが G/B 高輝度に反射して
- * 行灯と誤検出され 出庫が過大計上される。 しきい値を上げて弱い反射を除外し、
- * 強い点光源 (本物の行灯) のみ残す。
- *
- * @param {number} baseRatio 基準 lantern しきい値
- * @param {number|null} precipitation mm/h (weather.json の current.precipitation)
- * @returns {number} 調整後しきい値
- */
-export function nightLanternRatioForWeather(baseRatio, precipitation) {
-  if (typeof precipitation === 'number' && precipitation > 0) {
-    return baseRatio * RAIN_LANTERN_MULTIPLIER;
-  }
-  return baseRatio;
-}
-
-/**
- * 天気 (降水量) に応じて edge_density しきい値を調整する純関数。
- * 雨天は 濡れた路面・水たまりの輪郭が Sobel エッジを増やし、 空きアスファルトが
- * 「車あり」と誤検出され 昼の stall3/4 出庫が過大計上される。 しきい値を上げて
- * 弱い反射エッジを除外し、 車本体の強いエッジのみ残す。
- *
- * @param {number} baseThreshold 基準 edge_density しきい値
- * @param {number|null} precipitation mm/h
- * @returns {number} 調整後しきい値
- */
-export function edgeThresholdForWeather(baseThreshold, precipitation) {
-  if (typeof precipitation === 'number' && precipitation > 0) {
-    return baseThreshold * RAIN_EDGE_MULTIPLIER;
-  }
-  return baseThreshold;
-}
-
 /**
  * 画像の平均輝度から「異常フレーム（露出オーバー/アンダー）」を判定する純関数。
  * カメラサーバが時々返す真っ白/真っ黒の壊れフレームを検出し、その tick を
@@ -126,6 +84,54 @@ export function departuresBetween(prevCount, curCount) {
  */
 export function medianOf3(a, b, c) {
   return Math.max(Math.min(a, b), Math.min(Math.max(a, b), c));
+}
+
+/**
+ * 任意窓幅の中央値平滑化。 単発スパイク (salt-and-pepper ノイズ) を除去する。
+ * 端は窓を縮める。 win<=1 は無平滑化 (コピーを返す)。
+ *
+ * lantern 検出は昼間に判定境界付近で値がブレ、 在台数が高速にチラつく。
+ * これを除去しないと 在台数の差分 (出庫) に偽の減少が大量に混入する。
+ *
+ * @param {number[]} series 在台数の時系列 (時刻昇順)
+ * @param {number} win 窓幅 (奇数推奨)
+ * @returns {number[]} 平滑化後の系列 (長さは入力と同じ)
+ */
+export function medianSmooth(series, win) {
+  if (!Array.isArray(series) || win <= 1) return (series || []).slice();
+  const h = Math.floor(win / 2);
+  const out = [];
+  for (let i = 0; i < series.length; i++) {
+    const w = series.slice(Math.max(0, i - h), Math.min(series.length, i + h + 1))
+      .sort((a, b) => a - b);
+    out.push(w[Math.floor(w.length / 2)]);
+  }
+  return out;
+}
+
+/**
+ * 減少方向の持続確認 (ヒステリシス)。 各点を「直近 k tick の最大値」 に置き換え、
+ * 在台数の減少を k tick 遅延させる純関数。 一瞬下がってすぐ戻るフリッカの谷を
+ * 埋め、 「下がって戻らない」 真の出庫だけを残す。 増加は即時反映。
+ *
+ * 固定の時間窓 (medianSmooth) と違い、 出庫レートが時間帯で変動しても
+ * ピーク時の連続的な減少は保ったまま 単発のチラつきだけを消せる。
+ *
+ * @param {number[]} series 在台数の時系列 (時刻昇順、 medianSmooth 後を想定)
+ * @param {number} k 持続確認する tick 数 (>=1)
+ * @returns {number[]} 遅延後の系列 (長さは入力と同じ)
+ */
+export function rollingMaxDelay(series, k) {
+  if (!Array.isArray(series) || k <= 1) return (series || []).slice();
+  const out = [];
+  for (let i = 0; i < series.length; i++) {
+    let m = series[Math.max(0, i - k + 1)];
+    for (let j = Math.max(0, i - k + 1) + 1; j <= i; j++) {
+      if (series[j] > m) m = series[j];
+    }
+    out.push(m);
+  }
+  return out;
 }
 
 /**

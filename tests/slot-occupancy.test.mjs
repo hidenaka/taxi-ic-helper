@@ -2,31 +2,41 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
 import {
   slotOccupied, slotsForStall, countStallOccupancy, departuresBetween, medianOf3, isFrameAbnormal,
-  expandRoiVertical, nightLanternRatioForWeather, RAIN_LANTERN_MULTIPLIER,
-  edgeThresholdForWeather, RAIN_EDGE_MULTIPLIER,
+  expandRoiVertical, medianSmooth, rollingMaxDelay,
 } from '../scripts/lib/slot-occupancy.mjs';
 
-test('edgeThresholdForWeather: 雨天 (precip>0) は閾値を倍化', () => {
-  assert.equal(edgeThresholdForWeather(0.08, 0.4), 0.08 * RAIN_EDGE_MULTIPLIER);
+test('medianSmooth: 単発スパイク (谷) を中央値で除去', () => {
+  assert.deepEqual(medianSmooth([11, 2, 11, 11], 3), [11, 11, 11, 11]);
 });
 
-test('edgeThresholdForWeather: 無降水・null は据え置き', () => {
-  assert.equal(edgeThresholdForWeather(0.08, 0), 0.08);
-  assert.equal(edgeThresholdForWeather(0.08, null), 0.08);
+test('medianSmooth: 端は窓を縮める (長さ保持)', () => {
+  const out = medianSmooth([10, 0, 10, 10, 10], 5);
+  assert.equal(out.length, 5);
+  assert.equal(out[1], 10); // 単発の 0 は周囲に埋もれる
 });
 
-test('nightLanternRatioForWeather: 雨天 (precip>0) は閾値を倍化', () => {
-  assert.equal(nightLanternRatioForWeather(0.005, 0.4), 0.005 * RAIN_LANTERN_MULTIPLIER);
-  assert.equal(nightLanternRatioForWeather(0.005, 5), 0.005 * RAIN_LANTERN_MULTIPLIER);
+test('medianSmooth: win<=1 は無平滑化のコピー', () => {
+  const s = [3, 1, 4];
+  assert.deepEqual(medianSmooth(s, 1), s);
+  assert.notEqual(medianSmooth(s, 1), s); // 別配列を返す
 });
 
-test('nightLanternRatioForWeather: 無降水 (0) は据え置き', () => {
-  assert.equal(nightLanternRatioForWeather(0.005, 0), 0.005);
+test('rollingMaxDelay: 一瞬の谷を埋める (k=3)', () => {
+  assert.deepEqual(rollingMaxDelay([10, 10, 3, 10], 3), [10, 10, 10, 10]);
 });
 
-test('nightLanternRatioForWeather: precip が null/非数値は据え置き', () => {
-  assert.equal(nightLanternRatioForWeather(0.005, null), 0.005);
-  assert.equal(nightLanternRatioForWeather(0.005, undefined), 0.005);
+test('rollingMaxDelay: 持続した減少は k tick 後に反映', () => {
+  assert.deepEqual(rollingMaxDelay([10, 5, 5, 5], 3), [10, 10, 10, 5]);
+});
+
+test('rollingMaxDelay: 増加は即時反映', () => {
+  assert.deepEqual(rollingMaxDelay([2, 8, 8], 3), [2, 8, 8]);
+});
+
+test('rollingMaxDelay: k<=1 は無変化のコピー', () => {
+  const s = [1, 2, 3];
+  assert.deepEqual(rollingMaxDelay(s, 1), s);
+  assert.notEqual(rollingMaxDelay(s, 1), s);
 });
 
 test('isFrameAbnormal: 真っ白 (>235) は異常', () => {

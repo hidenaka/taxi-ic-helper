@@ -1,8 +1,15 @@
 // スロット占有履歴 → 乗り場別出庫（15分スロット・実績形）。
-import { departuresBetween, medianOf3 } from './slot-occupancy.mjs';
+import { departuresBetween, medianSmooth, rollingMaxDelay } from './slot-occupancy.mjs';
 
 const SLOT_MS = 15 * 60 * 1000;
 const STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
+// 在台数フリッカ除去パラメータ (1 tick ≈ 30秒)。 lantern 検出が昼間に判定境界で
+// チラつき、 在台数の差分に偽の出庫が大量混入する問題への対策。
+// SMOOTH_WINDOW=5: 直近約2.5分の中央値で単発スパイクを除去。
+// HYSTERESIS_TICKS=3: 減少を約90秒遅延させ、 一瞬下がってすぐ戻る谷を埋める。
+// 今日(雨天)の実データで偽出庫を約6割削減し時間帯波形は保てた値 (暫定・要再校正)。
+const SMOOTH_WINDOW = 5;
+const HYSTERESIS_TICKS = 3;
 
 function fmtJst(ms) {
   const jst = new Date(ms + 9 * 3600 * 1000);
@@ -32,8 +39,9 @@ export function computeSlotActuals(occHistory, now, windowMinutes = 120) {
       const back = (typeof r.stalls[backName]?.occ === 'number' ? r.stalls[backName].occ : 0);
       return front + back;
     });
-    smooth[name] = raw.map((v, i) =>
-      (i === 0 || i === raw.length - 1) ? v : medianOf3(raw[i - 1], v, raw[i + 1]));
+    // 1. median 平滑化で単発スパイクを除去 → 2. 持続確認で減少を遅延させ
+    //    一瞬下がってすぐ戻るフリッカの谷を埋める (真の出庫だけ残す)。
+    smooth[name] = rollingMaxDelay(medianSmooth(raw, SMOOTH_WINDOW), HYSTERESIS_TICKS);
   }
   const bins = new Map();
   for (let i = 1; i < rows.length; i++) {
