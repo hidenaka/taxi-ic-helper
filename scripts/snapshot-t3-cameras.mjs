@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // T3 校正用サンプル画像取得スクリプト。
-// Real106 / Real107 を取得して data/calibration/t3/<YYYY-MM-DDTHH-MM-SS>/<name>.jpg に保存。
+// Real106 / Real107 / Real108 / Real109 を取得して data/calibration/t3/<YYYY-MM-DDTHH-MM-SS>/<name>.jpg に保存。
 // CLI: `node scripts/snapshot-t3-cameras.mjs`
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const TTC_BASE = 'https://ttc.taxi-inf.jp';
-const TARGETS = ['Real106', 'Real107'];
+const TARGETS = ['Real106', 'Real107', 'Real108', 'Real109'];
 const OUTPUT_ROOT = './data/calibration/t3';
 
 function tsForPath() {
