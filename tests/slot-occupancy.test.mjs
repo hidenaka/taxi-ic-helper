@@ -2,8 +2,22 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
 import {
   slotOccupied, slotsForStall, countStallOccupancy, departuresBetween, medianOf3, isFrameAbnormal,
-  expandRoiVertical,
+  expandRoiVertical, nightLanternRatioForWeather, RAIN_LANTERN_MULTIPLIER,
 } from '../scripts/lib/slot-occupancy.mjs';
+
+test('nightLanternRatioForWeather: 雨天 (precip>0) は閾値を倍化', () => {
+  assert.equal(nightLanternRatioForWeather(0.005, 0.4), 0.005 * RAIN_LANTERN_MULTIPLIER);
+  assert.equal(nightLanternRatioForWeather(0.005, 5), 0.005 * RAIN_LANTERN_MULTIPLIER);
+});
+
+test('nightLanternRatioForWeather: 無降水 (0) は据え置き', () => {
+  assert.equal(nightLanternRatioForWeather(0.005, 0), 0.005);
+});
+
+test('nightLanternRatioForWeather: precip が null/非数値は据え置き', () => {
+  assert.equal(nightLanternRatioForWeather(0.005, null), 0.005);
+  assert.equal(nightLanternRatioForWeather(0.005, undefined), 0.005);
+});
 
 test('isFrameAbnormal: 真っ白 (>235) は異常', () => {
   assert.equal(isFrameAbnormal(250), true);

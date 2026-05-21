@@ -9,6 +9,26 @@ export const DEFAULT_NIGHT_LANTERN_RATIO = 0.005;
 /** 夜時間帯と判定する画像全体 平均輝度の上限 (これ以下が夜)。 */
 export const NIGHT_BRIGHTNESS_THRESHOLD = 50;
 
+/** 雨天時に lantern しきい値へ掛ける倍率。 濡れた路面の弱い反射を除外する。 */
+export const RAIN_LANTERN_MULTIPLIER = 3;
+
+/**
+ * 天気 (降水量) に応じて夜行灯しきい値を調整する純関数。
+ * 雨天 (precipitation > 0) は 濡れた路面・水たまりが G/B 高輝度に反射して
+ * 行灯と誤検出され 出庫が過大計上される。 しきい値を上げて弱い反射を除外し、
+ * 強い点光源 (本物の行灯) のみ残す。
+ *
+ * @param {number} baseRatio 基準 lantern しきい値
+ * @param {number|null} precipitation mm/h (weather.json の current.precipitation)
+ * @returns {number} 調整後しきい値
+ */
+export function nightLanternRatioForWeather(baseRatio, precipitation) {
+  if (typeof precipitation === 'number' && precipitation > 0) {
+    return baseRatio * RAIN_LANTERN_MULTIPLIER;
+  }
+  return baseRatio;
+}
+
 /**
  * 画像の平均輝度から「異常フレーム（露出オーバー/アンダー）」を判定する純関数。
  * カメラサーバが時々返す真っ白/真っ黒の壊れフレームを検出し、その tick を
