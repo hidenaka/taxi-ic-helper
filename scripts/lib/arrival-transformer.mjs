@@ -178,7 +178,10 @@ export function transformArrivals(odptResponse, seatsMaster, factorsMaster, taxi
       ? {
           lightningActive: !!taxiOpts.weatherContext.lightningActive,
           lightningRecoveryStartHHMM: taxiOpts.weatherContext.lightningRecoveryStartHHMM ?? null,
-          weatherCode: taxiOpts.weatherContext.weatherCode ?? null
+          weatherCode: taxiOpts.weatherContext.weatherCode ?? null,
+          temperature: taxiOpts.weatherContext.temperature ?? null,
+          precipitation: taxiOpts.weatherContext.precipitation ?? null,
+          cloudCover: taxiOpts.weatherContext.cloudCover ?? null
         }
       : null,
     stats: {

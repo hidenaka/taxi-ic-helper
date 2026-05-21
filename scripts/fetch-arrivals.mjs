@@ -59,7 +59,10 @@ try {
   weatherContext = {
     weatherCode: w.current?.weatherCode ?? null,
     lightningActive: !!w.current?.lightningActive,
-    lightningRecoveryStartHHMM: w.lightningRecoveryStartHHMM ?? null
+    lightningRecoveryStartHHMM: w.lightningRecoveryStartHHMM ?? null,
+    temperature: w.current?.temperature ?? null,
+    precipitation: w.current?.precipitation ?? null,
+    cloudCover: w.current?.cloudCover ?? null
   };
 } catch {
   weatherContext = null;
