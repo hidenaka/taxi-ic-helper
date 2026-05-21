@@ -3,7 +3,17 @@ import { strict as assert } from 'node:assert/strict';
 import {
   slotOccupied, slotsForStall, countStallOccupancy, departuresBetween, medianOf3, isFrameAbnormal,
   expandRoiVertical, nightLanternRatioForWeather, RAIN_LANTERN_MULTIPLIER,
+  edgeThresholdForWeather, RAIN_EDGE_MULTIPLIER,
 } from '../scripts/lib/slot-occupancy.mjs';
+
+test('edgeThresholdForWeather: 雨天 (precip>0) は閾値を倍化', () => {
+  assert.equal(edgeThresholdForWeather(0.08, 0.4), 0.08 * RAIN_EDGE_MULTIPLIER);
+});
+
+test('edgeThresholdForWeather: 無降水・null は据え置き', () => {
+  assert.equal(edgeThresholdForWeather(0.08, 0), 0.08);
+  assert.equal(edgeThresholdForWeather(0.08, null), 0.08);
+});
 
 test('nightLanternRatioForWeather: 雨天 (precip>0) は閾値を倍化', () => {
   assert.equal(nightLanternRatioForWeather(0.005, 0.4), 0.005 * RAIN_LANTERN_MULTIPLIER);

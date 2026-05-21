@@ -12,6 +12,9 @@ export const NIGHT_BRIGHTNESS_THRESHOLD = 50;
 /** 雨天時に lantern しきい値へ掛ける倍率。 濡れた路面の弱い反射を除外する。 */
 export const RAIN_LANTERN_MULTIPLIER = 3;
 
+/** 雨天時に edge_density しきい値へ掛ける倍率。 濡れ路面・水たまりの輪郭エッジを除外。 */
+export const RAIN_EDGE_MULTIPLIER = 1.8;
+
 /**
  * 天気 (降水量) に応じて夜行灯しきい値を調整する純関数。
  * 雨天 (precipitation > 0) は 濡れた路面・水たまりが G/B 高輝度に反射して
@@ -27,6 +30,23 @@ export function nightLanternRatioForWeather(baseRatio, precipitation) {
     return baseRatio * RAIN_LANTERN_MULTIPLIER;
   }
   return baseRatio;
+}
+
+/**
+ * 天気 (降水量) に応じて edge_density しきい値を調整する純関数。
+ * 雨天は 濡れた路面・水たまりの輪郭が Sobel エッジを増やし、 空きアスファルトが
+ * 「車あり」と誤検出され 昼の stall3/4 出庫が過大計上される。 しきい値を上げて
+ * 弱い反射エッジを除外し、 車本体の強いエッジのみ残す。
+ *
+ * @param {number} baseThreshold 基準 edge_density しきい値
+ * @param {number|null} precipitation mm/h
+ * @returns {number} 調整後しきい値
+ */
+export function edgeThresholdForWeather(baseThreshold, precipitation) {
+  if (typeof precipitation === 'number' && precipitation > 0) {
+    return baseThreshold * RAIN_EDGE_MULTIPLIER;
+  }
+  return baseThreshold;
 }
 
 /**

@@ -4,7 +4,7 @@
 import { readFileSync, appendFileSync, existsSync } from 'node:fs';
 import { Jimp } from 'jimp';
 import { analyzeROI } from './lib/image-pool-analyzer.mjs';
-import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOLD, DEFAULT_NIGHT_LANTERN_RATIO, NIGHT_BRIGHTNESS_THRESHOLD, isFrameAbnormal, expandRoiVertical, nightLanternRatioForWeather }
+import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOLD, DEFAULT_NIGHT_LANTERN_RATIO, NIGHT_BRIGHTNESS_THRESHOLD, isFrameAbnormal, expandRoiVertical, nightLanternRatioForWeather, edgeThresholdForWeather }
   from './lib/slot-occupancy.mjs';
 import { saveArchive } from './lib/slot-archive.mjs';
 
@@ -102,7 +102,8 @@ async function main() {
     const img = cameras[st.source];
     if (!img) continue;
     const { width, height } = img.bitmap;
-    const stallThreshold = (typeof st.edge_threshold === 'number') ? st.edge_threshold : globalThreshold;
+    const baseStallThreshold = (typeof st.edge_threshold === 'number') ? st.edge_threshold : globalThreshold;
+    const stallThreshold = edgeThresholdForWeather(baseStallThreshold, precipitation);
     // stall に detection_mode: "lantern" 指定があれば 24時間 lantern 検出。
     // 画像遠方 (stall1/2) で r=0.010 の小 ROI では 昼の edge_density 検出が
     // 機能せず常時 14 で動かない問題に対応。 屋根上の点光源で 出入りを捕捉。
