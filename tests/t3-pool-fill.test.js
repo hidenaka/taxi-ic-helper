@@ -1,8 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   computeFillRatio, fillLevel, approxCount, parseT3PoolRois, buildT3PoolFillPayload,
 } from '../scripts/lib/t3-pool-fill.mjs';
+
+test('t3-pool-rois.json: file parses with parseT3PoolRois', () => {
+  const json = JSON.parse(readFileSync('./data/t3-pool-rois.json', 'utf8'));
+  const cfg = parseT3PoolRois(json);
+  assert.equal(cfg.front.camera, 'Real108');
+  assert.equal(cfg.rear.camera, 'Real109');
+  assert.ok(['black_ratio', 'edge_density'].includes(cfg.front.metric));
+  assert.ok(['black_ratio', 'edge_density'].includes(cfg.rear.metric));
+});
 
 test('computeFillRatio: empty baseline → 0', () => {
   assert.equal(computeFillRatio(0.10, 0.10, 0.50), 0);
