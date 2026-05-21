@@ -36,6 +36,9 @@ export function buildAuxImageEntry(name, analyzeResult) {
     luminance_mean: numOrNull(roi.luminance_mean),
     luminance_std: numOrNull(roi.luminance_std),
     diff_from_prev: numOrNull(r.diff_from_prev),
+    // 駐車エリア占有度（埋まり具合）。observe-taxi-pool.mjs が Real108/109 のみ
+    // 後付けで上書きする。未計測・他カメラは null。
+    roi_fill_ratio: numOrNull(r.roi_fill_ratio),
   };
 }
 

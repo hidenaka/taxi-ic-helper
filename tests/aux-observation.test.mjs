@@ -25,6 +25,12 @@ test('buildAuxImageEntry: 完全な結果 → フラットなエントリ', () =
   assert.equal(e.luminance_mean, 180.2);
   assert.equal(e.luminance_std, 40.1);
   assert.equal(e.diff_from_prev, 0.03);
+  assert.equal(e.roi_fill_ratio, null); // 後付けフィールド。buildAuxImageEntry 段階では null
+});
+
+test('buildAuxImageEntry: roi_fill_ratio が analyzeResult にあれば反映', () => {
+  const e = buildAuxImageEntry('Real109', { sha256: 'y', size_bytes: 200, roi_fill_ratio: 0.88 });
+  assert.equal(e.roi_fill_ratio, 0.88);
 });
 
 test('buildAuxImageEntry: roi 欠損 → edge_density 等は null', () => {
