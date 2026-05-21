@@ -36,6 +36,7 @@ import {
   T3_STAND_IMAGES, POOL_IMAGES, FULL_FRAME_ROI,
   buildAuxImageEntry, findPrevAuxImage, buildAuxRow,
 } from './lib/aux-observation.mjs';
+import { computeFillRatio, fillLevel, approxCount, parseT3PoolRois, buildT3PoolFillPayload } from './lib/t3-pool-fill.mjs';
 
 const REAL01_URL = 'https://ttc.taxi-inf.jp/Real01_line.jpg';
 const REAL02_URL = 'https://ttc.taxi-inf.jp/Real02.jpg';
@@ -52,6 +53,8 @@ const ACTUALS_OUTPUT_PATH = './data/stall-actuals.json';
 const CORRECTIONS_OUTPUT_PATH = './data/coefficient-corrections.json';
 const TRANSIT_SHARE_PATH = './data/transit-share.json';
 const T3_POOL_HISTORY_PATH = './data/t3-pool-history.jsonl';
+const T3_POOL_ROIS_PATH = './data/t3-pool-rois.json';
+const T3_POOL_FILL_OUTPUT_PATH = './data/t3-pool-fill.json';
 const TRACK_HISTORY_PATH = './data/vehicle-track-history.jsonl';
 const THROUGHPUT_CALIBRATION_PATH = './data/throughput-calibration.json';
 const ROI_CONFIG_PATH = './scripts/lib/roi-config.json';
@@ -512,6 +515,40 @@ async function main() {
     for (const name of POOL_IMAGES) {
       try { poolEntries.push(await observeAux(name, 'pool')); }
       catch (e) { console.error(`[observe] aux ${name} failed: ${e.message}`); }
+    }
+    // 埋まり具合: Real108(前方)/Real109(後方) の駐車エリア ROI 占有度を計測し
+    // t3-pool-fill.json を書き出す。t3-pool-rois.json 未校正(baseline=0)なら skip。
+    // poolEntries に roi_fill_ratio を後付けする。
+    let fillFront = null, fillRear = null;
+    try {
+      if (existsSync(T3_POOL_ROIS_PATH)) {
+        const roisCfg = parseT3PoolRois(JSON.parse(readFileSync(T3_POOL_ROIS_PATH, 'utf8')));
+        for (const [areaKey, area] of [['front', roisCfg.front], ['rear', roisCfg.rear]]) {
+          // baseline 未校正(full<=empty)なら skip
+          if (!(area.full_baseline > area.empty_baseline)) continue;
+          const buffer = await fetchImage(`https://ttc.taxi-inf.jp/${area.camera}.jpg`);
+          const analyzed = await analyzePoolImage(buffer, null, area.roi);
+          const metricVal = area.metric === 'black_ratio'
+            ? (analyzed.roi?.roi_black_ratio ?? 0)
+            : (analyzed.roi?.edge_density ?? 0);
+          const ratio = computeFillRatio(metricVal, area.empty_baseline, area.full_baseline);
+          const result = {
+            camera: area.camera,
+            fillRatio: Number(ratio.toFixed(3)),
+            level: fillLevel(ratio),
+            approxCount: approxCount(ratio, area.max_capacity),
+          };
+          if (areaKey === 'front') fillFront = result; else fillRear = result;
+          const entry = poolEntries.find(e => e && e.name === area.camera);
+          if (entry) entry.roi_fill_ratio = result.fillRatio;
+        }
+        if (fillFront || fillRear) {
+          writeFileSync(T3_POOL_FILL_OUTPUT_PATH,
+            JSON.stringify(buildT3PoolFillPayload(fillFront, fillRear, new Date()), null, 2) + '\n', 'utf8');
+        }
+      }
+    } catch (e) {
+      console.error(`[observe] t3-pool-fill failed: ${e.message}`);
     }
     if (t3StandEntries.length > 0 || poolEntries.length > 0) {
       const auxRow = buildAuxRow(ts, tickSeq, t3StandEntries, poolEntries);
