@@ -16,6 +16,7 @@ on:
     paths:
       - 'data/arrivals.json'
       - 'data/stall-ensemble.json'
+      - 'data/t3-pool-fill.json'
   workflow_dispatch: {}
 
 permissions:
@@ -53,7 +54,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           SRC="$GITHUB_WORKSPACE/src/data"
-          FILES="arrivals.json stall-ensemble.json stall-actuals.json"
+          FILES="arrivals.json stall-ensemble.json stall-actuals.json t3-pool-fill.json"
 
           publish() {
             local dir="$1"
