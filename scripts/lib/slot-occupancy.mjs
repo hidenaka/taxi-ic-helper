@@ -9,11 +9,13 @@ export const DEFAULT_NIGHT_LANTERN_RATIO = 0.005;
 /** 夜時間帯と判定する画像全体 平均輝度の上限 (これ以下が夜)。 */
 export const NIGHT_BRIGHTNESS_THRESHOLD = 50;
 
-/** 雨天時に lantern しきい値へ掛ける倍率。 濡れた路面の弱い反射を除外する。 */
-export const RAIN_LANTERN_MULTIPLIER = 3;
+/** 雨天時に lantern しきい値へ掛ける倍率。 濡れた路面の弱い反射を除外する。
+ *  ×3 では過大が残った (ユーザー現場感覚) ため ×5 に強化。 */
+export const RAIN_LANTERN_MULTIPLIER = 5;
 
-/** 雨天時に edge_density しきい値へ掛ける倍率。 濡れ路面・水たまりの輪郭エッジを除外。 */
-export const RAIN_EDGE_MULTIPLIER = 1.8;
+/** 雨天時に edge_density しきい値へ掛ける倍率。 濡れ路面・水たまりの輪郭エッジを除外。
+ *  ×1.8 では stall3/4 の過大が残ったため ×2.5 に強化。 */
+export const RAIN_EDGE_MULTIPLIER = 2.5;
 
 /**
  * 天気 (降水量) に応じて夜行灯しきい値を調整する純関数。
