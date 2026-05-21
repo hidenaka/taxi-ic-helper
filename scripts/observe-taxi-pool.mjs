@@ -13,7 +13,7 @@
  */
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { Jimp } from 'jimp';
-import { analyzePoolImage, analyzeStalls } from './lib/image-pool-analyzer.mjs';
+import { analyzePoolImage, analyzeStalls, analyzeROI } from './lib/image-pool-analyzer.mjs';
 import { summarizeArrivalsWindow } from './lib/arrivals-window-summary.mjs';
 import { computeBaseline, computeForecast } from './lib/forecast-engine.mjs';
 import {
@@ -527,10 +527,19 @@ async function main() {
           // baseline 未校正(full<=empty)なら skip
           if (!(area.full_baseline > area.empty_baseline)) continue;
           const buffer = await fetchImage(`https://ttc.taxi-inf.jp/${area.camera}.jpg`);
-          const analyzed = await analyzePoolImage(buffer, null, area.roi);
+          const img = await Jimp.read(buffer);
+          const { width: imgW, height: imgH } = img.bitmap;
+          // ROI は正規化座標(0〜1)。analyzeROI はピクセル座標を期待するので変換する。
+          const pxRoi = {
+            x: Math.round(area.roi.x * imgW),
+            y: Math.round(area.roi.y * imgH),
+            width: Math.round(area.roi.width * imgW),
+            height: Math.round(area.roi.height * imgH),
+          };
+          const feat = await analyzeROI(img, pxRoi);
           const metricVal = area.metric === 'black_ratio'
-            ? (analyzed.roi?.roi_black_ratio ?? 0)
-            : (analyzed.roi?.edge_density ?? 0);
+            ? (feat.roi_black_ratio ?? 0)
+            : (feat.edge_density ?? 0);
           const ratio = computeFillRatio(metricVal, area.empty_baseline, area.full_baseline);
           const result = {
             camera: area.camera,
