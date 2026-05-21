@@ -1,25 +1,25 @@
 {
   "_meta": {
-    "image_size": [1024, 576],
-    "note": "T3 第3待機所 前方(Real108)/後方(Real109) 駐車エリア占有度 ROI。roi/baseline/max_capacity は校正で確定。metric は校正で black_ratio か edge_density を選ぶ。"
+    "image_size": [1024, 574],
+    "note": "T3 第3待機所 前方(Real108)/後方(Real109) 駐車エリア占有度 ROI。roi は正規化座標(0〜1)。metric=black_ratio（実測で空0.016/満0.21と弁別力高い。edge_densityは空でも白線で0.35と差小）。baseline は 2026-05-21 の空(108朝)/満(109午後)サンプルから暫定設定、Mac mini 蓄積後に調整。"
   },
   "schema_version": 1,
   "areas": {
     "front": {
       "camera": "Real108",
-      "roi": { "x": 0.0, "y": 0.0, "width": 0.0, "height": 0.0 },
-      "metric": "edge_density",
-      "empty_baseline": 0.0,
-      "full_baseline": 0.0,
-      "max_capacity": 0
+      "roi": { "x": 0.25, "y": 0.42, "width": 0.70, "height": 0.53 },
+      "metric": "black_ratio",
+      "empty_baseline": 0.02,
+      "full_baseline": 0.22,
+      "max_capacity": 30
     },
     "rear": {
       "camera": "Real109",
-      "roi": { "x": 0.0, "y": 0.0, "width": 0.0, "height": 0.0 },
-      "metric": "edge_density",
-      "empty_baseline": 0.0,
-      "full_baseline": 0.0,
-      "max_capacity": 0
+      "roi": { "x": 0.0, "y": 0.27, "width": 1.0, "height": 0.70 },
+      "metric": "black_ratio",
+      "empty_baseline": 0.02,
+      "full_baseline": 0.22,
+      "max_capacity": 50
     }
   }
 }
