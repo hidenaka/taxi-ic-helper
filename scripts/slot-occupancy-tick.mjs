@@ -7,6 +7,7 @@ import { analyzeROI } from './lib/image-pool-analyzer.mjs';
 import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOLD, DEFAULT_NIGHT_LANTERN_RATIO, NIGHT_BRIGHTNESS_THRESHOLD, isFrameAbnormal, expandRoiVertical }
   from './lib/slot-occupancy.mjs';
 import { saveArchive } from './lib/slot-archive.mjs';
+import { loadFillAssets, buildAdaptiveBg, estimateFill } from './lib/fill-estimate.mjs';
 
 const TTC_BASE = 'https://ttc.taxi-inf.jp';
 const SLOTS_PATH = './scripts/lib/stall-slots.json';
@@ -89,6 +90,21 @@ async function main() {
   // real02 camera は別 brightness。 多くの場合は同じ夜/昼判定なので
   // real01_line を mode の代表値として使う。)
   const mode = cameraIsNight['real01_line'] ? 'night' : 'day';
+  // 全乗り場を fill率で算出 (per-slotエッジ/行灯は濡れ路面で誤検出するため)。
+  // カメラごとの適応背景(直近同日アーカイブの画素85%ile輝度=空アスファルト)で差分。
+  // 夜(暗フレーム)や失敗時は estimateFill が null/欠落 → 下の per-slot にフォールバック。
+  const fillAssets = await loadFillAssets('./scripts/lib');
+  const fillByStall = {};
+  if (fillAssets) {
+    for (const cam of Object.keys(cameras)) {
+      if (cameraIsNight[cam]) continue;
+      try {
+        const adp = await buildAdaptiveBg(cam, fillAssets, new Date());
+        const fr = estimateFill(cameras[cam], fillAssets, adp, cam);
+        if (fr) Object.assign(fillByStall, fr);
+      } catch (e) { /* per-slot fallback */ }
+    }
+  }
   const row = { schema_version: 1, ts: jstNowIso(), mode, stalls: {} };
   for (const name of STALLS) {
     const st = cfg.stalls?.[name];
@@ -96,6 +112,11 @@ async function main() {
     const img = cameras[st.source];
     if (!img) continue;
     const { width, height } = img.bitmap;
+    // 昼は fill率(全乗り場)。夜/失敗で fillByStall に無ければ下の per-slot にフォールバック。
+    if (fillByStall[name]) {
+      row.stalls[name] = { occ: fillByStall[name].count, method: 'fill', fill: fillByStall[name].fill, slots: {} };
+      continue;
+    }
     const stallThreshold = (typeof st.edge_threshold === 'number') ? st.edge_threshold : globalThreshold;
     // stall に detection_mode: "lantern" 指定があれば 24時間 lantern 検出。
     // 画像遠方 (stall1/2) で r=0.010 の小 ROI では 昼の edge_density 検出が
