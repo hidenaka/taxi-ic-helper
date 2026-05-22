@@ -1,0 +1,23 @@
+{
+  "_note": "第1/第2乗り場の埋まり具合(fill率)推定。背景差分+明るさ正規化、夜は除外。count=round(fill/full_ref*cap)",
+  "source": "real01_line",
+  "image_size": [
+    800,
+    600
+  ],
+  "diff_threshold": 32,
+  "night_brightness": 50,
+  "background": "fill-bg-real01.png",
+  "stalls": {
+    "stall1": {
+      "mask": "fill-mask-stall1.png",
+      "cap": 16,
+      "full_ref": 0.65
+    },
+    "stall2": {
+      "mask": "fill-mask-stall2.png",
+      "cap": 14,
+      "full_ref": 0.67
+    }
+  }
+}

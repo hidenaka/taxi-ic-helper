@@ -110,6 +110,14 @@ REPO_ROOT = os.path.dirname(SCRIPT_DIR)
 MODEL_PATH = os.path.join(REPO_ROOT, 'models', 'yolov8m.onnx')
 OUTPUT_PATH = os.path.join(REPO_ROOT, 'data', 'vehicle-detection-history.jsonl')
 STALL_ROIS_PATH = os.path.join(REPO_ROOT, 'scripts', 'lib', 'stall-rois.json')
+LIB_DIR = os.path.join(SCRIPT_DIR, 'lib')
+# 第1/第2(奥)は個別検出不可 → fill率で台数推定。失敗してもtickは継続(fail-safe)。
+sys.path.insert(0, LIB_DIR)
+try:
+    from fill_estimate import load_fill_assets, estimate_fill
+except Exception:
+    load_fill_assets = None
+    estimate_fill = None
 
 TTC_BASE = 'https://ttc.taxi-inf.jp'
 IMAGES = ['Real01_line', 'Real02', 'Real106', 'Real107', 'Real03', 'Real04', 'Real108', 'Real109']
@@ -203,9 +211,12 @@ def main():
         sys.exit(1)
     session = ort.InferenceSession(MODEL_PATH, providers=['CPUExecutionProvider'])
     images = []
+    real01_pil = None  # fill率推定用に Real01_line の元画像を保持
     for name in IMAGES:
         try:
             img = fetch_image(name)
+            if name == 'Real01_line':
+                real01_pil = img
             boxes = detect_image(session, img)
             images.append({'name': name, 'vehicle_count': len(boxes), 'boxes': boxes})
         except Exception as e:
@@ -223,7 +234,20 @@ def main():
         prev_row = read_last_history_row(OUTPUT_PATH)
         prev_stalls = prev_row.get('t1t2_stalls') if isinstance(prev_row, dict) else None
         stall_counts = count_boxes_per_stall(boxes_by_image, stall_rois)
+        # 第1/第2(奥)は YOLO では個別検出不可 → fill率で上書き(昼のみ。夜/失敗時はYOLO値のまま)
+        fill_detail = None
+        if load_fill_assets is not None:
+            fill_detail = estimate_fill(real01_pil, load_fill_assets(LIB_DIR))
+            if fill_detail:
+                for k in ('stall1', 'stall2'):
+                    if k in fill_detail:
+                        stall_counts[k] = fill_detail[k]['count']
         t1t2_stalls = build_t1t2_stalls(stall_counts, prev_stalls)
+        if fill_detail and t1t2_stalls:
+            for k, v in fill_detail.items():
+                if k in t1t2_stalls:
+                    t1t2_stalls[k]['method'] = 'fill'
+                    t1t2_stalls[k]['fill'] = v['fill']
     except Exception as e:
         print(f'[detect] t1t2_stalls failed: {e}', file=sys.stderr)
 
