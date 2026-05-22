@@ -30,7 +30,8 @@ def load_fill_assets(lib_dir):
         for name, s in cfg['stalls'].items():
             mask = np.asarray(Image.open(os.path.join(lib_dir, s['mask'])).convert('L')) > 127
             stalls[name] = {'mask': mask, 'cap': int(s['cap']), 'full_ref': float(s['full_ref']),
-                            'empty_floor': float(s.get('empty_floor', 0.0))}
+                            'empty_floor': float(s.get('empty_floor', 0.0)),
+                            'cam': s.get('cam', 'real01_line')}
         return {'cfg': cfg, 'bg': bg, 'bg_med': float(np.median(bg)), 'stalls': stalls,
                 'size': (bg.shape[1], bg.shape[0])}
     except Exception:
@@ -79,9 +80,10 @@ def build_adaptive_bg(archive_dir, camera, now=None, hours=3, max_frames=24,
         return None
 
 
-def estimate_fill(pil_img, assets, adaptive_bg=None):
-    """Real01_line の PIL画像 → {stall1:{count,fill}, stall2:{...}}。夜/失敗時は None。
+def estimate_fill(pil_img, assets, adaptive_bg=None, camera=None):
+    """PIL画像 → {stall:{count,fill}}。夜/失敗時は None。
 
+    camera 指定時はその cam の乗り場のみ処理 (Real01/Real02 を別々に呼ぶ用)。
     adaptive_bg ({'bg','bg_med'}) があれば優先、無ければ assets の静的背景。純粋関数。
     """
     if assets is None or pil_img is None:
@@ -100,6 +102,8 @@ def estimate_fill(pil_img, assets, adaptive_bg=None):
         binimg = np.abs(g - bg) > assets['cfg'].get('diff_threshold', 40)
         out = {}
         for name, s in assets['stalls'].items():
+            if camera is not None and s.get('cam') != camera:
+                continue
             area = int(s['mask'].sum())
             if area == 0:
                 continue

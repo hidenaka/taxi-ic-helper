@@ -213,11 +213,14 @@ def main():
     session = ort.InferenceSession(MODEL_PATH, providers=['CPUExecutionProvider'])
     images = []
     real01_pil = None  # fill率推定用に Real01_line の元画像を保持
+    real02_pil = None  # 第4待機(stall4_back)用に Real02 を保持
     for name in IMAGES:
         try:
             img = fetch_image(name)
             if name == 'Real01_line':
                 real01_pil = img
+            elif name == 'Real02':
+                real02_pil = img
             boxes = detect_image(session, img)
             images.append({'name': name, 'vehicle_count': len(boxes), 'boxes': boxes})
         except Exception as e:
@@ -236,23 +239,26 @@ def main():
         prev_stalls = prev_row.get('t1t2_stalls') if isinstance(prev_row, dict) else None
         stall_counts = count_boxes_per_stall(boxes_by_image, stall_rois)
         # 第1/第2(奥)は YOLO では個別検出不可 → fill率で上書き(昼のみ。夜/失敗時はYOLO値のまま)
-        fill_detail = None
+        # 全乗り場を fill率で算出 (per-slotは濡れ路面で誤検出するため)。
+        # Real01: 第1/2/3/4(前方), Real02: 第4待機(stall4_back)。各カメラ別の適応背景。
+        fill_detail = {}
         if load_fill_assets is not None:
             assets = load_fill_assets(LIB_DIR)
-            # 適応背景: 直近同日アーカイブの画素85%ile輝度=空アスファルト(天候追従)。作れなければ静的背景。
             archive_dir = os.environ.get('TAXI_IMAGE_ARCHIVE_DIR', os.path.expanduser('~/taxi-image-archive'))
-            adaptive = build_adaptive_bg(archive_dir, 'real01_line') if build_adaptive_bg else None
-            fill_detail = estimate_fill(real01_pil, assets, adaptive_bg=adaptive)
-            if fill_detail:
-                for k in ('stall1', 'stall2'):
-                    if k in fill_detail:
-                        stall_counts[k] = fill_detail[k]['count']
-        t1t2_stalls = build_t1t2_stalls(stall_counts, prev_stalls)
-        if fill_detail and t1t2_stalls:
+            adp01 = build_adaptive_bg(archive_dir, 'real01_line') if build_adaptive_bg else None
+            adp02 = build_adaptive_bg(archive_dir, 'real02') if build_adaptive_bg else None
+            f01 = estimate_fill(real01_pil, assets, adaptive_bg=adp01, camera='real01_line')
+            f02 = estimate_fill(real02_pil, assets, adaptive_bg=adp02, camera='real02')
+            for f in (f01, f02):
+                if f:
+                    fill_detail.update(f)
             for k, v in fill_detail.items():
-                if k in t1t2_stalls:
-                    t1t2_stalls[k]['method'] = 'fill'
-                    t1t2_stalls[k]['fill'] = v['fill']
+                stall_counts[k] = v['count']
+        t1t2_stalls = build_t1t2_stalls(stall_counts, prev_stalls)
+        for k, v in fill_detail.items():
+            if k in t1t2_stalls:
+                t1t2_stalls[k]['method'] = 'fill'
+                t1t2_stalls[k]['fill'] = v['fill']
     except Exception as e:
         print(f'[detect] t1t2_stalls failed: {e}', file=sys.stderr)
 

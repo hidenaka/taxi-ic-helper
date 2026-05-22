@@ -1,6 +1,5 @@
 {
-  "_note": "第1/第2乗り場の埋まり具合(fill率)推定。適応背景(直近同日アーカイブの画素85%ile輝度=空アスファルト)との差分+明るさ正規化、夜は除外。count=round(fill/full_ref*cap)。background は適応背景が作れない時のフォールバック。full_ref/diff_threshold は適応背景(85%ile,thr40)で校正(2026-05-22)",
-  "source": "real01_line",
+  "_note": "全乗り場の埋まり具合(fill率)推定。適応背景(直近同日アーカイブの画素85%ile輝度=空アスファルト)との差分+明るさ正規化、空の床(empty_floor)を差し引いて 0..cap に正規化。夜は除外。count=round(max(0,(fill-floor)/(full_ref-floor))*cap)。cam=カメラ。full_ref/floorは適応背景(85%ile,thr40)で校正(2026-05-22, 雨天)。background は適応背景フォールバック",
   "image_size": [
     800,
     600
@@ -10,23 +9,15 @@
   "background": "fill-bg-real01.png",
   "adaptive": {
     "enabled": true,
-    "camera": "real01_line",
     "hours": 3,
     "max_frames": 24,
     "percentile": 85
   },
   "stalls": {
-    "stall1": {
-      "mask": "fill-mask-stall1.png",
-      "cap": 16,
-      "full_ref": 0.46,
-      "empty_floor": 0.10
-    },
-    "stall2": {
-      "mask": "fill-mask-stall2.png",
-      "cap": 14,
-      "full_ref": 0.49,
-      "empty_floor": 0.05
-    }
+    "stall1": { "cam": "real01_line", "mask": "fill-mask-stall1.png", "cap": 16, "full_ref": 0.46, "empty_floor": 0.10 },
+    "stall2": { "cam": "real01_line", "mask": "fill-mask-stall2.png", "cap": 14, "full_ref": 0.49, "empty_floor": 0.05 },
+    "stall3": { "cam": "real01_line", "mask": "fill-mask-stall3.png", "cap": 16, "full_ref": 0.38, "empty_floor": 0.09 },
+    "stall4": { "cam": "real01_line", "mask": "fill-mask-stall4.png", "cap": 4, "full_ref": 0.31, "empty_floor": 0.02 },
+    "stall4_back": { "cam": "real02", "mask": "fill-mask-stall4_back.png", "cap": 8, "full_ref": 0.16, "empty_floor": 0.02 }
   }
 }
