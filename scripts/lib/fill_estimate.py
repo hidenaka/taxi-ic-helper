@@ -29,7 +29,8 @@ def load_fill_assets(lib_dir):
         stalls = {}
         for name, s in cfg['stalls'].items():
             mask = np.asarray(Image.open(os.path.join(lib_dir, s['mask'])).convert('L')) > 127
-            stalls[name] = {'mask': mask, 'cap': int(s['cap']), 'full_ref': float(s['full_ref'])}
+            stalls[name] = {'mask': mask, 'cap': int(s['cap']), 'full_ref': float(s['full_ref']),
+                            'empty_floor': float(s.get('empty_floor', 0.0))}
         return {'cfg': cfg, 'bg': bg, 'bg_med': float(np.median(bg)), 'stalls': stalls,
                 'size': (bg.shape[1], bg.shape[0])}
     except Exception:
@@ -103,7 +104,11 @@ def estimate_fill(pil_img, assets, adaptive_bg=None):
             if area == 0:
                 continue
             fr = float((binimg & s['mask']).sum()) / area
-            cnt = min(int(round(fr / s['full_ref'] * s['cap'])), s['cap'])
+            # 空の床(empty_floor)を差し引いて 0..full_ref を 0..cap に正規化(奥の残留ノイズ対策)
+            floor = s.get('empty_floor', 0.0)
+            denom = max(1e-6, s['full_ref'] - floor)
+            fr_adj = max(0.0, (fr - floor) / denom)
+            cnt = min(int(round(fr_adj * s['cap'])), s['cap'])
             out[name] = {'count': max(0, cnt), 'fill': round(fr, 3),
                          'bg': 'adaptive' if adaptive_bg else 'static'}
         return out or None
