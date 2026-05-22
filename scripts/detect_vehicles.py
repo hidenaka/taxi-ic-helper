@@ -114,10 +114,11 @@ LIB_DIR = os.path.join(SCRIPT_DIR, 'lib')
 # 第1/第2(奥)は個別検出不可 → fill率で台数推定。失敗してもtickは継続(fail-safe)。
 sys.path.insert(0, LIB_DIR)
 try:
-    from fill_estimate import load_fill_assets, estimate_fill
+    from fill_estimate import load_fill_assets, estimate_fill, build_adaptive_bg
 except Exception:
     load_fill_assets = None
     estimate_fill = None
+    build_adaptive_bg = None
 
 TTC_BASE = 'https://ttc.taxi-inf.jp'
 IMAGES = ['Real01_line', 'Real02', 'Real106', 'Real107', 'Real03', 'Real04', 'Real108', 'Real109']
@@ -237,7 +238,11 @@ def main():
         # 第1/第2(奥)は YOLO では個別検出不可 → fill率で上書き(昼のみ。夜/失敗時はYOLO値のまま)
         fill_detail = None
         if load_fill_assets is not None:
-            fill_detail = estimate_fill(real01_pil, load_fill_assets(LIB_DIR))
+            assets = load_fill_assets(LIB_DIR)
+            # 適応背景: 直近同日アーカイブの画素85%ile輝度=空アスファルト(天候追従)。作れなければ静的背景。
+            archive_dir = os.environ.get('TAXI_IMAGE_ARCHIVE_DIR', os.path.expanduser('~/taxi-image-archive'))
+            adaptive = build_adaptive_bg(archive_dir, 'real01_line') if build_adaptive_bg else None
+            fill_detail = estimate_fill(real01_pil, assets, adaptive_bg=adaptive)
             if fill_detail:
                 for k in ('stall1', 'stall2'):
                     if k in fill_detail:

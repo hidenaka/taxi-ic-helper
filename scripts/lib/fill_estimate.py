@@ -4,17 +4,25 @@
 奥(第1/第2)は遠すぎて個別スロットを分離できないため、領域全体で
 「空の駐車場(背景)」との差分割合(fill率)→ ざっくり台数 を出す。
 明るさを背景に正規化してから差分し、夜(暗いフレーム)は除外する。
-設計: 2026-05-22 校正。背景=昼アーカイブ中央値。満杯基準=昼95%ile。
+
+背景は2系統:
+  - 静的: lib/fill-bg-real01.png (フォールバック)
+  - 適応: build_adaptive_bg() が直近の同日アーカイブから画素高%ile輝度で空アスファルトを
+    自動推定 (黒タクシーは暗いので明るい側=空)。天候・光に追従し、別日背景の誤検出を解消。
+設計: 2026-05-22。
 """
 import json
 import os
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 from PIL import Image
 
+JST = timezone(timedelta(hours=9))
+
 
 def load_fill_assets(lib_dir):
-    """fill-config.json + 背景 + マスク を読み込む。失敗時は None。"""
+    """fill-config.json + 静的背景 + マスク を読み込む。失敗時は None。"""
     try:
         cfg = json.load(open(os.path.join(lib_dir, 'fill-config.json'), encoding='utf-8'))
         bg = np.asarray(Image.open(os.path.join(lib_dir, cfg['background'])).convert('L'), dtype=np.float32)
@@ -28,10 +36,52 @@ def load_fill_assets(lib_dir):
         return None
 
 
-def estimate_fill(pil_img, assets):
+def build_adaptive_bg(archive_dir, camera, now=None, hours=3, max_frames=24,
+                      pct=85, night_brightness=50, min_frames=6, size=(800, 600)):
+    """直近 hours 時間の同日アーカイブ(camera)から、画素 pct%ile 輝度で空アスファルト背景を作る。
+
+    黒タクシーは暗いので高%ile=空。max_frames を時間的に均等サンプル。
+    使えるフレームが min_frames 未満なら None (呼び出し側は静的背景にフォールバック)。
+    戻り値: {'bg': float32[H,W], 'bg_med': float} | None
+    """
+    try:
+        now = now or datetime.now(JST)
+        day = now.strftime('%Y-%m-%d')
+        d = os.path.join(archive_dir, camera, day)
+        if not os.path.isdir(d):
+            return None
+        cutoff = (now - timedelta(hours=hours)).strftime('%H%M%S')
+        files = sorted(f for f in os.listdir(d)
+                       if f.endswith('.jpg') and f[:6] >= cutoff)
+        if len(files) < min_frames:
+            files = sorted(f for f in os.listdir(d) if f.endswith('.jpg'))  # 当日全部にゆるめる
+        if len(files) < min_frames:
+            return None
+        step = max(1, len(files) // max_frames)
+        picked = files[::step][:max_frames]
+        arrs = []
+        for f in picked:
+            try:
+                im = Image.open(os.path.join(d, f)).convert('L')
+                if im.size != size:
+                    im = im.resize(size)
+                a = np.asarray(im, dtype=np.float32)
+                if float(a.mean()) >= night_brightness:  # 昼のみ
+                    arrs.append(a)
+            except Exception:
+                continue
+        if len(arrs) < min_frames:
+            return None
+        bg = np.percentile(np.stack(arrs, 0), pct, axis=0).astype(np.float32)
+        return {'bg': bg, 'bg_med': float(np.median(bg))}
+    except Exception:
+        return None
+
+
+def estimate_fill(pil_img, assets, adaptive_bg=None):
     """Real01_line の PIL画像 → {stall1:{count,fill}, stall2:{...}}。夜/失敗時は None。
 
-    純粋関数 (画像読み込み以外の副作用なし)。
+    adaptive_bg ({'bg','bg_med'}) があれば優先、無ければ assets の静的背景。純粋関数。
     """
     if assets is None or pil_img is None:
         return None
@@ -41,21 +91,21 @@ def estimate_fill(pil_img, assets):
             pil_img = pil_img.resize((W, H))
         g = np.asarray(pil_img.convert('L'), dtype=np.float32)
         if float(g.mean()) < assets['cfg'].get('night_brightness', 50):
-            return None  # 夜は別扱い (行灯/空のため)
+            return None  # 夜は別扱い
+        bg = adaptive_bg['bg'] if adaptive_bg else assets['bg']
+        bg_med = adaptive_bg['bg_med'] if adaptive_bg else assets['bg_med']
         med = max(1.0, float(np.median(g)))
-        g = g * (assets['bg_med'] / med)            # 明るさを背景に正規化
-        diff = np.abs(g - assets['bg'])
-        thr = assets['cfg'].get('diff_threshold', 32)
-        binimg = diff > thr
+        g = g * (bg_med / med)                       # 明るさを背景に正規化
+        binimg = np.abs(g - bg) > assets['cfg'].get('diff_threshold', 40)
         out = {}
         for name, s in assets['stalls'].items():
-            m = s['mask']
-            area = int(m.sum())
+            area = int(s['mask'].sum())
             if area == 0:
                 continue
-            fr = float((binimg & m).sum()) / area
+            fr = float((binimg & s['mask']).sum()) / area
             cnt = min(int(round(fr / s['full_ref'] * s['cap'])), s['cap'])
-            out[name] = {'count': max(0, cnt), 'fill': round(fr, 3)}
+            out[name] = {'count': max(0, cnt), 'fill': round(fr, 3),
+                         'bg': 'adaptive' if adaptive_bg else 'static'}
         return out or None
     except Exception:
         return None

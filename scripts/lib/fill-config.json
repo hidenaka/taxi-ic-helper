@@ -1,23 +1,30 @@
 {
-  "_note": "第1/第2乗り場の埋まり具合(fill率)推定。背景差分+明るさ正規化、夜は除外。count=round(fill/full_ref*cap)",
+  "_note": "第1/第2乗り場の埋まり具合(fill率)推定。適応背景(直近同日アーカイブの画素85%ile輝度=空アスファルト)との差分+明るさ正規化、夜は除外。count=round(fill/full_ref*cap)。background は適応背景が作れない時のフォールバック。full_ref/diff_threshold は適応背景(85%ile,thr40)で校正(2026-05-22)",
   "source": "real01_line",
   "image_size": [
     800,
     600
   ],
-  "diff_threshold": 32,
+  "diff_threshold": 40,
   "night_brightness": 50,
   "background": "fill-bg-real01.png",
+  "adaptive": {
+    "enabled": true,
+    "camera": "real01_line",
+    "hours": 3,
+    "max_frames": 24,
+    "percentile": 85
+  },
   "stalls": {
     "stall1": {
       "mask": "fill-mask-stall1.png",
       "cap": 16,
-      "full_ref": 0.65
+      "full_ref": 0.46
     },
     "stall2": {
       "mask": "fill-mask-stall2.png",
       "cap": 14,
-      "full_ref": 0.67
+      "full_ref": 0.49
     }
   }
 }
