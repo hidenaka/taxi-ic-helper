@@ -85,7 +85,8 @@ export async function buildAdaptiveBg(camera, assets, now = new Date(),
 }
 
 // jimpImg → {stall:{count,fill}}。camera指定でその cam の乗り場のみ。夜/失敗で null。
-export function estimateFill(jimpImg, assets, adaptiveBg = null, camera = null) {
+// dynamicFullRef: {stall:full_ref} があれば config の full_ref より優先 (自動較正)。
+export function estimateFill(jimpImg, assets, adaptiveBg = null, camera = null, dynamicFullRef = null) {
   if (!assets || !jimpImg) return null;
   try {
     const { g, width, height } = grayArray(jimpImg);
@@ -104,7 +105,10 @@ export function estimateFill(jimpImg, assets, adaptiveBg = null, camera = null) 
         if (s.mask[i] && Math.abs(g[i] * factor - bg[i]) > thr) filled++;
       }
       const fr = filled / s.area;
-      const denom = Math.max(1e-6, s.full_ref - s.empty_floor);
+      // 動的 full_ref があれば優先 (天候/光に自動追従)。無ければ config 既定。
+      const fullRef = (dynamicFullRef && typeof dynamicFullRef[name] === 'number')
+        ? dynamicFullRef[name] : s.full_ref;
+      const denom = Math.max(1e-6, fullRef - s.empty_floor);
       const frAdj = Math.max(0, (fr - s.empty_floor) / denom);
       const count = Math.max(0, Math.min(Math.round(frAdj * s.cap), s.cap));
       out[name] = { count, fill: Math.round(fr * 1000) / 1000 };

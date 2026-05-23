@@ -8,6 +8,7 @@ import { slotOccupied, slotsForStall, countStallOccupancy, DEFAULT_EDGE_THRESHOL
   from './lib/slot-occupancy.mjs';
 import { saveArchive } from './lib/slot-archive.mjs';
 import { loadFillAssets, buildAdaptiveBg, estimateFill } from './lib/fill-estimate.mjs';
+import { computeDynamicFullRef } from './lib/fill-autocal.mjs';
 
 const TTC_BASE = 'https://ttc.taxi-inf.jp';
 const SLOTS_PATH = './scripts/lib/stall-slots.json';
@@ -44,6 +45,23 @@ function slotRoi(slot, w, h) {
     width: Math.round(slot.r * 2 * w),
     height: Math.round(slot.r * 2 * h),
   };
+}
+
+// jsonl 末尾から windowMs 以内の行を読み、 fill 自動較正(動的 full_ref)用に返す。
+// 全読みは重いので末尾 3000 行 (≈25h@30s) のみ走査すれば 12h 窓は十分カバーできる。
+function readRecentHistory(path, windowMs) {
+  if (!existsSync(path)) return [];
+  const tail = readFileSync(path, 'utf8').trim().split('\n').slice(-3000);
+  const cutoff = Date.now() - windowMs;
+  const out = [];
+  for (const line of tail) {
+    if (!line) continue;
+    try {
+      const r = JSON.parse(line);
+      if (new Date(r.ts).getTime() >= cutoff) out.push(r);
+    } catch { /* skip bad line */ }
+  }
+  return out;
 }
 
 async function main() {
@@ -96,11 +114,22 @@ async function main() {
   const fillAssets = await loadFillAssets('./scripts/lib');
   const fillByStall = {};
   if (fillAssets) {
+    // 動的 full_ref: 直近12hのfr履歴(jsonl)から自動較正し天候/光に追従。
+    // 固定 full_ref は満杯時 fr が天候で変わるためズレる(晴=高/雨=低)。config の
+    // full_ref はサンプル不足(起動直後)時のフォールバック既定値として使う。
+    let dynFullRef = null;
+    try {
+      const recent = readRecentHistory(OUTPUT_PATH, 12 * 3600 * 1000);
+      const fallback = {};
+      for (const [n, s] of Object.entries(fillAssets.stalls)) fallback[n] = s.full_ref;
+      dynFullRef = computeDynamicFullRef(recent, Object.keys(fillAssets.stalls),
+        { nowMs: Date.now(), windowMs: 12 * 3600 * 1000, percentile: 0.92, min: 0.35, max: 0.85, minSamples: 20, fallback });
+    } catch (e) { /* config 既定にフォールバック */ }
     for (const cam of Object.keys(cameras)) {
       if (cameraIsNight[cam]) continue;
       try {
         const adp = await buildAdaptiveBg(cam, fillAssets, new Date());
-        const fr = estimateFill(cameras[cam], fillAssets, adp, cam);
+        const fr = estimateFill(cameras[cam], fillAssets, adp, cam, dynFullRef);
         if (fr) Object.assign(fillByStall, fr);
       } catch (e) { /* per-slot fallback */ }
     }
