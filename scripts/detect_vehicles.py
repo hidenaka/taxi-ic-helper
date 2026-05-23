@@ -175,13 +175,14 @@ def fetch_image(name):
         return Image.open(io.BytesIO(res.read())).convert('RGB')
 
 
-def detect_image(session, img):
-    """PIL Image を検出し、車両 box の dict list を返す (座標は 0-1 正規化)。"""
+def detect_image(session, img, conf_threshold=CONF_THRESHOLD):
+    """PIL Image を検出し、車両 box の dict list を返す (座標は 0-1 正規化)。
+    conf_threshold を下げると小さい遠方車を拾えるが誤検出も増える (ROIクロップ用)。"""
     orig_w, orig_h = img.size
     tensor, scale, pad_x, pad_y = letterbox(img, INPUT_SIZE)
     input_name = session.get_inputs()[0].name
     output = session.run(None, {input_name: tensor})[0]  # [1,84,8400]
-    raw = decode_yolo_output(output, CONF_THRESHOLD)
+    raw = decode_yolo_output(output, conf_threshold)
     # 車両クラスのみ、cx,cy,w,h → x1,y1,x2,y2 (640 空間)
     dets = []
     for cx, cy, w, h, conf, cls_id in raw:
@@ -203,6 +204,42 @@ def detect_image(session, img):
             'h': round((oy2 - oy1) / orig_h, 4),
         })
     return boxes
+
+
+# ROIクロップ検出: 各乗り場の fill mask 領域を切り出し per-stall conf で YOLO 検出する。
+# 全画面 YOLO は密集・遠方を大きく取りこぼす (real01_line 全体で 16 台しか出ない)。
+# 領域を切り出して letterbox 拡大すると遠方車も検出できる。stall1 は最遠・極小のため
+# conf を下げる。主系 (占有=fill 自動較正) は不変で、これは並行記録 (yolo_crop_stalls)。
+STALL_CROP = {
+    'stall1': ('real01_line', 'fill-mask-stall1.png', 0.15),
+    'stall2': ('real01_line', 'fill-mask-stall2.png', 0.20),
+    'stall3': ('real01_line', 'fill-mask-stall3.png', 0.20),
+    'stall4': ('real01_line', 'fill-mask-stall4.png', 0.20),
+    'stall4_back': ('real02', 'fill-mask-stall4_back.png', 0.20),
+}
+
+
+def mask_bbox(path):
+    """白マスク領域の外接矩形 (x1,y1,x2,y2)。白が無ければ None。"""
+    a = np.asarray(Image.open(path).convert('L')) > 127
+    ys, xs = np.where(a)
+    if xs.size == 0:
+        return None
+    return (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1)
+
+
+def crop_count_stalls(session, pil_by_cam, lib_dir):
+    """乗り場別に mask 領域を切り出し per-stall conf で YOLO 検出した台数 {stall:count} を返す。"""
+    out = {}
+    for stall, (cam, mask_file, conf) in STALL_CROP.items():
+        pil = pil_by_cam.get(cam)
+        if pil is None:
+            continue
+        bbox = mask_bbox(os.path.join(lib_dir, mask_file))
+        if bbox is None:
+            continue
+        out[stall] = len(detect_image(session, pil.crop(bbox), conf_threshold=conf))
+    return out
 
 
 def main():
@@ -262,9 +299,20 @@ def main():
     except Exception as e:
         print(f'[detect] t1t2_stalls failed: {e}', file=sys.stderr)
 
+    # Phase F-3: ROIクロップ YOLO 実カウント (並行記録。主系=占有は不変)。
+    # 1日ライブで貯めて fill 自動較正と突合・精度確認 → 問題なければ主系へ切替予定。
+    yolo_crop_stalls = None
+    try:
+        yolo_crop_stalls = crop_count_stalls(
+            session, {'real01_line': real01_pil, 'real02': real02_pil}, LIB_DIR)
+    except Exception as e:
+        print(f'[detect] yolo_crop_stalls failed: {e}', file=sys.stderr)
+
     row = {'schema_version': 2, 'ts': jst_now_iso(), 'images': images}
     if t1t2_stalls is not None:
         row['t1t2_stalls'] = t1t2_stalls
+    if yolo_crop_stalls is not None:
+        row['yolo_crop_stalls'] = yolo_crop_stalls
     with open(OUTPUT_PATH, 'a', encoding='utf-8') as f:
         f.write(json.dumps(row) + '\n')
     total = sum(im['vehicle_count'] for im in images)
