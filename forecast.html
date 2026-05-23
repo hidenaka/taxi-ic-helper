@@ -87,44 +87,20 @@
     <a href="./" class="app-tab">⏱ 乗務タイマー</a>
     <a href="ic.html" class="app-tab">🛣 IC判定</a>
     <a href="arrivals.html" class="app-tab">✈ 到着便</a>
-    <a href="forecast.html" class="app-tab active" aria-current="page">📈 予測</a>
+    <!-- 📈 予測タブは非表示 (予測ロジック調整中・数字未提供)。再開時に戻す。 -->
   </nav>
   <header>
-    <h1>羽田タクシー需要予測 (MVP)</h1>
+    <h1>羽田タクシー需要予測</h1>
   </header>
   <main>
-    <div id="throughput-banner" class="throughput-banner"></div>
-    <section class="ensemble-section" id="ensemble-section">
-      <h2>統合予測 (今後 2 時間)</h2>
-      <div id="ensemble-meta" class="ensemble-meta">読み込み中...</div>
-      <div id="ensemble-table-wrap"></div>
-    </section>
-
-    <h2 style="font-size:15px;margin:24px 0 8px;color:var(--sub);">内訳: 短期予測 (ルールベース)</h2>
-    <div id="forecast-meta" class="forecast-meta">読み込み中...</div>
-    <div id="forecast-table-wrap"></div>
-
-    <section class="pattern-section" id="pattern-section">
-      <h2>類似日マッチング</h2>
-      <div id="pattern-meta" class="pattern-meta">読み込み中...</div>
-      <ul id="similar-days" class="similar-day-list"></ul>
-      <h3>ヒストリカル予測 (類似日平均)</h3>
-      <div id="historical-curve-wrap"></div>
-    </section>
-
-    <section class="accuracy-section" id="accuracy-section">
-      <h2>予測精度 (直近 24 時間)</h2>
-      <div id="accuracy-meta" class="accuracy-meta">読み込み中...</div>
-      <div id="accuracy-table-wrap"></div>
-    </section>
-
-    <section class="correction-section" id="correction-section">
-      <h2>係数補正状態</h2>
-      <div id="correction-meta" class="correction-meta">読み込み中...</div>
-      <div id="correction-level-wrap"></div>
-      <div id="correction-share-wrap"></div>
+    <section style="margin-top:32px;text-align:center;color:var(--sub);line-height:1.9;">
+      <h2 style="color:var(--fg);">予測は現在調整中です</h2>
+      <p>占有検出を改良しているため、台数予測の数字は一時的に非表示にしています。<br>
+         実績（到着便ページ）はそのままご利用いただけます。</p>
+      <p style="margin-top:24px;"><a href="arrivals.html" class="app-tab" style="display:inline-block;">✈ 到着便（実績）へ</a></p>
     </section>
   </main>
-  <script type="module" src="js/forecast-app.js"></script>
+  <!-- 予測表示は一時停止中。fill占有への統一・精度検証後に再開する。再開時は下の script と上のタブ・main を戻す。 -->
+  <!-- <script type="module" src="js/forecast-app.js"></script> -->
 </body>
 </html>
