@@ -60,13 +60,12 @@ if [ "$NODE_EXIT" -ne 0 ]; then
   exit 0
 fi
 
-# Phase F-1: YOLOv8 車両検出 (並行・fail-safe。venv が無い/失敗しても tick は継続)
-# venv は各実行機が自前で .venv に作成する (git 管理外)
-if [ -x .venv/bin/python3 ]; then
-  .venv/bin/python3 scripts/detect_vehicles.py || true
-else
-  echo "[observe-tick] .venv not found, skip vehicle detection"
-fi
+# Phase F-1: YOLOv8 車両検出 — 2026-05-23 停止。
+# 占有は fill 自動較正(slot-occupancy-tick)が主系で実用域。YOLOは全画面でもROIクロップでも
+# frame間ノイズが大きく(stall1=1↔10)、平滑化前提でも fill を上回らないと過去画像で実証された
+# (本番UI/予測はどれも vehicle-detection-history を消費していない=純R&Dログ)。
+# 再開する場合は下行のコメントを外す。scripts/detect_vehicles.py は温存。
+# if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/detect_vehicles.py || true; fi
 
 if [ -z "$(git status --porcelain data/taxi-pool-history.jsonl)" ]; then
   echo "[observe-tick] no jsonl change, skip commit"
