@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { computeSlotActuals } from '../scripts/lib/slot-actuals.mjs';
+import { computeSlotActuals, slotOccupancyToForecastRows } from '../scripts/lib/slot-actuals.mjs';
 
 function row(ts, occ) {
   return { schema_version: 1, ts, stalls: {
@@ -122,4 +122,39 @@ test('computeSlotActuals: 夜でも持続的な出庫(持続判定窓を超え�
   // 4台が持続的に消灯=退出 → 合計出庫4
   const total = r.reduce((s, a) => s + a.total, 0);
   assert.equal(total, 4);
+});
+
+test('slotOccupancyToForecastRows: schema3形・昼luminance・出庫は負diff', () => {
+  // 昼: stall1 が 8台続く→6台に持続減少。平滑後 8→6 の減少が負 diff で出る。
+  const base = Date.parse('2026-05-21T10:00:00+09:00');
+  const STEP = 30 * 1000;
+  const rows = [];
+  let t = base;
+  const mk = (occ) => ({ ts: new Date(t).toISOString(), mode: 'day',
+    stalls: { stall1: { occ }, stall2: { occ: 0 }, stall3: { occ: 0 }, stall4: { occ: 0 } } });
+  for (let i = 0; i < 8; i++) { rows.push(mk(8)); t += STEP; }
+  for (let i = 0; i < 8; i++) { rows.push(mk(6)); t += STEP; }
+  const out = slotOccupancyToForecastRows(rows);
+  assert.equal(out.length, 16);
+  assert.equal(out[0].schema_version, 3);
+  assert.equal(out[0].img1.roi.luminance_mean, 100);          // 昼=ゲート通過
+  // diff の総和(stall1) = 平滑後の純変化 = 8→6 = -2 (出庫2)
+  const sumDiff = out.reduce((s, r) => s + r.stalls.stall1.diff_occupied_from_prev, 0);
+  assert.equal(sumDiff, -2);
+});
+
+test('slotOccupancyToForecastRows: 夜はluminance=0でゲート除外、mode切替diffは0', () => {
+  const base = Date.parse('2026-05-21T19:00:00+09:00');
+  const rows = [
+    { ts: new Date(base).toISOString(), mode: 'day', stalls: { stall1: { occ: 5 }, stall2: { occ: 0 }, stall3: { occ: 0 }, stall4: { occ: 0 } } },
+    { ts: new Date(base + 30000).toISOString(), mode: 'night', stalls: { stall1: { occ: 0, slots: {} }, stall2: { occ: 0, slots: {} }, stall3: { occ: 0, slots: {} }, stall4: { occ: 0, slots: {} } } },
+  ];
+  const out = slotOccupancyToForecastRows(rows);
+  assert.equal(out[1].img1.roi.luminance_mean, 0);            // 夜=ゲート除外
+  assert.equal(out[1].stalls.stall1.diff_occupied_from_prev, 0); // mode切替=擬似出庫を出さない
+});
+
+test('slotOccupancyToForecastRows: 空入力→空配列', () => {
+  assert.deepEqual(slotOccupancyToForecastRows([]), []);
+  assert.deepEqual(slotOccupancyToForecastRows(undefined), []);
 });
