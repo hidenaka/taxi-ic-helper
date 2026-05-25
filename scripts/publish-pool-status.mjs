@@ -33,7 +33,13 @@ async function main() {
     if (existsSync(OCC_PATH)) {
       const rows = readFileSync(OCC_PATH, 'utf8').trim().split('\n')
         .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
-      const status = buildPoolStatus(rows, new Date());
+      let arrivals = null;
+      try {
+        if (existsSync('./data/arrivals.json')) {
+          arrivals = JSON.parse(readFileSync('./data/arrivals.json', 'utf8'));
+        }
+      } catch (e) { console.error(`[pool-status] arrivals read failed: ${e.message}`); }
+      const status = buildPoolStatus(rows, new Date(), arrivals);
       writeFileSync('./data/pool-status.json', JSON.stringify(status, null, 2) + '\n', 'utf8');
       console.log(`[pool-status] ok total.occ=${status.total.occ} level=${status.total.level} activity=${status.activity.level}`);
     }
