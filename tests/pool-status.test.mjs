@@ -118,3 +118,22 @@ test('buildTerminalArrivals: flights 無し/不正でも 0 を返す', () => {
   const now = new Date(Date.parse('2026-05-25T12:00:00+09:00'));
   assert.deepEqual(buildTerminalArrivals(null, now), { T1: { next30: 0, next60: 0 }, T2: { next30: 0, next60: 0 } });
 });
+
+test('buildPoolStatus: stalls を必ず含み、arrivals 未指定なら terminalArrivals は null', () => {
+  const base = Date.parse('2026-05-25T12:00:00+09:00');
+  const rows = [];
+  for (let i = 0; i < 20; i++) rows.push(occRow(new Date(base + i * 30000).toISOString(), 12, 10, 14, 4, 8));
+  const st = buildPoolStatus(rows, new Date(base + 20 * 30000));
+  assert.equal(Object.keys(st.stalls).length, 4);
+  assert.equal(st.stalls.stall4.terminal, 'T2');
+  assert.equal(st.terminalArrivals, null); // 後方互換: arrivals 省略時
+});
+
+test('buildPoolStatus: arrivals を渡すと terminalArrivals が入る', () => {
+  const now = new Date(Date.parse('2026-05-25T12:00:00+09:00'));
+  const rows = [];
+  for (let i = 0; i < 20; i++) rows.push(occRow(new Date(now.getTime() - (20 - i) * 30000).toISOString(), 12, 10, 14, 4, 8));
+  const arrivals = { flights: [{ terminal: 'T1', lobbyExitTime: '12:20', estimatedTaxiPax: 5 }] };
+  const st = buildPoolStatus(rows, now, arrivals);
+  assert.equal(st.terminalArrivals.T1.next30, 5);
+});

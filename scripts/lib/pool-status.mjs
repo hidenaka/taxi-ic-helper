@@ -178,7 +178,7 @@ function jstIso(d) {
 }
 
 /** pool-status.json オブジェクトを組み立てる。 */
-export function buildPoolStatus(rows, now = new Date()) {
+export function buildPoolStatus(rows, now = new Date(), arrivals = null) {
   const cur = currentOccupancy(rows, now, 5);
   const cameras = {};
   for (const g of Object.keys(GROUPS)) {
@@ -195,5 +195,7 @@ export function buildPoolStatus(rows, now = new Date()) {
     cameras,
     total: { occ: totalOcc, level: occLevel(totalOcc, totalRef) },
     activity: { recent1hDepartures: recent, typical1h: typical, ratio: act.ratio, level: act.level, arrow: act.arrow },
+    stalls: buildStalls(rows, now),
+    terminalArrivals: arrivals ? buildTerminalArrivals(arrivals, now) : null,
   };
 }
