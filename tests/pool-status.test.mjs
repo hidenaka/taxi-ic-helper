@@ -66,3 +66,19 @@ test('currentOccupancyByStall: 乗り場別中央値・第4は back を合算', 
   assert.equal(cur.stall3, 12);
   assert.equal(cur.stall4, 12); // stall4(4) + stall4_back(8)
 });
+
+test('waitMinFor: 在台×60÷直近1h出庫。出庫0は null', () => {
+  assert.equal(waitMinFor(10, 30), 20);   // 10*60/30
+  assert.equal(waitMinFor(9, 4), 135);    // 9*60/4 = 135
+  assert.equal(waitMinFor(5, 0), null);   // 出庫0 → 算出不能
+  assert.equal(waitMinFor(0, 12), 0);     // 在台0 → 0分
+});
+
+test('stallTrend: 直近30/前30 の比で up/flat/down。前30が0は flat', () => {
+  assert.equal(stallTrend(10, 4), 'up');    // 2.5 >= 1.25
+  assert.equal(stallTrend(5, 4), 'up');     // 1.25 ちょうど
+  assert.equal(stallTrend(4, 4), 'flat');   // 1.0
+  assert.equal(stallTrend(2, 4), 'down');   // 0.5 < 0.75
+  assert.equal(stallTrend(3, 4), 'flat');   // 0.75 ちょうどは flat（<0.75 のみ down）
+  assert.equal(stallTrend(8, 0), 'flat');   // 前30=0 は基準不足 → flat
+});

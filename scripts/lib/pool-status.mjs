@@ -77,9 +77,22 @@ export function currentOccupancyByStall(rows, now, windowTicks = 5) {
   return out;
 }
 
-// --- スタブ（A2〜A4 で実装に置き換える） ---
-export function waitMinFor() { throw new Error('not implemented'); }
-export function stallTrend() { throw new Error('not implemented'); }
+/** 待ち時間目安（分）。在台×60÷直近1h出庫。出庫0は算出不能で null。 */
+export function waitMinFor(occ, recent1hDep) {
+  if (!(recent1hDep > 0)) return null;
+  return Math.round((occ * 60) / recent1hDep);
+}
+
+/** 直近30分 vs その前30分の出庫比で動き方を判定。≥1.25→up / <0.75→down / 他→flat。前30が0は flat。 */
+export function stallTrend(recent30, prior30) {
+  if (!(prior30 > 0)) return 'flat';
+  const ratio = recent30 / prior30;
+  if (ratio >= 1.25) return 'up';
+  if (ratio < 0.75) return 'down';
+  return 'flat';
+}
+
+// --- スタブ（A3〜A4 で実装に置き換える） ---
 export function buildStalls() { throw new Error('not implemented'); }
 export function buildTerminalArrivals() { throw new Error('not implemented'); }
 // --- スタブここまで ---
