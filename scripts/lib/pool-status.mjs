@@ -74,6 +74,12 @@ function typical1hDepartures(rows, now, days = 7) {
   return Math.round(median(sums));
 }
 
+/** Date を JST ISO 文字列 (例 2026-05-25T13:10:00+09:00) に。他データ(stall-actuals等)と表記を揃え、
+ *  UI が slice(11,16) で JST の HH:MM を出せるようにする (toISOString の UTC ずれ防止)。 */
+function jstIso(d) {
+  return new Date(d.getTime() + 9 * 3600 * 1000).toISOString().replace('Z', '+09:00').replace(/\.\d+/, '');
+}
+
 /** pool-status.json オブジェクトを組み立てる。 */
 export function buildPoolStatus(rows, now = new Date()) {
   const cur = currentOccupancy(rows, now, 5);
@@ -88,7 +94,7 @@ export function buildPoolStatus(rows, now = new Date()) {
   const typical = typical1hDepartures(rows, now, 7);
   const act = activityLevel(recent, typical);
   return {
-    generatedAt: now.toISOString(),
+    generatedAt: jstIso(now),
     cameras,
     total: { occ: totalOcc, level: occLevel(totalOcc, totalRef) },
     activity: { recent1hDepartures: recent, typical1h: typical, ratio: act.ratio, level: act.level, arrow: act.arrow },

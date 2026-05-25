@@ -52,4 +52,5 @@ test('buildPoolStatus: スキーマ通りに組み立つ', () => {
   assert.ok(typeof st.total.occ === 'number');
   assert.ok(['low', 'normal', 'active'].includes(st.activity.level));
   assert.ok(st.generatedAt);
+  assert.ok(st.generatedAt.includes('+09:00'), 'generatedAt は JST(+09:00)表記'); // UTCずれ防止
 });
