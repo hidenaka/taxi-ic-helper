@@ -1,0 +1,46 @@
+#!/usr/bin/env node
+// 現況バンドルを data/ に書き出す: pool-status.json + pool-cam-real01/02.jpg。
+// observe-tick-local.sh から5分毎に呼ぶ。fail-safe（失敗してもexit 0）。
+import { readFileSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { Jimp } from 'jimp';
+import { buildPoolStatus } from './lib/pool-status.mjs';
+
+const OCC_PATH = './data/slot-occupancy-history.jsonl';
+const ARCHIVE = process.env.TAXI_IMAGE_ARCHIVE_DIR || path.join(os.homedir(), 'taxi-image-archive');
+const THUMB_W = 480;
+
+function latestArchiveFrame(cam) {
+  const jst = new Date(Date.now() + 9 * 3600 * 1000);
+  const day = `${jst.getUTCFullYear()}-${String(jst.getUTCMonth() + 1).padStart(2, '0')}-${String(jst.getUTCDate()).padStart(2, '0')}`;
+  const dir = path.join(ARCHIVE, cam, day);
+  if (!existsSync(dir)) return null;
+  const files = readdirSync(dir).filter(f => f.endsWith('.jpg')).sort();
+  return files.length ? path.join(dir, files[files.length - 1]) : null;
+}
+
+async function writeThumb(cam, outName) {
+  const src = latestArchiveFrame(cam);
+  if (!src) { console.error(`[pool-status] no frame ${cam}`); return; }
+  const img = await Jimp.read(src);
+  img.resize({ w: THUMB_W });
+  await img.write(`./data/${outName}`);
+}
+
+async function main() {
+  try {
+    if (existsSync(OCC_PATH)) {
+      const rows = readFileSync(OCC_PATH, 'utf8').trim().split('\n')
+        .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+      const status = buildPoolStatus(rows, new Date());
+      writeFileSync('./data/pool-status.json', JSON.stringify(status, null, 2) + '\n', 'utf8');
+      console.log(`[pool-status] ok total.occ=${status.total.occ} level=${status.total.level} activity=${status.activity.level}`);
+    }
+    await writeThumb('real01_line', 'pool-cam-real01.jpg');
+    await writeThumb('real02', 'pool-cam-real02.jpg');
+  } catch (e) {
+    console.error(`[pool-status] failed: ${e.message}`);
+  }
+}
+main();
