@@ -82,3 +82,19 @@ test('stallTrend: 直近30/前30 の比で up/flat/down。前30が0は flat', ()
   assert.equal(stallTrend(3, 4), 'flat');   // 0.75 ちょうどは flat（<0.75 のみ down）
   assert.equal(stallTrend(8, 0), 'flat');   // 前30=0 は基準不足 → flat
 });
+
+test('buildStalls: 4乗り場のスキーマとターミナル対応。出庫無しは waitMin=null/trend=flat', () => {
+  const base = Date.parse('2026-05-25T12:00:00+09:00');
+  const rows = [];
+  // 在台一定（出庫が発生しない）データ
+  for (let i = 0; i < 20; i++) rows.push(occRow(new Date(base + i * 30000).toISOString(), 10, 8, 12, 4, 8));
+  const stalls = buildStalls(rows, new Date(base + 20 * 30000));
+  assert.deepEqual(Object.keys(stalls), ['stall1', 'stall2', 'stall3', 'stall4']);
+  assert.equal(stalls.stall1.label, '第1乗り場');
+  assert.equal(stalls.stall1.terminal, 'T1');
+  assert.equal(stalls.stall3.terminal, 'T2');
+  assert.equal(stalls.stall4.occ, 12);          // stall4 + back
+  assert.equal(stalls.stall1.recent1hDep, 0);   // 在台一定 → 出庫0
+  assert.equal(stalls.stall1.waitMin, null);    // 出庫0 → null
+  assert.equal(stalls.stall1.trend, 'flat');
+});

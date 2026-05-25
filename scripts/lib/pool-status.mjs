@@ -92,8 +92,39 @@ export function stallTrend(recent30, prior30) {
   return 'flat';
 }
 
-// --- スタブ（A3〜A4 で実装に置き換える） ---
-export function buildStalls() { throw new Error('not implemented'); }
+const STALL_NAMES = ['stall1', 'stall2', 'stall3', 'stall4'];
+const STALL_LABEL = { stall1: '第1乗り場', stall2: '第2乗り場', stall3: '第3乗り場', stall4: '第4乗り場' };
+const STALL_TERMINAL = { stall1: 'T1', stall2: 'T1', stall3: 'T2', stall4: 'T2' };
+
+/** 指定窓（分）の乗り場別出庫合計。computeSlotActuals の stallN を合算。 */
+function stallDepartures(rows, now, windowMinutes) {
+  const bins = computeSlotActuals(rows, now, windowMinutes);
+  const out = { stall1: 0, stall2: 0, stall3: 0, stall4: 0 };
+  for (const b of bins) for (const s of STALL_NAMES) out[s] += b[s];
+  return out;
+}
+
+/** 乗り場別ブロック（在台・直近1h出庫・待ち目安・動き方・ターミナル）を組み立てる。 */
+export function buildStalls(rows, now) {
+  const occ = currentOccupancyByStall(rows, now, 5);
+  const dep1h = stallDepartures(rows, now, 60);
+  const depRecent30 = stallDepartures(rows, now, 30);
+  const depPrior30 = stallDepartures(rows, new Date(now.getTime() - 30 * 60000), 30);
+  const out = {};
+  for (const s of STALL_NAMES) {
+    out[s] = {
+      label: STALL_LABEL[s],
+      terminal: STALL_TERMINAL[s],
+      occ: occ[s],
+      recent1hDep: dep1h[s],
+      waitMin: waitMinFor(occ[s], dep1h[s]),
+      trend: stallTrend(depRecent30[s], depPrior30[s]),
+    };
+  }
+  return out;
+}
+
+// --- スタブ（A4 で実装に置き換える） ---
 export function buildTerminalArrivals() { throw new Error('not implemented'); }
 // --- スタブここまで ---
 
