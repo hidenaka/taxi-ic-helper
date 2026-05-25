@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
 import { occLevel, activityLevel } from '../scripts/lib/pool-status.mjs';
 import { currentOccupancy, fullRefFor, buildPoolStatus } from '../scripts/lib/pool-status.mjs';
+import { currentOccupancyByStall, waitMinFor, stallTrend, buildStalls, buildTerminalArrivals } from '../scripts/lib/pool-status.mjs';
 
 test('occLevel: occ/fullRef を 4 段階に写像', () => {
   assert.equal(occLevel(0, 50), 'empty');
@@ -53,4 +54,15 @@ test('buildPoolStatus: スキーマ通りに組み立つ', () => {
   assert.ok(['low', 'normal', 'active'].includes(st.activity.level));
   assert.ok(st.generatedAt);
   assert.ok(st.generatedAt.includes('+09:00'), 'generatedAt は JST(+09:00)表記'); // UTCずれ防止
+});
+
+test('currentOccupancyByStall: 乗り場別中央値・第4は back を合算', () => {
+  const base = Date.parse('2026-05-25T12:00:00+09:00');
+  const rows = [];
+  for (let i = 0; i < 5; i++) rows.push(occRow(new Date(base + i * 30000).toISOString(), 10, 8, 12, 4, 8));
+  const cur = currentOccupancyByStall(rows, new Date(base + 5 * 30000), 5);
+  assert.equal(cur.stall1, 10);
+  assert.equal(cur.stall2, 8);
+  assert.equal(cur.stall3, 12);
+  assert.equal(cur.stall4, 12); // stall4(4) + stall4_back(8)
 });

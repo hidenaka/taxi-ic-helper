@@ -60,6 +60,30 @@ export function fullRefFor(rows, group, { days = 7, pct = 0.92, min = 0, now = n
   return Math.max(min, vals[idx]);
 }
 
+const STALL_KEYS = {
+  stall1: ['stall1'], stall2: ['stall2'], stall3: ['stall3'], stall4: ['stall4', 'stall4_back'],
+};
+
+/** 乗り場別（第1〜4）の現在在台数。第4は stall4_back を合算（departures の畳み込みと一致）。 */
+export function currentOccupancyByStall(rows, now, windowTicks = 5) {
+  const rs = sorted(rows).filter(r => r.tsMs <= now.getTime());
+  const tail = rs.slice(-windowTicks);
+  const out = {};
+  for (const stall of Object.keys(STALL_KEYS)) {
+    const vals = tail.map(r => STALL_KEYS[stall].reduce(
+      (s, k) => s + (typeof r.stalls?.[k]?.occ === 'number' ? r.stalls[k].occ : 0), 0));
+    out[stall] = Math.round(median(vals));
+  }
+  return out;
+}
+
+// --- スタブ（A2〜A4 で実装に置き換える） ---
+export function waitMinFor() { throw new Error('not implemented'); }
+export function stallTrend() { throw new Error('not implemented'); }
+export function buildStalls() { throw new Error('not implemented'); }
+export function buildTerminalArrivals() { throw new Error('not implemented'); }
+// --- スタブここまで ---
+
 /** 直近1h出庫合計（computeSlotActuals total の合算）。 */
 function recent1hDepartures(rows, now) {
   return computeSlotActuals(rows, now, 60).reduce((s, b) => s + b.total, 0);
