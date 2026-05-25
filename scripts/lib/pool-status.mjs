@@ -124,9 +124,38 @@ export function buildStalls(rows, now) {
   return out;
 }
 
-// --- スタブ（A4 で実装に置き換える） ---
-export function buildTerminalArrivals() { throw new Error('not implemented'); }
-// --- スタブここまで ---
+/** "HH:MM"（24+ は翌日）を now と同じ JST 日付基準の Date に。不正は null。 */
+function lobbyExitDate(timeStr, now) {
+  const m = String(timeStr ?? '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (h >= 24) { d.setDate(d.getDate() + 1); h -= 24; }
+  d.setHours(h, min, 0, 0);
+  return d;
+}
+
+/** ターミナル別（T1=第1・2乗り場/T2=第3・4乗り場）に、lobbyExitTime が今後30/60分の便の estimatedTaxiPax を合計。 */
+export function buildTerminalArrivals(arrivals, now) {
+  const out = { T1: { next30: 0, next60: 0 }, T2: { next30: 0, next60: 0 } };
+  const flights = arrivals?.flights ?? [];
+  const nowMs = now.getTime();
+  const ms30 = nowMs + 30 * 60000;
+  const ms60 = nowMs + 60 * 60000;
+  for (const f of flights) {
+    const t = f.terminal;
+    if (t !== 'T1' && t !== 'T2') continue;
+    const d = lobbyExitDate(f.lobbyExitTime, now);
+    if (!d) continue;
+    const ms = d.getTime();
+    if (ms <= nowMs || ms > ms60) continue;
+    const pax = typeof f.estimatedTaxiPax === 'number' ? f.estimatedTaxiPax : 0;
+    out[t].next60 += pax;
+    if (ms <= ms30) out[t].next30 += pax;
+  }
+  return out;
+}
 
 /** 直近1h出庫合計（computeSlotActuals total の合算）。 */
 function recent1hDepartures(rows, now) {

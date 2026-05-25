@@ -98,3 +98,23 @@ test('buildStalls: 4乗り場のスキーマとターミナル対応。出庫無
   assert.equal(stalls.stall1.waitMin, null);    // 出庫0 → null
   assert.equal(stalls.stall1.trend, 'flat');
 });
+
+test('buildTerminalArrivals: lobbyExitTime で next30/next60 を terminal別に集計', () => {
+  const now = new Date(Date.parse('2026-05-25T12:00:00+09:00'));
+  const arrivals = { flights: [
+    { terminal: 'T1', lobbyExitTime: '12:20', estimatedTaxiPax: 5 },  // next30 ⊂ next60
+    { terminal: 'T1', lobbyExitTime: '12:50', estimatedTaxiPax: 3 },  // next60 のみ
+    { terminal: 'T2', lobbyExitTime: '12:10', estimatedTaxiPax: 7 },  // next30 ⊂ next60
+    { terminal: 'T3', lobbyExitTime: '12:15', estimatedTaxiPax: 9 },  // 対象外
+    { terminal: 'T1', lobbyExitTime: '11:55', estimatedTaxiPax: 4 },  // 過去 → 除外
+    { terminal: 'T2', lobbyExitTime: '13:30', estimatedTaxiPax: 8 },  // 60分超 → 除外
+  ] };
+  const ta = buildTerminalArrivals(arrivals, now);
+  assert.deepEqual(ta.T1, { next30: 5, next60: 8 });
+  assert.deepEqual(ta.T2, { next30: 7, next60: 7 });
+});
+
+test('buildTerminalArrivals: flights 無し/不正でも 0 を返す', () => {
+  const now = new Date(Date.parse('2026-05-25T12:00:00+09:00'));
+  assert.deepEqual(buildTerminalArrivals(null, now), { T1: { next30: 0, next60: 0 }, T2: { next30: 0, next60: 0 } });
+});
