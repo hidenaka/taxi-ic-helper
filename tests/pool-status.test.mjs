@@ -319,3 +319,48 @@ test('buildPoolStatus: holidays 省略時も sameConditionCompare は null fallb
 test('buildStallRankHint: stalls=undefined でクラッシュせず全null', () => {
   assert.deepEqual(buildStallRankHint(undefined), { stall1: null, stall2: null, stall3: null, stall4: null });
 });
+
+test('sameConditionCompare: stallKey 指定で stall別出庫の中央値で比較', () => {
+  // 過去3週(2,3,4週前)の火曜平日 stall3 dep を 10/10/10、今日の stall3 dep を 15 にする
+  const now = new Date('2026-05-12T12:00:00+09:00');
+  const past = [];
+  for (const d of [14, 21, 28]) {
+    const targetBase = now.getTime() - d * 86400000;
+    // 11:00〜12:00 の60分間、stall3 だけ毎分1tickで occ が 20→10 に線形減少（stall3で10台出庫）
+    const startOcc = 20, endOcc = 10;
+    for (let i = 0; i <= 60; i++) {
+      const ts = new Date(targetBase - (60 - i) * 60000).toISOString();
+      const occ3 = Math.max(0, Math.round(startOcc - (startOcc - endOcc) * (i / 60)));
+      past.push({ ts, mode: 'day', stalls: {
+        stall1: { occ: 0 }, stall2: { occ: 0 }, stall3: { occ: occ3 }, stall4: { occ: 0 }, stall4_back: { occ: 0 }
+      }});
+    }
+  }
+  // 今日: stall3 dep を 15 にする (occ 27→10 で平滑化後、past混在でも15台出庫)
+  const today = [];
+  const todayBase = now.getTime();
+  for (let i = 0; i <= 60; i++) {
+    const ts = new Date(todayBase - (60 - i) * 60000).toISOString();
+    const occ3 = Math.max(0, Math.round(27 - 17 * (i / 60)));
+    today.push({ ts, mode: 'day', stalls: {
+      stall1: { occ: 0 }, stall2: { occ: 0 }, stall3: { occ: occ3 }, stall4: { occ: 0 }, stall4_back: { occ: 0 }
+    }});
+  }
+  const r = sameConditionCompare([...past, ...today], now, TEST_HOLIDAYS, 4, 'stall3');
+  // peers_typical = median(10, 10, 10) = 10、percent = (15/10 - 1) * 100 = 50
+  assert.equal(r.peers_typical, 10);
+  assert.equal(r.percent, 50);
+  assert.equal(r.label, 'いつもより活発');
+  assert.equal(r.dayLabel, '火曜平日');
+});
+
+test('sameConditionCompare: stallKey null（既定）は既存挙動（全体合計）', () => {
+  // Task A3 の既存テストを引数明示なしと null 明示で結果が同じことを確認
+  const now = new Date('2026-05-12T12:00:00+09:00');
+  const past = buildHistoryRows([14, 21, 28], 8);
+  const today = buildHistoryRows([0], 12);
+  const rows = [...past, ...today];
+  const r1 = sameConditionCompare(rows, now, TEST_HOLIDAYS);
+  const r2 = sameConditionCompare(rows, now, TEST_HOLIDAYS, 4, null);
+  assert.deepEqual(r1, r2);
+});

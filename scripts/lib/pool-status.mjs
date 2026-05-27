@@ -174,26 +174,29 @@ export function buildTerminalArrivals(arrivals, now) {
   return out;
 }
 
-/** rows から指定 Date の直近1h出庫合計を返す（computeSlotActuals total の合算）。 */
-function recent1hAt(rows, atDate) {
-  return computeSlotActuals(rows, atDate, 60).reduce((s, b) => s + b.total, 0);
+/** rows から指定 Date の直近1h出庫合計（全体または stall別）を返す。
+ *  bins が空（データなし）の場合は null を返す。 */
+function recent1hAt(rows, atDate, stallKey = null) {
+  const bins = computeSlotActuals(rows, atDate, 60);
+  if (!bins.length) return null;
+  if (stallKey) return bins.reduce((s, b) => s + (b[stallKey] || 0), 0);
+  return bins.reduce((s, b) => s + b.total, 0);
 }
 
 /** 過去 weeks 週間の同(weekday, dayKind)の同時間帯サンプルから median を取る。
- * データが存在しない時点（rows に該当期間のデータがない）はサンプルから除外。 */
-export function sameConditionCompare(rows, now, holidays, weeks = 4) {
+ *  stallKey=null（既定）で全体、'stall1'..'stall4' で per-stall。 */
+export function sameConditionCompare(rows, now, holidays, weeks = 4, stallKey = null) {
   const today = getDayContext(now, holidays);
-  const today1h = recent1hAt(rows, now);
+  const today1h = recent1hAt(rows, now, stallKey) ?? 0;
   const samples = [];
   for (let w = 1; w <= weeks; w++) {
     const past = new Date(now.getTime() - w * 7 * 86400000);
     const ctx = getDayContext(past, holidays);
-    if (ctx.weekday !== today.weekday) continue; // 念のため
+    if (ctx.weekday !== today.weekday) continue;
     if (ctx.dayKind !== today.dayKind) continue;
-    // その時点のデータが存在するか確認（bins が空 = データなし → スキップ）
-    const bins = computeSlotActuals(rows, past, 60);
-    if (!bins.length) continue;
-    samples.push(bins.reduce((s, b) => s + b.total, 0));
+    const v = recent1hAt(rows, past, stallKey);
+    if (v === null) continue; // データなし → スキップ
+    samples.push(v);
   }
   if (samples.length < 3) {
     return { peers_typical: null, percent: null, label: null, dayLabel: today.dayLabel };
