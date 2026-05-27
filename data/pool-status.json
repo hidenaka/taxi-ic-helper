@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-05-28T07:00:33+09:00",
+  "generatedAt": "2026-05-28T07:06:13+09:00",
   "cameras": {
     "real01": {
-      "occ": 12,
+      "occ": 18,
       "fullRef": 42,
-      "level": "empty"
+      "level": "normal"
     },
     "real02": {
       "occ": 4,
@@ -13,7 +13,7 @@
     }
   },
   "total": {
-    "occ": 16,
+    "occ": 22,
     "level": "normal"
   },
   "activity": {
@@ -33,9 +33,9 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 0,
-      "recent1hDep": 10,
-      "waitMin": 0,
+      "occ": 2,
+      "recent1hDep": 11,
+      "waitMin": 11,
       "trend": "down",
       "sameConditionCompare": {
         "peers_typical": null,
@@ -48,9 +48,9 @@
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 3,
+      "occ": 5,
       "recent1hDep": 1,
-      "waitMin": 180,
+      "waitMin": 300,
       "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": null,
@@ -63,7 +63,7 @@
     "stall3": {
       "label": "第3乗り場",
       "terminal": "T2",
-      "occ": 6,
+      "occ": 8,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
@@ -78,9 +78,9 @@
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 6,
-      "recent1hDep": 13,
-      "waitMin": 28,
+      "occ": 7,
+      "recent1hDep": 12,
+      "waitMin": 35,
       "trend": "up",
       "sameConditionCompare": {
         "peers_typical": null,
@@ -94,22 +94,31 @@
   "terminalArrivals": {
     "T1": {
       "next30": 0,
-      "next60": 0
+      "next60": 1
     },
     "T2": {
       "next30": 0,
-      "next60": 2
+      "next60": 4
     }
   },
   "terminalArrivalsList": {
-    "T1": [],
+    "T1": [
+      {
+        "flightNumber": "JL220",
+        "airline": "JAL",
+        "fromName": "関空",
+        "seatCount": 166,
+        "lobbyExitMinutes": 59,
+        "lobbyExitTime": "08:05"
+      }
+    ],
     "T2": [
       {
         "flightNumber": "NH856",
         "airline": "ANA",
         "fromName": "ジャカルタ",
         "seatCount": 184,
-        "lobbyExitMinutes": 39,
+        "lobbyExitMinutes": 34,
         "lobbyExitTime": "07:40"
       },
       {
@@ -117,8 +126,24 @@
         "airline": "ANA",
         "fromName": "ミュンヘン",
         "seatCount": 215,
-        "lobbyExitMinutes": 44,
+        "lobbyExitMinutes": 39,
         "lobbyExitTime": "07:45"
+      },
+      {
+        "flightNumber": "NH208",
+        "airline": "ANA",
+        "fromName": "MXP",
+        "seatCount": 215,
+        "lobbyExitMinutes": 59,
+        "lobbyExitTime": "08:05"
+      },
+      {
+        "flightNumber": "NH222",
+        "airline": "ANA",
+        "fromName": "ARN",
+        "seatCount": 184,
+        "lobbyExitMinutes": 59,
+        "lobbyExitTime": "08:05"
       }
     ]
   }
