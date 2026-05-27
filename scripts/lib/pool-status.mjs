@@ -109,6 +109,7 @@ function stallDepartures(rows, now, windowMinutes) {
  * 全て0なら全て null。同率は同じヒントが複数の乗り場に付く。 */
 export function buildStallRankHint(stalls) {
   const out = { stall1: null, stall2: null, stall3: null, stall4: null };
+  if (!stalls) return out;  // stalls=undefined/null ガード
   const deps = Object.keys(out).map(k => ({ k, v: stalls[k]?.recent1hDep ?? 0 }));
   const max = Math.max(...deps.map(d => d.v));
   const min = Math.min(...deps.map(d => d.v));

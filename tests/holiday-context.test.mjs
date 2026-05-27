@@ -48,3 +48,8 @@ test('getDayContext: 連休最終日（5/6水曜・振替休日）', () => {
   assert.equal(ctx.dayKind, 'consecutive-last');
   assert.equal(ctx.dayLabel, '水曜・連休最終日');
 });
+
+test('getDayContext: holidays=null でも weekend/weekday に fallback (クラッシュしない)', () => {
+  const ctx = getDayContext(new Date('2026-05-12T12:00:00+09:00'), null);
+  assert.equal(ctx.dayKind, 'weekday');
+});

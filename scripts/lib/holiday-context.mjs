@@ -19,7 +19,7 @@ function addDays(date, n) {
 
 /** "YYYY-MM-DD" が祝日リストに含まれるか。 */
 function isHolidayDate(dateStr, holidays) {
-  return holidays.some(h => h.date === dateStr);
+  return Array.isArray(holidays) && holidays.some(h => h.date === dateStr);
 }
 
 /** JST 曜日番号（0=日..6=土）を返す。 */

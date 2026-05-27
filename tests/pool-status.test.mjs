@@ -315,3 +315,7 @@ test('buildPoolStatus: holidays 省略時も sameConditionCompare は null fallb
   assert.equal(st.terminalArrivals, null);
   assert.deepEqual(st.terminalArrivalsList, { T1: [], T2: [] });
 });
+
+test('buildStallRankHint: stalls=undefined でクラッシュせず全null', () => {
+  assert.deepEqual(buildStallRankHint(undefined), { stall1: null, stall2: null, stall3: null, stall4: null });
+});
