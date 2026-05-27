@@ -39,7 +39,13 @@ async function main() {
           arrivals = JSON.parse(readFileSync('./data/arrivals.json', 'utf8'));
         }
       } catch (e) { console.error(`[pool-status] arrivals read failed: ${e.message}`); }
-      const status = buildPoolStatus(rows, new Date(), arrivals);
+      let holidays = null;
+      try {
+        if (existsSync('./data/jp-holidays.json')) {
+          holidays = JSON.parse(readFileSync('./data/jp-holidays.json', 'utf8'));
+        }
+      } catch (e) { console.error(`[pool-status] holidays read failed: ${e.message}`); }
+      const status = buildPoolStatus(rows, new Date(), arrivals, holidays);
       writeFileSync('./data/pool-status.json', JSON.stringify(status, null, 2) + '\n', 'utf8');
       console.log(`[pool-status] ok total.occ=${status.total.occ} level=${status.total.level} activity=${status.activity.level}`);
     }
