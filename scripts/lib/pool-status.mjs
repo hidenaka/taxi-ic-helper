@@ -211,6 +211,37 @@ export function sameConditionCompare(rows, now, holidays, weeks = 4) {
   return { peers_typical, percent, label, dayLabel: today.dayLabel };
 }
 
+/** 各ターミナル(T1/T2)の今後60分以内に lobbyExit を迎える便を最大5件返す。
+ * 過去便・60分超・T3は除外。並び: lobbyExitMinutes 昇順、同値時 flightNumber 順。 */
+export function buildTerminalArrivalsList(arrivals, now) {
+  const out = { T1: [], T2: [] };
+  const flights = arrivals?.flights ?? [];
+  const nowMs = now.getTime();
+  const ms60 = nowMs + 60 * 60000;
+  for (const f of flights) {
+    const t = f.terminal;
+    if (t !== 'T1' && t !== 'T2') continue;
+    const d = lobbyExitDate(f.lobbyExitTime, now);
+    if (!d) continue;
+    const ms = d.getTime();
+    if (ms <= nowMs || ms > ms60) continue;
+    const lobbyExitMinutes = Math.round((ms - nowMs) / 60000);
+    out[t].push({
+      flightNumber: f.flightNumber,
+      airline: f.airline,
+      fromName: f.fromName,
+      seatCount: f.seatCount,
+      lobbyExitMinutes,
+      lobbyExitTime: f.lobbyExitTime,
+    });
+  }
+  for (const t of ['T1', 'T2']) {
+    out[t].sort((a, b) => a.lobbyExitMinutes - b.lobbyExitMinutes || a.flightNumber.localeCompare(b.flightNumber));
+    out[t] = out[t].slice(0, 5);
+  }
+  return out;
+}
+
 /** 直近1h出庫合計（computeSlotActuals total の合算）。 */
 function recent1hDepartures(rows, now) {
   return computeSlotActuals(rows, now, 60).reduce((s, b) => s + b.total, 0);

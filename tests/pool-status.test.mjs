@@ -5,6 +5,7 @@ import { currentOccupancy, fullRefFor, buildPoolStatus } from '../scripts/lib/po
 import { currentOccupancyByStall, waitMinFor, stallTrend, buildStalls, buildTerminalArrivals } from '../scripts/lib/pool-status.mjs';
 import { sameConditionCompare } from '../scripts/lib/pool-status.mjs';
 import { buildStallRankHint } from '../scripts/lib/pool-status.mjs';
+import { buildTerminalArrivalsList } from '../scripts/lib/pool-status.mjs';
 
 test('occLevel: occ/fullRef を 4 段階に写像', () => {
   assert.equal(occLevel(0, 50), 'empty');
@@ -243,4 +244,43 @@ test('buildStallRankHint: 同率最大は全部 most-active', () => {
   assert.equal(h.stall2, 'most-active');
   assert.equal(h.stall3, 'most-low');
   assert.equal(h.stall4, null);
+});
+
+test('buildTerminalArrivalsList: T1/T2のlobbyExitTime順、各最大5便、T3除外、過去・60分超は除外', () => {
+  const now = new Date(Date.parse('2026-05-25T12:00:00+09:00'));
+  const arrivals = { flights: [
+    { terminal: 'T1', flightNumber: 'JL024', airline: 'JAL', fromName: '関西', seatCount: 244, lobbyExitTime: '12:10' },
+    { terminal: 'T1', flightNumber: 'JL026', airline: 'JAL', fromName: '福岡', seatCount: 322, lobbyExitTime: '12:45' },
+    { terminal: 'T2', flightNumber: 'NH032', airline: 'ANA', fromName: '新千歳', seatCount: 195, lobbyExitTime: '12:08' },
+    { terminal: 'T3', flightNumber: 'JL001', airline: 'JAL', fromName: 'SFO', seatCount: 244, lobbyExitTime: '12:15' }, // 除外
+    { terminal: 'T1', flightNumber: 'JL022', airline: 'JAL', fromName: '伊丹', seatCount: 244, lobbyExitTime: '11:55' }, // 過去
+    { terminal: 'T2', flightNumber: 'NH128', airline: 'ANA', fromName: '那覇', seatCount: 381, lobbyExitTime: '13:30' }, // 60分超
+  ] };
+  const r = buildTerminalArrivalsList(arrivals, now);
+  assert.equal(r.T1.length, 2);
+  assert.equal(r.T1[0].flightNumber, 'JL024');
+  assert.equal(r.T1[0].lobbyExitMinutes, 10);
+  assert.equal(r.T1[0].fromName, '関西');
+  assert.equal(r.T1[0].seatCount, 244);
+  assert.equal(r.T1[0].lobbyExitTime, '12:10');
+  assert.equal(r.T1[1].flightNumber, 'JL026');
+  assert.equal(r.T2.length, 1);
+  assert.equal(r.T2[0].flightNumber, 'NH032');
+});
+
+test('buildTerminalArrivalsList: 各ターミナル最大5便（6便目は捨てる）', () => {
+  const now = new Date(Date.parse('2026-05-25T12:00:00+09:00'));
+  const flights = [];
+  for (let i = 0; i < 7; i++) {
+    flights.push({ terminal: 'T1', flightNumber: `JL10${i}`, airline: 'JAL', fromName: '伊丹', seatCount: 244, lobbyExitTime: `12:${String(5 + i * 5).padStart(2, '0')}` });
+  }
+  const r = buildTerminalArrivalsList({ flights }, now);
+  assert.equal(r.T1.length, 5);
+  assert.equal(r.T1[4].flightNumber, 'JL104');
+});
+
+test('buildTerminalArrivalsList: flights 無し/null は空配列', () => {
+  const now = new Date(Date.parse('2026-05-25T12:00:00+09:00'));
+  assert.deepEqual(buildTerminalArrivalsList(null, now), { T1: [], T2: [] });
+  assert.deepEqual(buildTerminalArrivalsList({ flights: [] }, now), { T1: [], T2: [] });
 });
