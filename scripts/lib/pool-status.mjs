@@ -121,8 +121,9 @@ export function buildStallRankHint(stalls) {
   return out;
 }
 
-/** 乗り場別ブロック（在台・直近1h出庫・待ち目安・動き方・ターミナル）を組み立てる。 */
-export function buildStalls(rows, now) {
+/** 乗り場別ブロック（在台・直近1h出庫・待ち目安・動き方・ターミナル）を組み立てる。
+ *  holidays 指定時は各 stall に sameConditionCompare を付与（省略時は null）。 */
+export function buildStalls(rows, now, holidays = null) {
   const occ = currentOccupancyByStall(rows, now, 5);
   const dep1h = stallDepartures(rows, now, 60);
   const depRecent30 = stallDepartures(rows, now, 30);
@@ -136,6 +137,7 @@ export function buildStalls(rows, now) {
       recent1hDep: dep1h[s],
       waitMin: waitMinFor(occ[s], dep1h[s]),
       trend: stallTrend(depRecent30[s], depPrior30[s]),
+      sameConditionCompare: holidays ? sameConditionCompare(rows, now, holidays, 4, s) : null,
     };
   }
   return out;
@@ -280,7 +282,7 @@ export function buildPoolStatus(rows, now = new Date(), arrivals = null, holiday
   const recent = recent1hDepartures(rows, now);
   const typical = typical1hDepartures(rows, now, 7);
   const act = activityLevel(recent, typical);
-  const stallsBase = buildStalls(rows, now);
+  const stallsBase = buildStalls(rows, now, holidays);
   const rankHints = buildStallRankHint(stallsBase);
   const stalls = {};
   for (const k of ['stall1', 'stall2', 'stall3', 'stall4']) {

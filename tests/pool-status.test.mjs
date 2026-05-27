@@ -364,3 +364,51 @@ test('sameConditionCompare: stallKey null（既定）は既存挙動（全体合
   const r2 = sameConditionCompare(rows, now, TEST_HOLIDAYS, 4, null);
   assert.deepEqual(r1, r2);
 });
+
+test('buildStalls: holidays 指定時、各 stall に sameConditionCompare フィールドが付く', () => {
+  const now = new Date('2026-05-12T12:00:00+09:00');
+  // 過去3週(火曜平日)で stall1 dep=8 のサンプルを作る
+  const past = [];
+  for (const d of [14, 21, 28]) {
+    const targetBase = now.getTime() - d * 86400000;
+    const startOcc = 20, endOcc = 12;
+    for (let i = 0; i <= 60; i++) {
+      const ts = new Date(targetBase - (60 - i) * 60000).toISOString();
+      const occ1 = Math.max(0, Math.round(startOcc - (startOcc - endOcc) * (i / 60)));
+      past.push({ ts, mode: 'day', stalls: {
+        stall1: { occ: occ1 }, stall2: { occ: 0 }, stall3: { occ: 0 }, stall4: { occ: 0 }, stall4_back: { occ: 0 }
+      }});
+    }
+  }
+  // 今日: stall1 dep=8 にする (普段通り → percent ≈ 0)
+  const today = [];
+  for (let i = 0; i <= 60; i++) {
+    const ts = new Date(now.getTime() - (60 - i) * 60000).toISOString();
+    const occ1 = Math.max(0, Math.round(20 - 8 * (i / 60)));
+    today.push({ ts, mode: 'day', stalls: {
+      stall1: { occ: occ1 }, stall2: { occ: 0 }, stall3: { occ: 0 }, stall4: { occ: 0 }, stall4_back: { occ: 0 }
+    }});
+  }
+  const stalls = buildStalls([...past, ...today], now, TEST_HOLIDAYS);
+  assert.ok(stalls.stall1.sameConditionCompare);
+  assert.equal(stalls.stall1.sameConditionCompare.dayLabel, '火曜平日');
+  assert.equal(typeof stalls.stall1.sameConditionCompare.percent, 'number');
+  assert.ok(stalls.stall1.sameConditionCompare.label);
+  // 他stallはdep=0（peers_typical=0）で percent/label は null
+  assert.ok(stalls.stall2.sameConditionCompare !== undefined);
+  assert.equal(stalls.stall2.sameConditionCompare.percent, null);
+  assert.equal(stalls.stall2.sameConditionCompare.label, null);
+  assert.equal(stalls.stall2.sameConditionCompare.dayLabel, '火曜平日');
+});
+
+test('buildStalls: holidays 未指定（既存呼び出し）でも壊れず、sameConditionCompare=null', () => {
+  const base = Date.parse('2026-05-12T12:00:00+09:00');
+  const rows = [];
+  for (let i = 0; i < 20; i++) rows.push(occRow(new Date(base + i * 30000).toISOString(), 12, 10, 14, 4, 8));
+  const stalls = buildStalls(rows, new Date(base + 20 * 30000)); // holidays 省略
+  assert.equal(stalls.stall1.sameConditionCompare, null);
+  assert.equal(stalls.stall3.sameConditionCompare, null);
+  // 既存フィールド（label/terminal/occ/recent1hDep/waitMin/trend）は維持
+  assert.equal(stalls.stall1.label, '第1乗り場');
+  assert.equal(stalls.stall1.terminal, 'T1');
+});
