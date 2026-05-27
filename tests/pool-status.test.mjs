@@ -4,6 +4,7 @@ import { occLevel, activityLevel } from '../scripts/lib/pool-status.mjs';
 import { currentOccupancy, fullRefFor, buildPoolStatus } from '../scripts/lib/pool-status.mjs';
 import { currentOccupancyByStall, waitMinFor, stallTrend, buildStalls, buildTerminalArrivals } from '../scripts/lib/pool-status.mjs';
 import { sameConditionCompare } from '../scripts/lib/pool-status.mjs';
+import { buildStallRankHint } from '../scripts/lib/pool-status.mjs';
 
 test('occLevel: occ/fullRef を 4 段階に写像', () => {
   assert.equal(occLevel(0, 50), 'empty');
@@ -207,4 +208,39 @@ test('sameConditionCompare: サンプル不足(<3)は fallback (label=null, perc
   assert.equal(r.percent, null);
   assert.equal(r.label, null);
   assert.equal(r.dayLabel, '火曜平日'); // dayLabel は常に返す
+});
+
+test('buildStallRankHint: 最大に most-active、最小に most-low', () => {
+  const stalls = {
+    stall1: { recent1hDep: 10 },
+    stall2: { recent1hDep: 25 },
+    stall3: { recent1hDep: 5 },
+    stall4: { recent1hDep: 15 },
+  };
+  const h = buildStallRankHint(stalls);
+  assert.equal(h.stall1, null);
+  assert.equal(h.stall2, 'most-active');
+  assert.equal(h.stall3, 'most-low');
+  assert.equal(h.stall4, null);
+});
+
+test('buildStallRankHint: 全て0なら全て null', () => {
+  const stalls = {
+    stall1: { recent1hDep: 0 }, stall2: { recent1hDep: 0 },
+    stall3: { recent1hDep: 0 }, stall4: { recent1hDep: 0 },
+  };
+  const h = buildStallRankHint(stalls);
+  assert.deepEqual(h, { stall1: null, stall2: null, stall3: null, stall4: null });
+});
+
+test('buildStallRankHint: 同率最大は全部 most-active', () => {
+  const stalls = {
+    stall1: { recent1hDep: 10 }, stall2: { recent1hDep: 10 },
+    stall3: { recent1hDep: 5 }, stall4: { recent1hDep: 8 },
+  };
+  const h = buildStallRankHint(stalls);
+  assert.equal(h.stall1, 'most-active');
+  assert.equal(h.stall2, 'most-active');
+  assert.equal(h.stall3, 'most-low');
+  assert.equal(h.stall4, null);
 });

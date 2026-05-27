@@ -105,6 +105,21 @@ function stallDepartures(rows, now, windowMinutes) {
   return out;
 }
 
+/** 乗り場間の recent1hDep を比較し、最大に 'most-active' / 最小に 'most-low' / 他 null を付与。
+ * 全て0なら全て null。同率は同じヒントが複数の乗り場に付く。 */
+export function buildStallRankHint(stalls) {
+  const out = { stall1: null, stall2: null, stall3: null, stall4: null };
+  const deps = Object.keys(out).map(k => ({ k, v: stalls[k]?.recent1hDep ?? 0 }));
+  const max = Math.max(...deps.map(d => d.v));
+  const min = Math.min(...deps.map(d => d.v));
+  if (max === 0) return out; // 全部0
+  for (const { k, v } of deps) {
+    if (v === max && v > 0) out[k] = 'most-active';
+    else if (v === min) out[k] = 'most-low';
+  }
+  return out;
+}
+
 /** 乗り場別ブロック（在台・直近1h出庫・待ち目安・動き方・ターミナル）を組み立てる。 */
 export function buildStalls(rows, now) {
   const occ = currentOccupancyByStall(rows, now, 5);
