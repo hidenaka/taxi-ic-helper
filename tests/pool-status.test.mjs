@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert/strict';
 import { occLevel, activityLevel } from '../scripts/lib/pool-status.mjs';
 import { currentOccupancy, fullRefFor, buildPoolStatus } from '../scripts/lib/pool-status.mjs';
 import { currentOccupancyByStall, waitMinFor, stallTrend, buildStalls, buildTerminalArrivals } from '../scripts/lib/pool-status.mjs';
+import { sameConditionCompare } from '../scripts/lib/pool-status.mjs';
 
 test('occLevel: occ/fullRef を 4 段階に写像', () => {
   assert.equal(occLevel(0, 50), 'empty');
@@ -136,4 +137,74 @@ test('buildPoolStatus: arrivals を渡すと terminalArrivals が入る', () => 
   const arrivals = { flights: [{ terminal: 'T1', lobbyExitTime: '12:20', estimatedTaxiPax: 5 }] };
   const st = buildPoolStatus(rows, now, arrivals);
   assert.equal(st.terminalArrivals.T1.next30, 5);
+});
+
+const TEST_HOLIDAYS = [
+  { date: '2026-05-03', name: '憲法記念日' },
+  { date: '2026-05-04', name: 'みどりの日' },
+  { date: '2026-05-05', name: 'こどもの日' },
+  { date: '2026-05-06', name: '振替休日' },
+];
+
+function buildHistoryRows(daysAgoList, depPerHour) {
+  // 過去 daysAgoList[i] 日前の 12:00 JST の前後1h分、深さ depPerHour の出庫が発生するように
+  // 在台が depPerHour 台減るような行を1分毎に生成する。簡略のため、まず full 在台 で開始し、
+  // 終端で depPerHour 台減らす。
+  const rows = [];
+  for (const d of daysAgoList) {
+    const targetBase = Date.parse('2026-05-12T12:00:00+09:00') - d * 86400000;
+    // 11:00〜12:00 の60分間、毎分1tick。在台が depPerHour 台減るよう線形に減少
+    const startOcc = 30;
+    const endOcc = 30 - depPerHour;
+    for (let i = 0; i <= 60; i++) {
+      const ts = new Date(targetBase - (60 - i) * 60000).toISOString();
+      const occ = Math.max(0, Math.round(startOcc - (startOcc - endOcc) * (i / 60)));
+      rows.push({ ts, mode: 'day', stalls: {
+        stall1: { occ }, stall2: { occ: 0 }, stall3: { occ: 0 }, stall4: { occ: 0 }, stall4_back: { occ: 0 }
+      }});
+    }
+  }
+  return rows;
+}
+
+test('sameConditionCompare: 同曜日(火)平日のサンプル3つ以上で percent と label が出る', () => {
+  // 2026-05-12(火)平日。過去同曜日: 5/5(火・連休最終)→除外
+  // 使うのは 4/28(2週前), 4/21(3週前), 4/14(4週前) の3サンプル
+  // 全部 8台/h で安定 → today=12 なら +50%, today=4 なら -50%, today=8 なら 0%
+  const now = new Date('2026-05-12T12:00:00+09:00');
+  const past = buildHistoryRows([7 * 2, 7 * 3, 7 * 4], 8); // 2,3,4週前の火曜（全て平日）
+  const today = buildHistoryRows([0], 12);
+  const r = sameConditionCompare([...past, ...today], now, TEST_HOLIDAYS);
+  assert.equal(r.peers_typical, 8);
+  assert.equal(r.percent, 50);
+  assert.equal(r.label, 'いつもより活発');
+  assert.equal(r.dayLabel, '火曜平日');
+});
+
+test('sameConditionCompare: percentがしきい値以内なら "いつも通り"', () => {
+  const now = new Date('2026-05-12T12:00:00+09:00');
+  const past = buildHistoryRows([14, 21, 28], 10); // 2,3,4週前（全て平日火曜）
+  const today = buildHistoryRows([0], 11); // +10%
+  const r = sameConditionCompare([...past, ...today], now, TEST_HOLIDAYS);
+  assert.equal(r.label, 'いつも通り');
+});
+
+test('sameConditionCompare: -15%以下で "いつもより少なめ"', () => {
+  const now = new Date('2026-05-12T12:00:00+09:00');
+  const past = buildHistoryRows([14, 21, 28], 10); // 2,3,4週前（全て平日火曜）
+  const today = buildHistoryRows([0], 8); // -20%
+  const r = sameConditionCompare([...past, ...today], now, TEST_HOLIDAYS);
+  assert.equal(r.label, 'いつもより少なめ');
+});
+
+test('sameConditionCompare: サンプル不足(<3)は fallback (label=null, percent=null)', () => {
+  const now = new Date('2026-05-12T12:00:00+09:00');
+  // 2週前(4/28)のデータのみ存在。1週前(5/5)は祝日除外。3,4週前はデータなしでスキップ → 1サンプル → fallback
+  const past = buildHistoryRows([14], 10);
+  const today = buildHistoryRows([0], 12);
+  const r = sameConditionCompare([...past, ...today], now, TEST_HOLIDAYS);
+  assert.equal(r.peers_typical, null);
+  assert.equal(r.percent, null);
+  assert.equal(r.label, null);
+  assert.equal(r.dayLabel, '火曜平日'); // dayLabel は常に返す
 });

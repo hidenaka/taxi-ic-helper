@@ -20,6 +20,7 @@ export function activityLevel(recent, typical) {
 }
 
 import { computeSlotActuals } from './slot-actuals.mjs';
+import { getDayContext } from './holiday-context.mjs';
 
 const GROUPS = {
   real01: ['stall1', 'stall2', 'stall3', 'stall4'],
@@ -155,6 +156,44 @@ export function buildTerminalArrivals(arrivals, now) {
     if (ms <= ms30) out[t].next30 += pax;
   }
   return out;
+}
+
+/** rows から指定 Date の直近1h出庫合計を返す（computeSlotActuals total の合算）。 */
+function recent1hAt(rows, atDate) {
+  return computeSlotActuals(rows, atDate, 60).reduce((s, b) => s + b.total, 0);
+}
+
+/** 過去 weeks 週間の同(weekday, dayKind)の同時間帯サンプルから median を取る。
+ * データが存在しない時点（rows に該当期間のデータがない）はサンプルから除外。 */
+export function sameConditionCompare(rows, now, holidays, weeks = 4) {
+  const today = getDayContext(now, holidays);
+  const today1h = recent1hAt(rows, now);
+  const samples = [];
+  for (let w = 1; w <= weeks; w++) {
+    const past = new Date(now.getTime() - w * 7 * 86400000);
+    const ctx = getDayContext(past, holidays);
+    if (ctx.weekday !== today.weekday) continue; // 念のため
+    if (ctx.dayKind !== today.dayKind) continue;
+    // その時点のデータが存在するか確認（bins が空 = データなし → スキップ）
+    const bins = computeSlotActuals(rows, past, 60);
+    if (!bins.length) continue;
+    samples.push(bins.reduce((s, b) => s + b.total, 0));
+  }
+  if (samples.length < 3) {
+    return { peers_typical: null, percent: null, label: null, dayLabel: today.dayLabel };
+  }
+  samples.sort((a, b) => a - b);
+  const m = Math.floor(samples.length / 2);
+  const peers_typical = samples.length % 2 ? samples[m] : Math.round((samples[m - 1] + samples[m]) / 2);
+  if (!(peers_typical > 0)) {
+    return { peers_typical, percent: null, label: null, dayLabel: today.dayLabel };
+  }
+  const percent = Math.round((today1h / peers_typical - 1) * 100);
+  let label;
+  if (percent >= 15) label = 'いつもより活発';
+  else if (percent <= -15) label = 'いつもより少なめ';
+  else label = 'いつも通り';
+  return { peers_typical, percent, label, dayLabel: today.dayLabel };
 }
 
 /** 直近1h出庫合計（computeSlotActuals total の合算）。 */
