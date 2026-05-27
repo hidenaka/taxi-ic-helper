@@ -284,3 +284,34 @@ test('buildTerminalArrivalsList: flights 無し/null は空配列', () => {
   assert.deepEqual(buildTerminalArrivalsList(null, now), { T1: [], T2: [] });
   assert.deepEqual(buildTerminalArrivalsList({ flights: [] }, now), { T1: [], T2: [] });
 });
+
+test('buildPoolStatus: 新フィールド統合（後方互換も維持）', () => {
+  const base = Date.parse('2026-05-12T12:00:00+09:00');
+  const rows = [];
+  for (let i = 0; i < 20; i++) rows.push(occRow(new Date(base + i * 30000).toISOString(), 12, 10, 14, 4, 8));
+  const arrivals = { flights: [
+    { terminal: 'T1', flightNumber: 'JL024', airline: 'JAL', fromName: '関西', seatCount: 244, lobbyExitTime: '12:20' }, // now=12:10なので10分後
+  ] };
+  const st = buildPoolStatus(rows, new Date(base + 20 * 30000), arrivals, TEST_HOLIDAYS);
+  // 既存フィールド維持
+  assert.ok(st.cameras);
+  assert.ok(st.total);
+  assert.ok(st.activity);
+  assert.ok(st.stalls);
+  assert.ok(st.terminalArrivals); // 既存・後方互換
+  // 新フィールド
+  assert.ok('sameConditionCompare' in st.activity);
+  assert.equal(typeof st.stalls.stall1.rankHint, 'object'); // null or string
+  assert.ok(Array.isArray(st.terminalArrivalsList.T1));
+  assert.equal(st.terminalArrivalsList.T1[0].flightNumber, 'JL024');
+});
+
+test('buildPoolStatus: holidays 省略時も sameConditionCompare は null fallback', () => {
+  const base = Date.parse('2026-05-12T12:00:00+09:00');
+  const rows = [];
+  for (let i = 0; i < 20; i++) rows.push(occRow(new Date(base + i * 30000).toISOString(), 12, 10, 14, 4, 8));
+  const st = buildPoolStatus(rows, new Date(base + 20 * 30000)); // arrivals/holidays 省略
+  assert.equal(st.activity.sameConditionCompare, null);
+  assert.equal(st.terminalArrivals, null);
+  assert.deepEqual(st.terminalArrivalsList, { T1: [], T2: [] });
+});

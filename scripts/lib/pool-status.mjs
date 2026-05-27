@@ -262,8 +262,9 @@ function jstIso(d) {
   return new Date(d.getTime() + 9 * 3600 * 1000).toISOString().replace('Z', '+09:00').replace(/\.\d+/, '');
 }
 
-/** pool-status.json オブジェクトを組み立てる。 */
-export function buildPoolStatus(rows, now = new Date(), arrivals = null) {
+/** pool-status.json オブジェクトを組み立てる。
+ * arrivals, holidays は optional（省略時は後方互換: terminalArrivals=null, sameConditionCompare=null）。 */
+export function buildPoolStatus(rows, now = new Date(), arrivals = null, holidays = null) {
   const cur = currentOccupancy(rows, now, 5);
   const cameras = {};
   for (const g of Object.keys(GROUPS)) {
@@ -275,12 +276,27 @@ export function buildPoolStatus(rows, now = new Date(), arrivals = null) {
   const recent = recent1hDepartures(rows, now);
   const typical = typical1hDepartures(rows, now, 7);
   const act = activityLevel(recent, typical);
+  const stallsBase = buildStalls(rows, now);
+  const rankHints = buildStallRankHint(stallsBase);
+  const stalls = {};
+  for (const k of ['stall1', 'stall2', 'stall3', 'stall4']) {
+    stalls[k] = { ...stallsBase[k], rankHint: rankHints[k] };
+  }
+  const sameCompare = holidays ? sameConditionCompare(rows, now, holidays) : null;
   return {
     generatedAt: jstIso(now),
     cameras,
     total: { occ: totalOcc, level: occLevel(totalOcc, totalRef) },
-    activity: { recent1hDepartures: recent, typical1h: typical, ratio: act.ratio, level: act.level, arrow: act.arrow },
-    stalls: buildStalls(rows, now),
+    activity: {
+      recent1hDepartures: recent,
+      typical1h: typical,
+      ratio: act.ratio,
+      level: act.level,
+      arrow: act.arrow,
+      sameConditionCompare: sameCompare,
+    },
+    stalls,
     terminalArrivals: arrivals ? buildTerminalArrivals(arrivals, now) : null,
+    terminalArrivalsList: buildTerminalArrivalsList(arrivals, now),
   };
 }
