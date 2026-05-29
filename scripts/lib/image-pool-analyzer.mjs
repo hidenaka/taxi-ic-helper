@@ -156,6 +156,25 @@ export async function analyzePoolImage(buffer, prev = null, roi = null) {
   return result;
 }
 
+/**
+ * 元ページ(ttc.taxi-inf.jp)の画像が前 tick から更新されていない(stale)かを判定する純関数。
+ *
+ * カメラ画像は右下に JST タイムスタンプが焼き込まれているため、ページが画像を更新すれば
+ * 必ずバイト列が変わり sha256 も変わる。逆に sha256 が前 tick と同一 = 時刻が進んでいない
+ * = 元ページが画像を更新していない。両カメラとも前 tick と同一なら stale と判定する
+ * (同一ソース由来なので通常は両方同時にフリーズする。片方のみ一致は誤判定回避のため stale としない)。
+ *
+ * @param {string|null|undefined} prevSha1 前 tick の Real01 sha256
+ * @param {string|null|undefined} prevSha2 前 tick の Real02 sha256
+ * @param {string} curSha1 今 tick の Real01 sha256
+ * @param {string} curSha2 今 tick の Real02 sha256
+ * @returns {boolean} 両カメラとも前 tick とバイト同一なら true (= 計測スキップすべき)
+ */
+export function isSourceStale(prevSha1, prevSha2, curSha1, curSha2) {
+  if (!prevSha1 || !prevSha2) return false; // 初回 tick 等、前比較不能なら stale 扱いしない
+  return prevSha1 === curSha1 && prevSha2 === curSha2;
+}
+
 const NORMALIZATION = 0.4; // ROI 満杯時の経験則 black_ratio
 
 /**

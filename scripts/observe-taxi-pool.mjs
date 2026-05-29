@@ -13,7 +13,7 @@
  */
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { Jimp } from 'jimp';
-import { analyzePoolImage, analyzeStalls, analyzeROI } from './lib/image-pool-analyzer.mjs';
+import { analyzePoolImage, analyzeStalls, analyzeROI, isSourceStale } from './lib/image-pool-analyzer.mjs';
 import { summarizeArrivalsWindow } from './lib/arrivals-window-summary.mjs';
 import { computeBaseline, computeForecast } from './lib/forecast-engine.mjs';
 import {
@@ -183,6 +183,15 @@ async function main() {
     img2 = await analyzePoolImage(buf2, prev2, roi2);
   } catch (e) {
     console.error(`[observe] image analyze failed: ${e.message}`);
+    process.exit(0);
+  }
+
+  // 元ページ(ttc.taxi-inf.jp)が画像を更新していない(stale)時は計測しない。
+  // カメラ画像は右下にJSTタイムスタンプが焼き込まれているので、ページが更新されれば必ず
+  // sha256 が変わる。両カメラとも前 tick と同一 sha256 = 時刻が進んでいない = 元画像未更新。
+  // 二重計測(同じ画像をもう1tick分の観測として数える)を防ぐためスキップする。
+  if (isSourceStale(prev1?.sha256, prev2?.sha256, img1.sha256, img2.sha256)) {
+    console.error(`[observe] 元画像が前tickとバイト同一 (右下タイムスタンプ未更新=元ページが画像未更新)。計測スキップ (no jsonl append) sha=${img1.sha256.slice(0, 8)}/${img2.sha256.slice(0, 8)}`);
     process.exit(0);
   }
 
