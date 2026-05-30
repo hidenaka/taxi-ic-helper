@@ -42,6 +42,7 @@ const REAL01_URL = 'https://ttc.taxi-inf.jp/Real01_line.jpg';
 const REAL02_URL = 'https://ttc.taxi-inf.jp/Real02.jpg';
 const USER_AGENT = 'taxi-ic-helper observation bot (https://github.com/hidenaka/taxi-ic-helper)';
 const HISTORY_PATH = './data/taxi-pool-history.jsonl';
+const POOL_SOURCE_STATUS_PATH = './data/pool-source-status.json'; // 映像ソースのstale状態(本番UI注意喚起用)
 const SNAPSHOTS_DIR = './data/arrivals-snapshots';
 const FORECAST_OUTPUT_PATH = './data/stall-forecast.json';
 const PATTERN_MATCH_OUTPUT_PATH = './data/stall-pattern-match.json';
@@ -186,11 +187,26 @@ async function main() {
     process.exit(0);
   }
 
-  // 元ページ(ttc.taxi-inf.jp)が画像を更新していない(stale)時は計測しない。
-  // カメラ画像は右下にJSTタイムスタンプが焼き込まれているので、ページが更新されれば必ず
-  // sha256 が変わる。両カメラとも前 tick と同一 sha256 = 時刻が進んでいない = 元画像未更新。
-  // 二重計測(同じ画像をもう1tick分の観測として数える)を防ぐためスキップする。
-  if (isSourceStale(prev1?.sha256, prev2?.sha256, img1.sha256, img2.sha256)) {
+  // 元ページ(ttc.taxi-inf.jp)が画像を更新しているか判定。カメラ画像は右下にJSTタイムスタンプが
+  // 焼き込まれているので、ページが更新されれば必ず sha256 が変わる。両カメラとも前 tick と同一
+  // sha256 = 時刻が進んでいない = 元画像未更新(stale)。
+  const sourceStale = isSourceStale(prev1?.sha256, prev2?.sha256, img1.sha256, img2.sha256);
+
+  // 本番UIの注意喚起用に、映像ソースの stale 状態を毎 tick 書き出す。
+  // publish-pool-status.mjs が pool-status.json にマージし、relay 経由で日報アプリが読む。
+  try {
+    writeFileSync(POOL_SOURCE_STATUS_PATH, JSON.stringify({
+      sourceStale,
+      checkedAt: ts,
+      // 最後に映像が更新されていた時刻(=最後に append された tick の時刻)。stale 中はそこで止まる。
+      lastFreshAt: sourceStale ? (lastTick?.ts ?? null) : ts,
+    }, null, 2) + '\n', 'utf8');
+  } catch (e) {
+    console.error(`[observe] pool-source-status write failed: ${e.message}`);
+  }
+
+  // stale の時は計測しない(同じ画像をもう1tick分の観測として二重計測しない)。
+  if (sourceStale) {
     console.error(`[observe] 元画像が前tickとバイト同一 (右下タイムスタンプ未更新=元ページが画像未更新)。計測スキップ (no jsonl append) sha=${img1.sha256.slice(0, 8)}/${img2.sha256.slice(0, 8)}`);
     process.exit(0);
   }

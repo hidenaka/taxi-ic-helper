@@ -46,6 +46,16 @@ async function main() {
         }
       } catch (e) { console.error(`[pool-status] holidays read failed: ${e.message}`); }
       const status = buildPoolStatus(rows, new Date(), arrivals, holidays);
+      // observe が書いた映像ソースの stale 状態をマージ(本番UIの注意喚起用)。
+      // generatedAt は毎 tick 進む(publish は stale 時も走る)ため経年判定では映像エラーを検知できない。
+      // observe の明示フラグを載せて、日報アプリ側で専用の注意文を出せるようにする。
+      try {
+        if (existsSync('./data/pool-source-status.json')) {
+          const ss = JSON.parse(readFileSync('./data/pool-source-status.json', 'utf8'));
+          status.sourceStale = ss.sourceStale === true;
+          if (ss.lastFreshAt) status.sourceStaleSince = ss.lastFreshAt;
+        }
+      } catch (e) { console.error(`[pool-status] source-status read failed: ${e.message}`); }
       writeFileSync('./data/pool-status.json', JSON.stringify(status, null, 2) + '\n', 'utf8');
       console.log(`[pool-status] ok total.occ=${status.total.occ} level=${status.total.level} activity=${status.activity.level}`);
     }
