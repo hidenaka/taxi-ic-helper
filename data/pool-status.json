@@ -1,25 +1,25 @@
 {
-  "generatedAt": "2026-05-30T19:41:58+09:00",
+  "generatedAt": "2026-05-30T19:47:21+09:00",
   "cameras": {
     "real01": {
-      "occ": 15,
+      "occ": 31,
       "fullRef": 43,
-      "level": "normal"
+      "level": "crowded"
     },
     "real02": {
-      "occ": 1,
+      "occ": 0,
       "fullRef": 8,
       "level": "empty"
     }
   },
   "total": {
-    "occ": 16,
+    "occ": 31,
     "level": "normal"
   },
   "activity": {
-    "recent1hDepartures": 62,
-    "typical1h": 57,
-    "ratio": 1.09,
+    "recent1hDepartures": 73,
+    "typical1h": 62,
+    "ratio": 1.18,
     "level": "normal",
     "arrow": "flat",
     "sameConditionCompare": {
@@ -33,8 +33,23 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 5,
-      "recent1hDep": 10,
+      "occ": 15,
+      "recent1hDep": 16,
+      "waitMin": 56,
+      "trend": "flat",
+      "sameConditionCompare": {
+        "peers_typical": null,
+        "percent": null,
+        "label": null,
+        "dayLabel": "土曜・週末"
+      },
+      "rankHint": null
+    },
+    "stall2": {
+      "label": "第2乗り場",
+      "terminal": "T1",
+      "occ": 7,
+      "recent1hDep": 14,
       "waitMin": 30,
       "trend": "down",
       "sameConditionCompare": {
@@ -45,27 +60,12 @@
       },
       "rankHint": "most-low"
     },
-    "stall2": {
-      "label": "第2乗り場",
-      "terminal": "T1",
-      "occ": 7,
-      "recent1hDep": 13,
-      "waitMin": 32,
-      "trend": "down",
-      "sameConditionCompare": {
-        "peers_typical": null,
-        "percent": null,
-        "label": null,
-        "dayLabel": "土曜・週末"
-      },
-      "rankHint": null
-    },
     "stall3": {
       "label": "第3乗り場",
       "terminal": "T2",
-      "occ": 1,
-      "recent1hDep": 27,
-      "waitMin": 2,
+      "occ": 6,
+      "recent1hDep": 29,
+      "waitMin": 12,
       "trend": "down",
       "sameConditionCompare": {
         "peers_typical": null,
@@ -78,115 +78,115 @@
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 4,
-      "recent1hDep": 12,
-      "waitMin": 20,
-      "trend": "down",
+      "occ": 3,
+      "recent1hDep": 14,
+      "waitMin": 13,
+      "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": null,
         "percent": null,
         "label": null,
         "dayLabel": "土曜・週末"
       },
-      "rankHint": null
+      "rankHint": "most-low"
     }
   },
   "terminalArrivals": {
     "T1": {
-      "next30": 10,
-      "next60": 17
+      "next30": 9,
+      "next60": 21
     },
     "T2": {
-      "next30": 19,
-      "next60": 35
+      "next30": 15,
+      "next60": 29
     }
   },
   "terminalArrivalsList": {
     "T1": [
       {
-        "flightNumber": "JL264",
-        "airline": "JAL",
-        "fromName": "広島",
-        "seatCount": 166,
-        "lobbyExitMinutes": 3,
-        "lobbyExitTime": "19:45"
-      },
-      {
         "flightNumber": "NH3888",
         "airline": "ANA",
         "fromName": "北九州",
         "seatCount": 194,
-        "lobbyExitMinutes": 18,
-        "lobbyExitTime": "20:00"
+        "lobbyExitMinutes": 9,
+        "lobbyExitTime": "19:56"
       },
       {
         "flightNumber": "NH3828",
         "airline": "ANA",
         "fromName": "関空",
         "seatCount": 146,
-        "lobbyExitMinutes": 22,
-        "lobbyExitTime": "20:04"
-      },
-      {
-        "flightNumber": "JL190",
-        "airline": "JAL",
-        "fromName": "小松",
-        "seatCount": 166,
-        "lobbyExitMinutes": 23,
-        "lobbyExitTime": "20:05"
+        "lobbyExitMinutes": 10,
+        "lobbyExitTime": "19:57"
       },
       {
         "flightNumber": "JL522",
         "airline": "JAL",
         "fromName": "千歳",
         "seatCount": 369,
-        "lobbyExitMinutes": 27,
-        "lobbyExitTime": "20:09"
+        "lobbyExitMinutes": 19,
+        "lobbyExitTime": "20:06"
+      },
+      {
+        "flightNumber": "JL190",
+        "airline": "JAL",
+        "fromName": "小松",
+        "seatCount": 166,
+        "lobbyExitMinutes": 24,
+        "lobbyExitTime": "20:11"
+      },
+      {
+        "flightNumber": "JL326",
+        "airline": "JAL",
+        "fromName": "福岡",
+        "seatCount": 369,
+        "lobbyExitMinutes": 28,
+        "lobbyExitTime": "20:15"
       }
     ],
     "T2": [
-      {
-        "flightNumber": "NH1106",
-        "airline": "ANA",
-        "fromName": "千歳",
-        "seatCount": 246,
-        "lobbyExitMinutes": 4,
-        "lobbyExitTime": "19:46"
-      },
-      {
-        "flightNumber": "NH472",
-        "airline": "ANA",
-        "fromName": "那覇",
-        "seatCount": 525,
-        "lobbyExitMinutes": 5,
-        "lobbyExitTime": "19:47"
-      },
       {
         "flightNumber": "NH800",
         "airline": "ANA",
         "fromName": "大分",
         "seatCount": 166,
-        "lobbyExitMinutes": 7,
-        "lobbyExitTime": "19:49"
+        "lobbyExitMinutes": 3,
+        "lobbyExitTime": "19:50"
       },
       {
-        "flightNumber": "NH4732",
+        "flightNumber": "NH1106",
         "airline": "ANA",
         "fromName": "千歳",
-        "seatCount": 270,
-        "lobbyExitMinutes": 9,
-        "lobbyExitTime": "19:51"
+        "seatCount": 246,
+        "lobbyExitMinutes": 5,
+        "lobbyExitTime": "19:52"
       },
       {
         "flightNumber": "NH570",
         "airline": "ANA",
         "fromName": "高知",
         "seatCount": 166,
-        "lobbyExitMinutes": 13,
-        "lobbyExitTime": "19:55"
+        "lobbyExitMinutes": 5,
+        "lobbyExitTime": "19:52"
+      },
+      {
+        "flightNumber": "NH074",
+        "airline": "ANA",
+        "fromName": "千歳",
+        "seatCount": 246,
+        "lobbyExitMinutes": 10,
+        "lobbyExitTime": "19:57"
+      },
+      {
+        "flightNumber": "NH682",
+        "airline": "ANA",
+        "fromName": "広島",
+        "seatCount": 270,
+        "lobbyExitMinutes": 12,
+        "lobbyExitTime": "19:59"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-05-30T19:41:53+09:00"
+  "sourceStaleSince": "2026-05-30T19:47:16+09:00"
 }
