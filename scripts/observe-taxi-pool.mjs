@@ -27,7 +27,7 @@ import { loadHolidaysSet } from './lib/calendar-context.mjs';
 import { buildLogEntry } from './lib/forecast-logger.mjs';
 import { buildActualMap, evaluateAccuracy } from './lib/accuracy-evaluator.mjs';
 import { computeEnsemble } from './lib/ensemble-engine.mjs';
-import { computeSlotActuals } from './lib/slot-actuals.mjs';
+import { computeSlotActuals, slotOccupancyToForecastRows } from './lib/slot-actuals.mjs';
 import {
   computeShareCorrection, computeLevelCorrection, applyLevelCorrection,
   computeT3DirectionalCorrection, CORRECTION_SCHEMA_VERSION,
@@ -303,10 +303,20 @@ async function main() {
       if (!line.trim()) continue;
       try { allHistory.push(JSON.parse(line)); } catch { /* skip bad line */ }
     }
-    const baseline = computeBaseline(allHistory);
+    // 予測の学習入力を fill(slot-occupancy) に統一する。旧 taxi-pool-history(allHistory)は
+    // throughput 較正用に残し、baseline/recent は fill 由来 forecastHistory を使う。
+    const fillRowsForFcst = [];
+    if (existsSync('./data/slot-occupancy-history.jsonl')) {
+      for (const line of readFileSync('./data/slot-occupancy-history.jsonl', 'utf8').trim().split('\n')) {
+        if (!line.trim()) continue;
+        try { fillRowsForFcst.push(JSON.parse(line)); } catch { /* skip */ }
+      }
+    }
+    const forecastHistory = slotOccupancyToForecastRows(fillRowsForFcst);
+    const baseline = computeBaseline(forecastHistory);
 
     // 直近 12 tick (60 分) の total_outflow を計算
-    const recent = allHistory.slice(-12).map(r => {
+    const recent = forecastHistory.slice(-12).map(r => {
       const stalls = r.stalls || {};
       let totalOutflow = 0;
       for (const name of ['stall1', 'stall2', 'stall3', 'stall4']) {
@@ -391,14 +401,16 @@ async function main() {
     console.error(`[observe] forecast generation failed: ${e.message}`);
   }
 
-  // Phase C-2 MVP: パターンマッチング予測の生成
+  // Phase C-2 MVP: パターンマッチング予測の生成（学習入力を fill に統一）
   try {
-    const allHistoryLines = readFileSync(HISTORY_PATH, 'utf8').trim().split('\n');
-    const allHistory = [];
-    for (const line of allHistoryLines) {
-      if (!line.trim()) continue;
-      try { allHistory.push(JSON.parse(line)); } catch { /* skip bad line */ }
+    const fillRowsForPm = [];
+    if (existsSync('./data/slot-occupancy-history.jsonl')) {
+      for (const line of readFileSync('./data/slot-occupancy-history.jsonl', 'utf8').trim().split('\n')) {
+        if (!line.trim()) continue;
+        try { fillRowsForPm.push(JSON.parse(line)); } catch { /* skip bad line */ }
+      }
     }
+    const pmHistory = slotOccupancyToForecastRows(fillRowsForPm);
     let holidaysSet;
     try {
       const holidaysJson = JSON.parse(readFileSync(HOLIDAYS_PATH, 'utf8'));
@@ -406,7 +418,7 @@ async function main() {
     } catch {
       holidaysSet = loadHolidaysSet({ holidays: [] });
     }
-    patternMatchResult = computePatternMatch(allHistory, holidaysSet, new Date());
+    patternMatchResult = computePatternMatch(pmHistory, holidaysSet, new Date());
     writeFileSync(PATTERN_MATCH_OUTPUT_PATH, JSON.stringify(applyThroughputScale(patternMatchResult, throughputK, 'historicalCurve'), null, 2) + '\n', 'utf8');
     console.log(`[observe] pattern-match ok: today=${patternMatchResult.today.dayType} tier=${patternMatchResult.today.filterTier} similar=${patternMatchResult.similarDays.length}`);
   } catch (e) {
@@ -434,13 +446,15 @@ async function main() {
         try { logEntries.push(JSON.parse(line)); } catch { /* skip bad line */ }
       }
     }
-    const accHistoryLines = readFileSync(HISTORY_PATH, 'utf8').trim().split('\n');
-    const accHistory = [];
-    for (const line of accHistoryLines) {
-      if (!line.trim()) continue;
-      try { accHistory.push(JSON.parse(line)); } catch { /* skip bad line */ }
+    // 精度評価の実績も fill 由来に統一（予測 vs fill実績 で評価＝画面の実績と一致）。
+    const accFillRows = [];
+    if (existsSync('./data/slot-occupancy-history.jsonl')) {
+      for (const line of readFileSync('./data/slot-occupancy-history.jsonl', 'utf8').trim().split('\n')) {
+        if (!line.trim()) continue;
+        try { accFillRows.push(JSON.parse(line)); } catch { /* skip bad line */ }
+      }
     }
-    actualMap = buildActualMap(accHistory);
+    actualMap = buildActualMap(slotOccupancyToForecastRows(accFillRows));
     accuracyResult = evaluateAccuracy(logEntries, actualMap, new Date());
     writeFileSync(FORECAST_ACCURACY_PATH, JSON.stringify(applyThroughputScaleToAccuracy(accuracyResult, throughputK), null, 2) + '\n', 'utf8');
     console.log(`[observe] accuracy ok: logEntries=${accuracyResult.logEntryCount} recent24h winner lead30=${accuracyResult.recent24h.winner.lead30}`);

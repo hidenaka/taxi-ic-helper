@@ -112,3 +112,53 @@ export function computeSlotActuals(occHistory, now, windowMinutes = 120) {
     stall1: bin.stall1, stall2: bin.stall2, stall3: bin.stall3, stall4: bin.stall4, total: bin.total,
   }));
 }
+
+/**
+ * slot-occupancy 履歴を forecast エンジン (computeBaseline / computePatternMatch /
+ * buildActualMap) が要求する schema_version=3 形に変換するアダプタ。
+ *
+ * 予測系を fill (適応較正済みの占有) に統一するための橋渡し。occ を computeSlotActuals と
+ * 同一の平滑化 (夜 per-slot 持続 → median5 → hysteresis3) で均し、 per-tick の
+ * diff_occupied_from_prev (= 平滑 occ の前 tick 差。負=出庫) を出す。stall4 は front+back
+ * 合算 (computeSlotActuals と同じ)。夜は luminance_mean=0 にしてエンジンの夜ゲートで除外。
+ * mode 切替 tick の diff は 0 (擬似出庫防止)。
+ *
+ * @param {Array} occHistory slot-occupancy-history.jsonl の行配列
+ * @returns {Array} schema_version=3 形の行配列 (時刻昇順)
+ */
+export function slotOccupancyToForecastRows(occHistory) {
+  const rows = (occHistory || [])
+    .map(r => ({ ts: r.ts, tsMs: new Date(r.ts).getTime(), stalls: r.stalls || {}, mode: r.mode || null }))
+    .filter(r => !Number.isNaN(r.tsMs))
+    .sort((a, b) => a.tsMs - b.tsMs);
+  if (rows.length === 0) return [];
+  const smooth = {};
+  for (const name of STALLS) {
+    const backName = `${name}_back`;
+    const raw = rows.map((r, idx) => {
+      if (r.mode === 'night') {
+        return nightPersistedOcc(rows, idx, name, NIGHT_PERSIST_TICKS)
+          + nightPersistedOcc(rows, idx, backName, NIGHT_PERSIST_TICKS);
+      }
+      const front = (typeof r.stalls[name]?.occ === 'number' ? r.stalls[name].occ : 0);
+      const back = (typeof r.stalls[backName]?.occ === 'number' ? r.stalls[backName].occ : 0);
+      return front + back;
+    });
+    smooth[name] = rollingMaxDelay(medianSmooth(raw, SMOOTH_WINDOW), HYSTERESIS_TICKS);
+  }
+  const out = [];
+  for (let i = 0; i < rows.length; i++) {
+    const stalls = {};
+    const sameMode = i > 0 && rows[i].mode === rows[i - 1].mode;
+    for (const name of STALLS) {
+      stalls[name] = { diff_occupied_from_prev: sameMode ? (smooth[name][i] - smooth[name][i - 1]) : 0 };
+    }
+    out.push({
+      schema_version: 3,
+      ts: rows[i].ts,
+      img1: { roi: { luminance_mean: rows[i].mode === 'night' ? 0 : 100 } },
+      stalls,
+    });
+  }
+  return out;
+}
