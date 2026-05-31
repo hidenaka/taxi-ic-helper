@@ -1,25 +1,25 @@
 {
-  "generatedAt": "2026-05-31T18:00:39+09:00",
+  "generatedAt": "2026-05-31T18:06:10+09:00",
   "cameras": {
     "real01": {
-      "occ": 31,
+      "occ": 30,
       "fullRef": 43,
       "level": "crowded"
     },
     "real02": {
-      "occ": 7,
+      "occ": 2,
       "fullRef": 8,
-      "level": "crowded"
+      "level": "empty"
     }
   },
   "total": {
-    "occ": 38,
-    "level": "crowded"
+    "occ": 32,
+    "level": "normal"
   },
   "activity": {
-    "recent1hDepartures": 86,
-    "typical1h": 78,
-    "ratio": 1.1,
+    "recent1hDepartures": 94,
+    "typical1h": 77,
+    "ratio": 1.22,
     "level": "normal",
     "arrow": "flat",
     "sameConditionCompare": {
@@ -36,7 +36,7 @@
       "occ": 13,
       "recent1hDep": 20,
       "waitMin": 39,
-      "trend": "up",
+      "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": null,
         "percent": null,
@@ -49,8 +49,8 @@
       "label": "第2乗り場",
       "terminal": "T1",
       "occ": 11,
-      "recent1hDep": 9,
-      "waitMin": 73,
+      "recent1hDep": 11,
+      "waitMin": 60,
       "trend": "up",
       "sameConditionCompare": {
         "peers_typical": null,
@@ -64,9 +64,9 @@
       "label": "第3乗り場",
       "terminal": "T2",
       "occ": 4,
-      "recent1hDep": 35,
+      "recent1hDep": 36,
       "waitMin": 7,
-      "trend": "up",
+      "trend": "down",
       "sameConditionCompare": {
         "peers_typical": null,
         "percent": null,
@@ -78,10 +78,10 @@
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 10,
-      "recent1hDep": 22,
-      "waitMin": 27,
-      "trend": "down",
+      "occ": 4,
+      "recent1hDep": 27,
+      "waitMin": 9,
+      "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": null,
         "percent": null,
@@ -93,46 +93,30 @@
   },
   "terminalArrivals": {
     "T1": {
-      "next30": 17,
-      "next60": 43
+      "next30": 12,
+      "next60": 39
     },
     "T2": {
-      "next30": 36,
+      "next30": 31,
       "next60": 66
     }
   },
   "terminalArrivalsList": {
     "T1": [
       {
-        "flightNumber": "JL126",
-        "airline": "JAL",
-        "fromName": "伊丹",
-        "seatCount": 200,
-        "lobbyExitMinutes": 4,
-        "lobbyExitTime": "18:05"
-      },
-      {
-        "flightNumber": "JL614",
-        "airline": "JAL",
-        "fromName": "長崎",
-        "seatCount": 166,
-        "lobbyExitMinutes": 5,
-        "lobbyExitTime": "18:06"
+        "flightNumber": "NH3850",
+        "airline": "ANA",
+        "fromName": "福岡",
+        "seatCount": 194,
+        "lobbyExitMinutes": 2,
+        "lobbyExitTime": "18:08"
       },
       {
         "flightNumber": "JL262",
         "airline": "JAL",
         "fromName": "広島",
         "seatCount": 166,
-        "lobbyExitMinutes": 9,
-        "lobbyExitTime": "18:10"
-      },
-      {
-        "flightNumber": "NH3850",
-        "airline": "ANA",
-        "fromName": "福岡",
-        "seatCount": 194,
-        "lobbyExitMinutes": 9,
+        "lobbyExitMinutes": 4,
         "lobbyExitTime": "18:10"
       },
       {
@@ -140,33 +124,33 @@
         "airline": "JAL",
         "fromName": "三沢",
         "seatCount": 95,
-        "lobbyExitMinutes": 16,
+        "lobbyExitMinutes": 11,
         "lobbyExitTime": "18:17"
+      },
+      {
+        "flightNumber": "NH3886",
+        "airline": "ANA",
+        "fromName": "北九州",
+        "seatCount": 194,
+        "lobbyExitMinutes": 16,
+        "lobbyExitTime": "18:22"
+      },
+      {
+        "flightNumber": "JL166",
+        "airline": "JAL",
+        "fromName": "秋田",
+        "seatCount": 95,
+        "lobbyExitMinutes": 19,
+        "lobbyExitTime": "18:25"
       }
     ],
     "T2": [
-      {
-        "flightNumber": "NH212",
-        "airline": "ANA",
-        "fromName": "ロンドン",
-        "seatCount": 264,
-        "lobbyExitMinutes": 4,
-        "lobbyExitTime": "18:05"
-      },
-      {
-        "flightNumber": "NH568",
-        "airline": "ANA",
-        "fromName": "高知",
-        "seatCount": 194,
-        "lobbyExitMinutes": 4,
-        "lobbyExitTime": "18:05"
-      },
       {
         "flightNumber": "NH034",
         "airline": "ANA",
         "fromName": "伊丹",
         "seatCount": 246,
-        "lobbyExitMinutes": 9,
+        "lobbyExitMinutes": 4,
         "lobbyExitTime": "18:10"
       },
       {
@@ -174,19 +158,35 @@
         "airline": "ANA",
         "fromName": "那覇",
         "seatCount": 166,
-        "lobbyExitMinutes": 9,
-        "lobbyExitTime": "18:10"
+        "lobbyExitMinutes": 8,
+        "lobbyExitTime": "18:14"
       },
       {
         "flightNumber": "NH185",
         "airline": "ANA",
         "fromName": "ホノルル",
         "seatCount": 215,
-        "lobbyExitMinutes": 14,
+        "lobbyExitMinutes": 9,
         "lobbyExitTime": "18:15"
+      },
+      {
+        "flightNumber": "NH456",
+        "airline": "ANA",
+        "fromName": "HSG",
+        "seatCount": 194,
+        "lobbyExitMinutes": 14,
+        "lobbyExitTime": "18:20"
+      },
+      {
+        "flightNumber": "NH260",
+        "airline": "ANA",
+        "fromName": "福岡",
+        "seatCount": 405,
+        "lobbyExitMinutes": 17,
+        "lobbyExitTime": "18:23"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-05-31T18:00:34+09:00"
+  "sourceStaleSince": "2026-05-31T18:06:04+09:00"
 }
