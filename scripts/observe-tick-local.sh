@@ -63,6 +63,10 @@ fi
 # 現況バンドル (pool-status.json + サムネ) を生成 (fail-safe)
 node scripts/publish-pool-status.mjs || true
 
+# b3 シャドウ観測 — 列のシフト量を並行ログ (本流に影響させない fail-safe)。
+# 現行の占有/出庫には一切手を加えず data/movement-shift-history.jsonl に追記するだけ。
+node scripts/movement-shift-tick.mjs || true
+
 # Phase F-1: YOLOv8 車両検出 — 2026-05-23 停止。
 # 占有は fill 自動較正(slot-occupancy-tick)が主系で実用域。YOLOは全画面でもROIクロップでも
 # frame間ノイズが大きく(stall1=1↔10)、平滑化前提でも fill を上回らないと過去画像で実証された
@@ -76,7 +80,7 @@ if [ -z "$(git status --porcelain data/taxi-pool-history.jsonl)" ]; then
 fi
 
 # 観測関連ファイル 3 点を 1 コミットにまとめる (Web UI が forecast/pattern-match の最新を必要とする)
-git add data/taxi-pool-history.jsonl data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/t3-pool-history.jsonl data/vehicle-detection-history.jsonl data/vehicle-track-history.jsonl data/throughput-calibration.json data/slot-occupancy-history.jsonl data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg 2>/dev/null || true
+git add data/taxi-pool-history.jsonl data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/t3-pool-history.jsonl data/vehicle-detection-history.jsonl data/vehicle-track-history.jsonl data/throughput-calibration.json data/slot-occupancy-history.jsonl data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/movement-shift-history.jsonl 2>/dev/null || true
 git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
 
 for i in 1 2 3; do
