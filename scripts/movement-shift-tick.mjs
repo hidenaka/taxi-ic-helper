@@ -15,6 +15,9 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { profileForSlots, bestShift } from './lib/movement-shift.mjs';
+import { frontBox, meanGrayInBox } from './lib/advance-counter.mjs';
+
+const N_FRONT = 6; // 先頭エリアとみなすスロット数(乗車ポール側)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SLOTS_PATH = join(ROOT, 'scripts/lib/stall-slots.json');
@@ -56,9 +59,12 @@ async function main() {
   for (const [name, def] of Object.entries(cfg.stalls)) {
     if (!Array.isArray(def.slots) || def.slots.length < 3) continue;
     let profile;
+    let frontDensity = null;
     try {
       const img = await loadImage(imagePathForSource(def.source));
       profile = profileForSlots(img, def.slots, { oversample: OVERSAMPLE, radius: RADIUS });
+      // b5: 先頭エリア(面)の平均輝度。後段で detectAdvances により前進カウントへ。
+      frontDensity = Number(meanGrayInBox(img, frontBox(def.slots, N_FRONT), 3).toFixed(2));
     } catch (e) {
       continue; // 画像欠損などはこの stall を飛ばす
     }
@@ -67,17 +73,17 @@ async function main() {
     const prev = prevState.stalls?.[name];
     if (Array.isArray(prev) && prev.length === profile.length) {
       const { lag, score } = bestShift(prev, profile, MAX_LAG);
-      outStalls[name] = { lag, score: Number(score.toFixed(3)), n: profile.length };
+      outStalls[name] = { lag, score: Number(score.toFixed(3)), n: profile.length, frontDensity };
     } else {
-      outStalls[name] = { lag: null, score: null, n: profile.length }; // 初回 or 形状変化
+      outStalls[name] = { lag: null, score: null, n: profile.length, frontDensity }; // 初回 or 形状変化
     }
   }
 
   writeFileSync(STATE_PATH, JSON.stringify(newState));
-  appendFileSync(HISTORY_PATH, JSON.stringify({ schema_version: 1, ts, stalls: outStalls }) + '\n');
+  appendFileSync(HISTORY_PATH, JSON.stringify({ schema_version: 2, ts, stalls: outStalls }) + '\n');
 
   const summary = Object.entries(outStalls)
-    .map(([k, v]) => `${k}=${v.lag === null ? '-' : v.lag}(${v.score ?? '-'})`)
+    .map(([k, v]) => `${k}=${v.frontDensity ?? '-'}`)
     .join(' ');
   console.log(`[movement-shift] ${ts} ${summary}`);
 }
