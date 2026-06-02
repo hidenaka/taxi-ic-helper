@@ -75,3 +75,20 @@ export function detectAdvances(values, times, opts) {
   }
   return { count, eventTimes };
 }
+
+/**
+ * イベント時刻(epoch秒)の配列を、windowSec ごとの窓に丸めて回数を集計する。
+ * @param {number[]} eventTimes 昇順でなくても可
+ * @param {number} windowSec 窓幅(秒) 例 900=15分
+ * @param {number} originSec 窓の起点(秒)
+ * @returns {Record<number, number>} { 窓開始秒: 回数 }
+ */
+export function binCountsByWindow(eventTimes, windowSec, originSec = 0) {
+  const out = {};
+  for (const t of eventTimes) {
+    const idx = Math.floor((t - originSec) / windowSec);
+    const start = originSec + idx * windowSec;
+    out[start] = (out[start] || 0) + 1;
+  }
+  return out;
+}

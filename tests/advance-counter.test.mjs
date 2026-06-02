@@ -4,7 +4,7 @@ import { Jimp } from 'jimp';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { frontBox, meanGrayInBox, detectAdvances } from '../scripts/lib/advance-counter.mjs';
+import { frontBox, meanGrayInBox, detectAdvances, binCountsByWindow } from '../scripts/lib/advance-counter.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -51,6 +51,20 @@ test('detectAdvances: しきい値未満の小さな揺れは数えない', () =
   const v = [100, 105, 98, 103, 97, 104];
   const r = detectAdvances(v, T(v.length), { absThreshold: 15, debounceSec: 120 });
   assert.equal(r.count, 0);
+});
+
+test('binCountsByWindow: イベント時刻を窓(秒)ごとの回数に丸める', () => {
+  // 15分=900秒窓。origin=0。イベント t=100,800(窓0), 1000,1700(窓1), 2000(窓2)
+  const ev = [100, 800, 1000, 1700, 2000];
+  const bins = binCountsByWindow(ev, 900, 0);
+  // {windowStartSec: count}
+  assert.equal(bins[0], 2);
+  assert.equal(bins[900], 2);
+  assert.equal(bins[1800], 1);
+});
+
+test('binCountsByWindow: 空イベントは空オブジェクト', () => {
+  assert.deepEqual(binCountsByWindow([], 900, 0), {});
 });
 
 test('meanGradInBox: 実カメラ画像の先頭ボックスで有限の輝度を返す', async () => {
