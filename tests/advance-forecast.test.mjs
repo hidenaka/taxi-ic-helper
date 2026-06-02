@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount } from '../scripts/lib/advance-forecast.mjs';
+import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow } from '../scripts/lib/advance-forecast.mjs';
 
 // movement-shift-history 風の行を作る（60秒間隔, frontDensity 指定）
 function mkRows(stall, vals, startIso) {
@@ -17,6 +17,24 @@ test('recentActualCount: 直近窓のfrontDensity変化から前進回数を数�
   const now = Math.floor(new Date('2026-06-03T13:07:00Z').getTime() / 1000);
   const n = recentActualCount(rows, 'stall1', now, { windowMin: 15, absThreshold: 10, debounceSec: 120 });
   assert.equal(n, 2);
+});
+
+test('lastCompletedBinRow: 直前の完成15分ビンの行を返す/重複は返さない', () => {
+  // 13:00:00+09:00 は epoch が900の倍数。ビン[13:00,13:15) に stall1 の遷移を仕込む
+  const binStart = Math.floor(new Date('2026-06-03T13:00:00+09:00').getTime() / 1000);
+  const isoZ = (ep) => new Date(ep * 1000).toISOString();
+  const ms = [];
+  const vals = [100, 100, 130, 130, 130, 100, 100]; // 13:00..13:06, 2遷移
+  vals.forEach((v, i) => ms.push({ ts: isoZ(binStart + i * 60), stalls: { stall1: { frontDensity: v } } }));
+  const now = binStart + 16 * 60; // 13:16 → 現在ビン13:15、完成ビン=13:00
+  const row = lastCompletedBinRow([], ms, now, { stalls: ['stall1'], absThreshold: 10, debounceSec: 120 });
+  assert.ok(row, '行が返る');
+  assert.equal(row.stalls.stall1, 2);
+  assert.equal(bucketOfDay(row.ts), 52); // 13:00 = 13*4 = 52
+
+  // 既に履歴にそのビンがあれば null
+  const dup = lastCompletedBinRow([{ ts: row.ts, stalls: { stall1: 2 } }], ms, now, { stalls: ['stall1'], absThreshold: 10, debounceSec: 120 });
+  assert.equal(dup, null);
 });
 
 test('recentActualCount: 平坦/窓外は0', () => {

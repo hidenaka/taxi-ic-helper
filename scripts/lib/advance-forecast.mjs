@@ -34,6 +34,50 @@ export function recentActualCount(rows, stall, nowEpoch, opts = {}) {
   ).count;
 }
 
+function epochToJstIso(ep) {
+  const z = (n) => String(n).padStart(2, '0');
+  const j = new Date((ep + 9 * 3600) * 1000);
+  return `${j.getUTCFullYear()}-${z(j.getUTCMonth() + 1)}-${z(j.getUTCDate())}T${z(j.getUTCHours())}:${z(j.getUTCMinutes())}:00+09:00`;
+}
+
+/**
+ * 直前に完成した15分ビンの行を frontDensity 履歴から作る(学習データを育てる用)。
+ * 既に履歴にそのビン(以降)があれば null。観測が無ければ null。
+ * @returns {{ts:string, stalls:Record<string,number>}|null}
+ */
+export function lastCompletedBinRow(historyRows, msRows, nowEpoch, opts = {}) {
+  const BIN = 900;
+  const stalls = opts.stalls ?? ['stall1', 'stall2', 'stall3', 'stall4'];
+  const lastStart = Math.floor(nowEpoch / BIN) * BIN - BIN; // 直前の完成ビン開始
+  let lastHistEpoch = -Infinity;
+  for (const r of historyRows) {
+    const e = Math.floor(new Date(r.ts).getTime() / 1000);
+    if (e > lastHistEpoch) lastHistEpoch = e;
+  }
+  if (lastHistEpoch >= lastStart) return null; // 既にこのビンを記録済み
+  const winEnd = lastStart + BIN;
+  const stallsOut = {};
+  let observed = false;
+  for (const s of stalls) {
+    const pts = [];
+    for (const r of msRows) {
+      const fd = r.stalls?.[s]?.frontDensity;
+      if (typeof fd !== 'number') continue;
+      const t = Math.floor(new Date(r.ts).getTime() / 1000);
+      if (t < lastStart || t >= winEnd) continue;
+      pts.push({ t, v: fd });
+    }
+    if (pts.length < 2) continue;
+    observed = true;
+    pts.sort((a, b) => a.t - b.t);
+    const c = detectAdvances(pts.map((p) => p.v), pts.map((p) => p.t),
+      { absThreshold: opts.absThreshold ?? 15, debounceSec: opts.debounceSec ?? 120 }).count;
+    if (c > 0) stallsOut[s] = c;
+  }
+  if (!observed) return null;
+  return { ts: epochToJstIso(lastStart), stalls: stallsOut };
+}
+
 /** JST の ts ("...THH:MM:..+09:00") を 15分インデックス 0..95 に。 */
 export function bucketOfDay(ts) {
   const hh = parseInt(ts.slice(11, 13), 10);
