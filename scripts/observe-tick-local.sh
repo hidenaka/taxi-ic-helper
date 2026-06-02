@@ -63,9 +63,9 @@ fi
 # 現況バンドル (pool-status.json + サムネ) を生成 (fail-safe)
 node scripts/publish-pool-status.mjs || true
 
-# b3 シャドウ観測 — 列のシフト量を並行ログ (本流に影響させない fail-safe)。
-# 現行の占有/出庫には一切手を加えず data/movement-shift-history.jsonl に追記するだけ。
-node scripts/movement-shift-tick.mjs || true
+# movement-shift シャドウ観測は専用 launchd ジョブ(jp.taxi-ic-helper.movement-shift, 60秒)に
+# 移行したため、この5分ループからは呼ばない。data/movement-shift-history.jsonl の commit/push は
+# 下の git add に含めて従来どおりこのループが担う(slot-occupancy と同じ構造)。
 
 # Phase F-1: YOLOv8 車両検出 — 2026-05-23 停止。
 # 占有は fill 自動較正(slot-occupancy-tick)が主系で実用域。YOLOは全画面でもROIクロップでも

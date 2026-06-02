@@ -11,11 +11,12 @@
 // 単独実行で完結し、失敗しても exit 0(本流の tick を止めない)。
 
 import { Jimp } from 'jimp';
-import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { profileForSlots, bestShift } from './lib/movement-shift.mjs';
 import { frontBox, meanGrayInBox } from './lib/advance-counter.mjs';
+import { archivePath, defaultArchiveDir } from './lib/slot-archive.mjs';
 
 const N_FRONT = 6; // 先頭エリアとみなすスロット数(乗車ポール側)
 
@@ -34,10 +35,16 @@ function jstTimestamp(d = new Date()) {
     `${z(j.getUTCHours())}:${z(j.getUTCMinutes())}:${z(j.getUTCSeconds())}+09:00`;
 }
 
+// 30秒トラックループが保存している最新アーカイブフレームを使う(60秒ジョブでも鮮度を確保)。
+// 追加のネット取得はしない。アーカイブが無ければ observe の5分スナップショットにフォールバック。
 function imagePathForSource(source) {
-  return String(source).includes('real02')
-    ? join(ROOT, 'data/pool-cam-real02.jpg')
-    : join(ROOT, 'data/pool-cam-real01.jpg');
+  const camera = String(source).includes('real02') ? 'real02' : 'real01_line';
+  try {
+    const dir = dirname(archivePath(camera, new Date(), defaultArchiveDir()));
+    const files = readdirSync(dir).filter((f) => f.endsWith('.jpg')).sort();
+    if (files.length) return join(dir, files[files.length - 1]);
+  } catch { /* 当日ディレクトリ未作成など → フォールバック */ }
+  return join(ROOT, camera === 'real02' ? 'data/pool-cam-real02.jpg' : 'data/pool-cam-real01.jpg');
 }
 
 async function main() {
