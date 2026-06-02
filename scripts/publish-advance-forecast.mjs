@@ -6,10 +6,11 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { buildAdvanceModel, predictAdvance } from './lib/advance-forecast.mjs';
+import { buildAdvanceModel, predictAdvance, recentActualCount } from './lib/advance-forecast.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HIST = join(ROOT, 'data/advance-count-history.jsonl');
+const MS_HIST = join(ROOT, 'data/movement-shift-history.jsonl');
 const OUT = join(ROOT, 'data/advance-forecast.json');
 const STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
 
@@ -17,6 +18,24 @@ function jstNowIso() {
   const z = (n) => String(n).padStart(2, '0');
   const j = new Date(Date.now() + 9 * 3600 * 1000);
   return `${j.getUTCFullYear()}-${z(j.getUTCMonth() + 1)}-${z(j.getUTCDate())}T${z(j.getUTCHours())}:${z(j.getUTCMinutes())}:00+09:00`;
+}
+
+// 直近15分の実測前進回数(ライブfrontDensityから)。履歴が無ければ全て null。
+function currentActuals(model, nowIso) {
+  const out = {};
+  let msRows = [];
+  if (existsSync(MS_HIST)) {
+    const all = readFileSync(MS_HIST, 'utf8').trim().split('\n');
+    msRows = all.slice(-60).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  }
+  const nowEpoch = Math.floor(Date.now() / 1000);
+  for (const s of STALLS) {
+    const actual = msRows.length
+      ? recentActualCount(msRows, s, nowEpoch, { windowMin: 15, absThreshold: 8, debounceSec: 120 })
+      : null;
+    out[s] = { actual, forecast: Number(predictAdvance(model, nowIso, s).toFixed(1)) };
+  }
+  return out;
 }
 
 if (!existsSync(HIST)) { console.error('履歴なし(backfill未実行?)'); process.exit(1); }
@@ -37,11 +56,13 @@ for (let b = 0; b < 96; b++) {
   slots.push({ time: `${hh}:${mm}`, stalls });
 }
 
+const nowIso = jstNowIso();
 const out = {
   schema_version: 1,
-  generatedAt: jstNowIso(),
-  note: '15分あたりの予測前進回数(相対指標)。計測の都合で実際より少なめに出る。',
+  generatedAt: nowIso,
+  note: '15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。',
   trainedRows: rows.length,
+  current: { time: nowIso.slice(11, 16), stalls: currentActuals(model, nowIso) },
   slots,
 };
 writeFileSync(OUT, JSON.stringify(out, null, 2));

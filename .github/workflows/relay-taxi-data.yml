@@ -17,6 +17,7 @@ on:
       - 'data/arrivals.json'
       - 'data/stall-ensemble.json'
       - 'data/t3-pool-fill.json'
+      - 'data/advance-forecast.json'
   workflow_dispatch: {}
 
 permissions:
@@ -54,13 +55,13 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           SRC="$GITHUB_WORKSPACE/src/data"
-          FILES="arrivals.json stall-ensemble.json stall-actuals.json t3-pool-fill.json pool-status.json pool-cam-real01.jpg pool-cam-real02.jpg"
+          FILES="arrivals.json stall-ensemble.json stall-actuals.json t3-pool-fill.json pool-status.json pool-cam-real01.jpg pool-cam-real02.jpg advance-forecast.json"
 
           publish() {
             local dir="$1"
             cd "$GITHUB_WORKSPACE/$dir"
             mkdir -p tools/data
-            for f in $FILES; do cp "$SRC/$f" "tools/data/$f"; done
+            for f in $FILES; do [ -f "$SRC/$f" ] && cp "$SRC/$f" "tools/data/$f"; done
             if [ -z "$(git status --porcelain tools/data)" ]; then
               echo "$dir: no change"
               return 0

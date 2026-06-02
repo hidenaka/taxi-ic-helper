@@ -1,6 +1,32 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { bucketOfDay, buildAdvanceModel, predictAdvance } from '../scripts/lib/advance-forecast.mjs';
+import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount } from '../scripts/lib/advance-forecast.mjs';
+
+// movement-shift-history 風の行を作る（60秒間隔, frontDensity 指定）
+function mkRows(stall, vals, startIso) {
+  const start = Math.floor(new Date(startIso).getTime() / 1000);
+  return vals.map((v, i) => ({
+    ts: new Date((start + i * 60) * 1000).toISOString(),
+    stalls: { [stall]: { frontDensity: v } },
+  }));
+}
+
+test('recentActualCount: 直近窓のfrontDensity変化から前進回数を数える', () => {
+  // 100→130(上,t=120s)→…→100(下,t=300s) の2遷移。debounce120s未満を避ける間隔
+  const rows = mkRows('stall1', [100, 100, 130, 130, 130, 100, 100], '2026-06-03T13:00:00Z');
+  const now = Math.floor(new Date('2026-06-03T13:07:00Z').getTime() / 1000);
+  const n = recentActualCount(rows, 'stall1', now, { windowMin: 15, absThreshold: 10, debounceSec: 120 });
+  assert.equal(n, 2);
+});
+
+test('recentActualCount: 平坦/窓外は0', () => {
+  const flat = mkRows('stall1', [100, 101, 99, 100, 100], '2026-06-03T13:00:00Z');
+  const now = Math.floor(new Date('2026-06-03T13:06:00Z').getTime() / 1000);
+  assert.equal(recentActualCount(flat, 'stall1', now, { windowMin: 15, absThreshold: 15, debounceSec: 120 }), 0);
+  // 窓(15分)より前のデータしかない場合は0
+  const old = mkRows('stall1', [100, 130, 100], '2026-06-03T11:00:00Z');
+  assert.equal(recentActualCount(old, 'stall1', now, { windowMin: 15, absThreshold: 10, debounceSec: 120 }), 0);
+});
 
 test('bucketOfDay: JST時刻を15分インデックス(0..95)に', () => {
   assert.equal(bucketOfDay('2026-05-20T00:00:00+09:00'), 0);

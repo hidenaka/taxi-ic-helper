@@ -3,6 +3,37 @@
 // 履歴が少ない(数週間)ので過学習を避けた素直なベースライン。
 // 注: bin行に乗り場キーが無い=その時間帯0回として平均に算入する。
 
+import { detectAdvances } from './advance-counter.mjs';
+
+/**
+ * movement-shift-history 風の行から、直近 windowMin 分の frontDensity 変化で
+ * 乗り場の実測前進回数を数える。
+ * @param {{ts:string, stalls:Record<string,{frontDensity?:number}>}[]} rows
+ * @param {string} stall
+ * @param {number} nowEpoch 現在 epoch 秒
+ * @param {{windowMin?:number, absThreshold?:number, debounceSec?:number}} opts
+ * @returns {number}
+ */
+export function recentActualCount(rows, stall, nowEpoch, opts = {}) {
+  const windowMin = opts.windowMin ?? 15;
+  const cutoff = nowEpoch - windowMin * 60;
+  const pts = [];
+  for (const r of rows) {
+    const fd = r.stalls?.[stall]?.frontDensity;
+    if (typeof fd !== 'number') continue;
+    const t = Math.floor(new Date(r.ts).getTime() / 1000);
+    if (t < cutoff || t > nowEpoch) continue;
+    pts.push({ t, v: fd });
+  }
+  if (pts.length < 2) return 0;
+  pts.sort((a, b) => a.t - b.t);
+  return detectAdvances(
+    pts.map((p) => p.v),
+    pts.map((p) => p.t),
+    { absThreshold: opts.absThreshold ?? 8, debounceSec: opts.debounceSec ?? 120 },
+  ).count;
+}
+
 /** JST の ts ("...THH:MM:..+09:00") を 15分インデックス 0..95 に。 */
 export function bucketOfDay(ts) {
   const hh = parseInt(ts.slice(11, 13), 10);
