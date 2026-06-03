@@ -65,7 +65,12 @@ node scripts/publish-pool-status.mjs || true
 
 # 前進カウント(実測+予測)を data/advance-forecast.json に生成 (fail-safe)。
 # 学習履歴(advance-count-history.jsonl)が無ければ publish 側で skip。
+# 段階A: 到着便(乗り場号)を予測に反映。段階B学習用に到着需要も追記。
 node scripts/publish-advance-forecast.mjs || true
+
+# 段階B: 到着→列移動のラグを履歴学習し data/arrival-advance-coeffs.json を更新 (fail-safe・ローカル学習)。
+# データが貯まるまでは applied:false(lag0=従来動作)。次回 publish がこの係数を読む。
+node scripts/learn-arrival-advance.mjs || true
 
 # movement-shift シャドウ観測は専用 launchd ジョブ(jp.taxi-ic-helper.movement-shift, 60秒)に
 # 移行したため、この5分ループからは呼ばない。data/movement-shift-history.jsonl の commit/push は

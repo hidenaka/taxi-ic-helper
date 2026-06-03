@@ -1,6 +1,82 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow } from '../scripts/lib/advance-forecast.mjs';
+import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag } from '../scripts/lib/advance-forecast.mjs';
+
+test('learnArrivalLag: 既知のラグを復元(合成データ)', () => {
+  // stall3: 需要の2バケット後に列移動が比例して出る(lag=2)。十分なサンプル数。
+  const demand = [], advance = [];
+  const base = Math.floor(new Date('2026-06-01T06:00:00+09:00').getTime() / 1000);
+  for (let i = 0; i < 60; i++) {
+    const dEpoch = base + i * 900;
+    const dv = (i % 7) + 1; // 1..7 の変動
+    demand.push({ ts: new Date(dEpoch * 1000).toISOString(), stalls: { stall3: dv } });
+    // 列移動は2バケット後に demand*2
+    advance.push({ ts: new Date((dEpoch + 2 * 900) * 1000).toISOString(), stalls: { stall3: dv * 2 } });
+  }
+  const r = learnArrivalLag(demand, advance, { stalls: ['stall3'], minSamples: 20, minCorr: 0.2 });
+  assert.equal(r.coeffs.stall3.lag, 2, 'lag=2を復元');
+  assert.equal(r.coeffs.stall3.applied, true);
+  assert.ok(r.coeffs.stall3.corr > 0.9);
+});
+
+test('learnArrivalLag: サンプル不足は未適用(lag0)', () => {
+  const demand = [{ ts: '2026-06-01T08:00:00+09:00', stalls: { stall1: 3 } }];
+  const advance = [{ ts: '2026-06-01T08:00:00+09:00', stalls: { stall1: 1 } }];
+  const r = learnArrivalLag(demand, advance, { stalls: ['stall1'], minSamples: 40 });
+  assert.equal(r.coeffs.stall1.applied, false);
+  assert.equal(r.coeffs.stall1.lag, 0);
+});
+
+test('arrivalDemandByStall: poolLane(号)→stall・lobbyExitTimeのバケットにpax集計', () => {
+  const arr = { flights: [
+    { poolLane: 3, lobbyExitTime: '18:05', estimatedTaxiPax: 10 },
+    { poolLane: 3, lobbyExitTime: '18:12', estimatedTaxiPax: 5 },  // 同じ18:00-18:15バケット
+    { poolLane: 1, lobbyExitTime: '18:40', estimatedTaxiPax: 7 },
+    { poolLane: 2, lobbyExitTime: null, estimatedTaxiPax: 9 },     // 無効
+    { poolLane: 4, lobbyExitTime: '18:05', estimatedTaxiPax: 0 },  // pax0は無視
+  ]};
+  const d = arrivalDemandByStall(arr);
+  const b1815 = (18 * 60) / 15; // 72
+  assert.equal(d.stall3[b1815], 15);
+  assert.equal(d.stall1[(18 * 60 + 40) / 15 | 0], 7);
+  assert.equal(d.stall4.reduce((a, b) => a + b, 0), 0);
+});
+
+test('flightFactorByStall: 自己正規化・多い時間帯>1・便なし=1.0・clip', () => {
+  const arr = { flights: [
+    { poolLane: 3, lobbyExitTime: '18:05', estimatedTaxiPax: 30 }, // 多い
+    { poolLane: 3, lobbyExitTime: '19:05', estimatedTaxiPax: 10 }, // 平均的
+  ]};
+  const ff = flightFactorByStall(arr);
+  const b18 = 72, b19 = 76, b12 = 48;
+  assert.ok(ff.stall3[b18] > 1.0, '多い時間帯は>1');
+  assert.ok(ff.stall3[b19] < 1.0, '少ない時間帯は<1');
+  assert.equal(ff.stall3[b12], 1.0, '便なしは1.0');
+  assert.ok(ff.stall3[b18] <= 2.0, 'clip上限');
+  // 便のない乗り場は全て1.0
+  assert.ok(ff.stall1.every((v) => v === 1.0));
+});
+
+test('predictAdvanceWithFlights: 係数を掛ける/無ければ素の予測', () => {
+  const model = { buckets: { 72: { rows: 2, sums: { stall3: 4 } } } };
+  const ts = '2026-01-01T18:00:00+09:00';
+  assert.equal(predictAdvance(model, ts, 'stall3'), 2); // 4/2
+  const ff = { stall3: new Array(96).fill(1) }; ff.stall3[72] = 1.5;
+  assert.equal(predictAdvanceWithFlights(model, ts, 'stall3', ff), 3); // 2*1.5
+  assert.equal(predictAdvanceWithFlights(model, ts, 'stall3', null), 2); // フォールバック
+});
+
+test('flightFactorByStall: lagByStallでバケットを後ろにずらす(段階B)', () => {
+  const arr = { flights: [
+    { poolLane: 3, lobbyExitTime: '18:05', estimatedTaxiPax: 30 },
+    { poolLane: 3, lobbyExitTime: '19:05', estimatedTaxiPax: 10 },
+  ]};
+  const noLag = flightFactorByStall(arr);
+  assert.ok(noLag.stall3[72] > 1.0, 'lag無し: 18:00台が強い');
+  const ff = flightFactorByStall(arr, { lagByStall: { stall3: 2 } }); // +2バケット=+30分
+  assert.equal(ff.stall3[72], 1.0, '元18:00台は便なし扱いに');
+  assert.ok(ff.stall3[74] > 1.0, '+2バケット(18:30台)へシフト');
+});
 
 // movement-shift-history 風の行を作る（60秒間隔, frontDensity 指定）
 function mkRows(stall, vals, startIso) {

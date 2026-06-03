@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow } from './lib/advance-forecast.mjs';
+import { buildAdvanceModel, predictAdvance, predictAdvanceWithFlights, flightFactorByStall, arrivalDemandByStall, recentActualCount, lastCompletedBinRow } from './lib/advance-forecast.mjs';
 
 const THR = 15; // 列移動検出の絶対しきい値(夜の行灯フリッカ抑制込みで昼夜共通=検証で最良)
 
@@ -14,6 +14,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HIST = join(ROOT, 'data/advance-count-history.jsonl');
 const MS_HIST = join(ROOT, 'data/movement-shift-history.jsonl');
 const OUT = join(ROOT, 'data/advance-forecast.json');
+const ARRIVALS = join(ROOT, 'data/arrivals.json');
+const COEFFS = join(ROOT, 'data/arrival-advance-coeffs.json');     // 段階B学習結果(任意)
+const DEMAND_HIST = join(ROOT, 'data/arrival-demand-history.jsonl'); // 段階B学習用ログ
 const STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
 
 function jstNowIso() {
@@ -23,14 +26,14 @@ function jstNowIso() {
 }
 
 // 直近15分の実測前進回数(ライブfrontDensityから)。履歴が無ければ全て null。
-function currentActuals(model, nowIso, msRows) {
+function currentActuals(model, nowIso, msRows, factorByStall) {
   const out = {};
   const nowEpoch = Math.floor(Date.now() / 1000);
   for (const s of STALLS) {
     const actual = msRows.length
       ? recentActualCount(msRows, s, nowEpoch, { windowMin: 15, absThreshold: THR, debounceSec: 120 })
       : null;
-    out[s] = { actual, forecast: Number(predictAdvance(model, nowIso, s).toFixed(1)) };
+    out[s] = { actual, forecast: Number(predictAdvanceWithFlights(model, nowIso, s, factorByStall).toFixed(1)) };
   }
   return out;
 }
@@ -58,6 +61,34 @@ if (grown) {
 
 const model = buildAdvanceModel(rows);
 
+// --- 段階A: 到着便(乗り場号)を予測に効かせる(best-effort, 失敗時は係数なし=従来動作) ---
+let factorByStall = null;
+let flightApplied = false;
+try {
+  if (existsSync(ARRIVALS)) {
+    const arrivals = JSON.parse(readFileSync(ARRIVALS, 'utf8'));
+    let lagByStall = {};
+    if (existsSync(COEFFS)) {
+      try {
+        const c = JSON.parse(readFileSync(COEFFS, 'utf8'));
+        for (const s of STALLS) if (c?.coeffs?.[s] && Number.isInteger(c.coeffs[s].lag)) lagByStall[s] = c.coeffs[s].lag;
+      } catch { /* coeffs 不正は無視 */ }
+    }
+    factorByStall = flightFactorByStall(arrivals, { stalls: STALLS, lagByStall });
+    flightApplied = true;
+    // 段階B 学習用: 直前に完成した15分ビンの到着需要をログ(後で実測列移動と突き合わせる)
+    if (grown) {
+      const demand = arrivalDemandByStall(arrivals, { stalls: STALLS, lagByStall });
+      const b = parseInt(grown.ts.slice(11, 13), 10) * 4 + Math.floor(parseInt(grown.ts.slice(14, 16), 10) / 15);
+      const demandRow = { ts: grown.ts, stalls: Object.fromEntries(STALLS.map((s) => [s, demand[s][b] || 0])) };
+      appendFileSync(DEMAND_HIST, JSON.stringify(demandRow) + '\n');
+    }
+  }
+} catch (e) {
+  console.error(`[advance-forecast] flight factor skipped: ${e.message}`);
+  factorByStall = null;
+}
+
 // 96 バケット分の予測カーブ。観測のある時間帯のみ出力(夜明け前の空白は省く)。
 const slots = [];
 for (let b = 0; b < 96; b++) {
@@ -67,7 +98,7 @@ for (let b = 0; b < 96; b++) {
   const mm = String((b % 4) * 15).padStart(2, '0');
   const ts = `2026-01-01T${hh}:${mm}:00+09:00`;
   const stalls = {};
-  for (const s of STALLS) stalls[s] = Number(predictAdvance(model, ts, s).toFixed(1));
+  for (const s of STALLS) stalls[s] = Number(predictAdvanceWithFlights(model, ts, s, factorByStall).toFixed(1));
   slots.push({ time: `${hh}:${mm}`, stalls });
 }
 
@@ -86,7 +117,8 @@ const out = {
   generatedAt: nowIso,
   note: '15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。',
   trainedRows: rows.length,
-  current: { time: nowIso.slice(11, 16), stalls: currentActuals(model, nowIso, msRows) },
+  flightApplied,
+  current: { time: nowIso.slice(11, 16), stalls: currentActuals(model, nowIso, msRows, factorByStall) },
   actualsToday,
   slots,
 };

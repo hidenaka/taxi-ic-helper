@@ -121,3 +121,138 @@ export function predictAdvance(model, ts, stall) {
   if (typeof sum !== 'number') return 0;
   return sum / bucket.rows;
 }
+
+// ---- 段階A: 到着便(乗り場号 poolLane)を予測に効かせる ----
+
+const FF_MIN = 0.5;
+const FF_MAX = 2.0;
+
+/**
+ * 到着便から「乗り場(号)×15分バケット」の到着需要(estimatedTaxiPax 合計)を作る。
+ * poolLane(1-4) → stall1-4 に対応。lobbyExitTime を 15分バケットに割り当て、
+ * 段階Bで学習した lag(バケット数シフト) があれば後ろにずらす。
+ * @returns {Record<string, number[]>} stall -> 96バケットの需要
+ */
+export function arrivalDemandByStall(arrivalsJson, opts = {}) {
+  const stalls = opts.stalls ?? ['stall1', 'stall2', 'stall3', 'stall4'];
+  const lagByStall = opts.lagByStall ?? {};
+  const demand = {};
+  for (const s of stalls) demand[s] = new Array(96).fill(0);
+  const flights = arrivalsJson && Array.isArray(arrivalsJson.flights) ? arrivalsJson.flights : [];
+  for (const f of flights) {
+    if (typeof f.poolLane !== 'number') continue;
+    const stall = 'stall' + f.poolLane;
+    if (!demand[stall]) continue;
+    const t = f.lobbyExitTime;
+    if (typeof t !== 'string' || t.length < 5) continue;
+    const hh = parseInt(t.slice(0, 2), 10);
+    const mm = parseInt(t.slice(3, 5), 10);
+    if (Number.isNaN(hh) || Number.isNaN(mm)) continue;
+    const pax = typeof f.estimatedTaxiPax === 'number' ? f.estimatedTaxiPax : 0;
+    if (pax <= 0) continue;
+    const lag = lagByStall[stall] || 0;
+    const b = ((Math.floor((hh * 60 + mm) / 15) + lag) % 96 + 96) % 96;
+    demand[stall][b] += pax;
+  }
+  return demand;
+}
+
+/**
+ * 到着需要を「乗り場ごとに自己正規化」した係数(0.5〜2.0)に変換する。
+ * その乗り場の便がある時間帯の平均需要に対し、多い時間帯は>1・少ない時間帯は<1。
+ * 需要0(便なし)の時間帯は 1.0(基線を変えない)。履歴不要・当日内で完結。
+ * @returns {Record<string, number[]>} stall -> 96バケットの係数
+ */
+export function flightFactorByStall(arrivalsJson, opts = {}) {
+  const stalls = opts.stalls ?? ['stall1', 'stall2', 'stall3', 'stall4'];
+  const ffMin = opts.ffMin ?? FF_MIN;
+  const ffMax = opts.ffMax ?? FF_MAX;
+  const demand = arrivalDemandByStall(arrivalsJson, opts);
+  const factor = {};
+  for (const s of stalls) {
+    const vals = demand[s];
+    const nz = vals.filter((v) => v > 0);
+    const avg = nz.length ? nz.reduce((a, b) => a + b, 0) / nz.length : 0;
+    factor[s] = vals.map((v) => {
+      if (avg <= 0 || v <= 0) return 1.0;
+      const r = v / avg;
+      return r < ffMin ? ffMin : r > ffMax ? ffMax : r;
+    });
+  }
+  return factor;
+}
+
+/**
+ * predictAdvance に到着係数を掛けた値。factorByStall が無ければ素の予測。
+ */
+export function predictAdvanceWithFlights(model, ts, stall, factorByStall) {
+  const base = predictAdvance(model, ts, stall);
+  if (!factorByStall || !factorByStall[stall]) return base;
+  const f = factorByStall[stall][bucketOfDay(ts)];
+  return typeof f === 'number' ? base * f : base;
+}
+
+// ---- 段階B: 到着→列移動の「ラグ」を履歴から学習 ----
+
+function pearson(xs, ys) {
+  const n = xs.length;
+  if (n < 3) return 0;
+  let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+  for (let i = 0; i < n; i++) {
+    sx += xs[i]; sy += ys[i];
+    sxx += xs[i] * xs[i]; syy += ys[i] * ys[i]; sxy += xs[i] * ys[i];
+  }
+  const cov = sxy - (sx * sy) / n;
+  const vx = sxx - (sx * sx) / n;
+  const vy = syy - (sy * sy) / n;
+  if (vx <= 0 || vy <= 0) return 0;
+  return cov / Math.sqrt(vx * vy);
+}
+
+/** jsonl行(ts, stalls:{stall:number})を 乗り場ごとの Map(binEpoch -> 値) に。 */
+function toBinMap(rows, stall) {
+  const m = new Map();
+  for (const r of rows) {
+    const v = r?.stalls?.[stall];
+    if (typeof v !== 'number') continue;
+    const e = Math.floor(new Date(r.ts).getTime() / 1000);
+    const bin = Math.floor(e / 900) * 900;
+    m.set(bin, (m.get(bin) || 0) + v);
+  }
+  return m;
+}
+
+/**
+ * 到着需要履歴(demandRows) と 実測列移動履歴(advanceRows) から、
+ * 乗り場ごとに「到着の何バケット後に列移動が最も相関するか(lag)」を学習。
+ * @param {{ts,stalls}[]} demandRows arrival-demand-history.jsonl
+ * @param {{ts,stalls}[]} advanceRows advance-count-history.jsonl
+ * @param {{stalls?:string[], maxLag?:number, minSamples?:number, minCorr?:number}} opts
+ * @returns {{schema_version:number, coeffs:Record<string,{lag:number,corr:number,n:number,applied:boolean}>}}
+ */
+export function learnArrivalLag(demandRows, advanceRows, opts = {}) {
+  const stalls = opts.stalls ?? ['stall1', 'stall2', 'stall3', 'stall4'];
+  const maxLag = opts.maxLag ?? 6;          // 0〜90分
+  const minSamples = opts.minSamples ?? 40; // これ未満は学習せず lag0
+  const minCorr = opts.minCorr ?? 0.2;      // 相関が弱ければ採用しない
+  const result = {};
+  for (const s of stalls) {
+    const dm = toBinMap(demandRows, s);
+    const am = toBinMap(advanceRows, s);
+    let best = { lag: 0, corr: 0, n: 0, applied: false };
+    for (let lag = 0; lag <= maxLag; lag++) {
+      const xs = [], ys = [];
+      for (const [bin, dv] of dm) {
+        const av = am.get(bin + lag * 900);
+        if (typeof av === 'number') { xs.push(dv); ys.push(av); }
+      }
+      if (xs.length < minSamples) continue;
+      const c = pearson(xs, ys);
+      if (c > best.corr) best = { lag, corr: Number(c.toFixed(3)), n: xs.length, applied: false };
+    }
+    best.applied = best.n >= minSamples && best.corr >= minCorr;
+    if (!best.applied) best.lag = 0;
+    result[s] = best;
+  }
+  return { schema_version: 1, coeffs: result };
+}
