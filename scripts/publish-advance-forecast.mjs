@@ -76,9 +76,10 @@ try {
     }
     factorByStall = flightFactorByStall(arrivals, { stalls: STALLS, lagByStall });
     flightApplied = true;
-    // 段階B 学習用: 直前に完成した15分ビンの到着需要をログ(後で実測列移動と突き合わせる)
+    // 段階B 学習用: 直前に完成した15分ビンの到着需要をログ(後で実測列移動と突き合わせる)。
+    // field=estimatedPax(過去バックフィルと単位を揃える。lagは生データとして残すため未適用で記録)。
     if (grown) {
-      const demand = arrivalDemandByStall(arrivals, { stalls: STALLS, lagByStall });
+      const demand = arrivalDemandByStall(arrivals, { stalls: STALLS, field: 'estimatedPax' });
       const b = parseInt(grown.ts.slice(11, 13), 10) * 4 + Math.floor(parseInt(grown.ts.slice(14, 16), 10) / 15);
       const demandRow = { ts: grown.ts, stalls: Object.fromEntries(STALLS.map((s) => [s, demand[s][b] || 0])) };
       appendFileSync(DEMAND_HIST, JSON.stringify(demandRow) + '\n');

@@ -136,6 +136,7 @@ const FF_MAX = 2.0;
 export function arrivalDemandByStall(arrivalsJson, opts = {}) {
   const stalls = opts.stalls ?? ['stall1', 'stall2', 'stall3', 'stall4'];
   const lagByStall = opts.lagByStall ?? {};
+  const field = opts.field ?? 'estimatedTaxiPax'; // 学習ログは 'estimatedPax'(過去再現と単位を揃える)
   const demand = {};
   for (const s of stalls) demand[s] = new Array(96).fill(0);
   const flights = arrivalsJson && Array.isArray(arrivalsJson.flights) ? arrivalsJson.flights : [];
@@ -148,7 +149,7 @@ export function arrivalDemandByStall(arrivalsJson, opts = {}) {
     const hh = parseInt(t.slice(0, 2), 10);
     const mm = parseInt(t.slice(3, 5), 10);
     if (Number.isNaN(hh) || Number.isNaN(mm)) continue;
-    const pax = typeof f.estimatedTaxiPax === 'number' ? f.estimatedTaxiPax : 0;
+    const pax = typeof f[field] === 'number' ? f[field] : 0;
     if (pax <= 0) continue;
     const lag = lagByStall[stall] || 0;
     const b = ((Math.floor((hh * 60 + mm) / 15) + lag) % 96 + 96) % 96;

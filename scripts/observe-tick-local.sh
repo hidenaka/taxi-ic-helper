@@ -63,6 +63,12 @@ fi
 # 現況バンドル (pool-status.json + サムネ) を生成 (fail-safe)
 node scripts/publish-pool-status.mjs || true
 
+# 段階B: 初回のみ、羽田公式APIの過去日(searchDt)から到着需要をバックフィル(即学習用)。
+# 完成便は出口がほぼ全便埋まっているため過去の号別需要を再構成できる。以降は publish が日々追記。
+if [ ! -f data/.arrival-backfill-done ]; then
+  if node scripts/backfill-arrival-demand.mjs; then touch data/.arrival-backfill-done; fi
+fi
+
 # 前進カウント(実測+予測)を data/advance-forecast.json に生成 (fail-safe)。
 # 学習履歴(advance-count-history.jsonl)が無ければ publish 側で skip。
 # 段階A: 到着便(乗り場号)を予測に反映。段階B学習用に到着需要も追記。
