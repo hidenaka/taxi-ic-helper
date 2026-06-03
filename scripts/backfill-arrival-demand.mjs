@@ -14,9 +14,13 @@ import { dirname, join } from 'node:path';
 import { flightWing, poolLane } from './lib/haneda-exits.mjs';
 import { estimatePax } from './lib/pax-estimator.mjs';
 import { computeLobbyExitTime } from './lib/route-reachability.mjs';
+import { detectAdvances } from './lib/advance-counter.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'data/arrival-demand-history.jsonl');
+const MS_HIST = join(ROOT, 'data/movement-shift-history.jsonl');
+const ADV_HIST = join(ROOT, 'data/advance-count-history.jsonl');
+const ADV_THR = 15;
 const STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
 const ENDPOINT = 'https://tokyo-haneda.com/app/api/v2/flight/search';
 const PAX_FALLBACK = 100; // 機材不明便の暫定pax
@@ -78,8 +82,62 @@ function flightToDemand(f, isIntl, dateKey) {
   return { stall, lobby, pax, dateKey };
 }
 
+// movement-shift-history(frontDensity) の全期間から 15分ビン×乗り場の実測列移動回数を
+// advance-count-history.jsonl にバックフィルする(既存tsはスキップ)。
+// publish の grow ロジックは1tick1ビンずつしか育てないため、過去ぶんはここで一括生成。
+function backfillAdvanceHistory() {
+  if (!existsSync(MS_HIST)) return 0;
+  const rows = readFileSync(MS_HIST, 'utf8').trim().split('\n')
+    .map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  // stall -> bin(epoch) -> [{t,v}]
+  const bins = {};
+  for (const s of STALLS) bins[s] = new Map();
+  for (const r of rows) {
+    const e = Math.floor(new Date(r.ts).getTime() / 1000);
+    const bin = Math.floor(e / 900) * 900;
+    for (const s of STALLS) {
+      const fd = r.stalls?.[s]?.frontDensity;
+      if (typeof fd !== 'number') continue;
+      if (!bins[s].has(bin)) bins[s].set(bin, []);
+      bins[s].get(bin).push({ t: e, v: fd });
+    }
+  }
+  // 全bin集合
+  const allBins = new Set();
+  for (const s of STALLS) for (const b of bins[s].keys()) allBins.add(b);
+  const existing = new Set();
+  if (existsSync(ADV_HIST)) {
+    for (const l of readFileSync(ADV_HIST, 'utf8').trim().split('\n')) {
+      try { existing.add(JSON.parse(l).ts); } catch { /* skip */ }
+    }
+  }
+  const lines = [];
+  for (const bin of [...allBins].sort((a, b) => a - b)) {
+    const ts = epochToJstIso(bin);
+    if (existing.has(ts)) continue;
+    const stallsOut = {};
+    for (const s of STALLS) {
+      const pts = (bins[s].get(bin) || []).sort((a, b) => a.t - b.t);
+      if (pts.length < 2) continue;
+      const c = detectAdvances(pts.map((p) => p.v), pts.map((p) => p.t), { absThreshold: ADV_THR, debounceSec: 120 }).count;
+      if (c > 0) stallsOut[s] = c;
+    }
+    // 観測のあったビンのみ(空でも記録して0回を明示=モデルの欠損0扱いと整合)
+    if (Object.keys(bins).some((s) => bins[s].has(bin))) {
+      lines.push(JSON.stringify({ ts, stalls: stallsOut }));
+    }
+  }
+  if (lines.length) {
+    const prev = existsSync(ADV_HIST) ? readFileSync(ADV_HIST, 'utf8') : '';
+    writeFileSync(ADV_HIST, prev + (prev && !prev.endsWith('\n') ? '\n' : '') + lines.join('\n') + '\n');
+  }
+  return lines.length;
+}
+
 async function main() {
   const now = new Date(Date.now() + 9 * 3600 * 1000);
+  const advAppended = backfillAdvanceHistory();
+  console.log(`[backfill] advance-count-history: appended ${advAppended} bins from movement-shift-history`);
   const args = process.argv.slice(2);
   const end = args[1] || ymd(new Date(now.getTime() - 86400000));
   const start = args[0] || ymd(new Date(now.getTime() - 7 * 86400000));

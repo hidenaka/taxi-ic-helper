@@ -65,8 +65,8 @@ node scripts/publish-pool-status.mjs || true
 
 # 段階B: 初回のみ、羽田公式APIの過去日(searchDt)から到着需要をバックフィル(即学習用)。
 # 完成便は出口がほぼ全便埋まっているため過去の号別需要を再構成できる。以降は publish が日々追記。
-if [ ! -f data/.arrival-backfill-done ]; then
-  if node scripts/backfill-arrival-demand.mjs; then touch data/.arrival-backfill-done; fi
+if [ ! -f data/.arrival-backfill-done-v2 ]; then
+  if node scripts/backfill-arrival-demand.mjs; then touch data/.arrival-backfill-done-v2; fi
 fi
 
 # 前進カウント(実測+予測)を data/advance-forecast.json に生成 (fail-safe)。

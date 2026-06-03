@@ -29,7 +29,7 @@ if (demandRows.length === 0) {
   process.exit(0);
 }
 
-const learned = learnArrivalLag(demandRows, advRows, { stalls: STALLS, maxLag: 6, minSamples: 40, minCorr: 0.2 });
+const learned = learnArrivalLag(demandRows, advRows, { stalls: STALLS, maxLag: 6, minSamples: 24, minCorr: 0.2 });
 const out = {
   schema_version: 1,
   generatedAt: new Date(Date.now() + 9 * 3600 * 1000).toISOString().replace('Z', '+09:00'),

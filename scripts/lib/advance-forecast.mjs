@@ -234,12 +234,14 @@ function toBinMap(rows, stall) {
 export function learnArrivalLag(demandRows, advanceRows, opts = {}) {
   const stalls = opts.stalls ?? ['stall1', 'stall2', 'stall3', 'stall4'];
   const maxLag = opts.maxLag ?? 6;          // 0〜90分
-  const minSamples = opts.minSamples ?? 40; // これ未満は学習せず lag0
+  const minSamples = opts.minSamples ?? 24; // 採用に必要な最小ペア数(~1日分の日中)
   const minCorr = opts.minCorr ?? 0.2;      // 相関が弱ければ採用しない
+  const corrFloor = opts.corrFloor ?? 8;    // これ未満のペア数は相関を見ない(進捗表示も0)
   const result = {};
   for (const s of stalls) {
     const dm = toBinMap(demandRows, s);
     const am = toBinMap(advanceRows, s);
+    // bestは「最もペア数の取れた相関」を進捗として記録(採用は下のゲートで判定)
     let best = { lag: 0, corr: 0, n: 0, applied: false };
     for (let lag = 0; lag <= maxLag; lag++) {
       const xs = [], ys = [];
@@ -247,12 +249,15 @@ export function learnArrivalLag(demandRows, advanceRows, opts = {}) {
         const av = am.get(bin + lag * 900);
         if (typeof av === 'number') { xs.push(dv); ys.push(av); }
       }
-      if (xs.length < minSamples) continue;
+      if (xs.length < corrFloor) continue;
       const c = pearson(xs, ys);
-      if (c > best.corr) best = { lag, corr: Number(c.toFixed(3)), n: xs.length, applied: false };
+      // 相関が高いものを採用候補に(同程度ならペア数が多い方)
+      if (c > best.corr || (Math.abs(c - best.corr) < 1e-9 && xs.length > best.n)) {
+        best = { lag, corr: Number(c.toFixed(3)), n: xs.length, applied: false };
+      }
     }
     best.applied = best.n >= minSamples && best.corr >= minCorr;
-    if (!best.applied) best.lag = 0;
+    if (!best.applied) best.lag = 0; // 未採用は lag0(従来動作)
     result[s] = best;
   }
   return { schema_version: 1, coeffs: result };
