@@ -24,6 +24,7 @@ const AIRCRAFT_CODE_ALIASES = {
   '763': 'B763',
   '76P': 'B763',  // ANA 767 派生
   '76W': 'B763',  // JAL 767 winglets
+  '76E': 'B763-INT',  // ANA 767-300ER 国際線仕様(35C+202Y=202席)を国内線投入 — ANA公式機種コード
   // Boeing 737
   '73H': 'B738',  // 737-800 with winglets
   '73D': 'B738',  // ANA 737-800 派生
@@ -35,6 +36,7 @@ const AIRCRAFT_CODE_ALIASES = {
   '351': 'A35K',
   // Airbus A320 / A321
   '320': 'A320',
+  '32P': 'A320',  // ANA A320 (146席) — ANA公式機種コード
   '321': 'A321',
   '32S': 'A321',
   '32L': 'A321',

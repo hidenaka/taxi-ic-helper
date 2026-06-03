@@ -4,12 +4,21 @@ import { estimatePax } from '../scripts/lib/pax-estimator.mjs';
 
 const seatsMaster = {
   'B789': { name: 'Boeing 787-9', seats: 246 },
-  'A359': { name: 'Airbus A350-900', seats: 369 }
+  'A359': { name: 'Airbus A350-900', seats: 369 },
+  'A320': { name: 'Airbus A320', seats: 146 },
+  'B763-INT': { name: 'Boeing 767-300ER 国際仕様', seats: 202 }
 };
 const factorsMaster = {
   default: 0.70,
   routes: { 'ITM': 0.78, 'OKA': 0.82 }
 };
+
+test('ANA機種コード 32P→A320(146席) / 76E→B763-INT(202席) を解決', () => {
+  const a = estimatePax({ aircraftCode: '32P', from: 'YGJ' }, seatsMaster, factorsMaster);
+  assert.equal(a.seatCount, 146);
+  const b = estimatePax({ aircraftCode: '76E', from: 'HIJ' }, seatsMaster, factorsMaster);
+  assert.equal(b.seatCount, 202);
+});
 
 test('機材判明・路線判明で 座席×路線搭乗率', () => {
   const r = estimatePax({ aircraftCode: 'B789', from: 'ITM' }, seatsMaster, factorsMaster);
