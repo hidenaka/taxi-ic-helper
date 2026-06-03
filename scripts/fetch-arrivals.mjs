@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fetchHndArrivals } from './lib/odpt-client.mjs';
 import { transformArrivals } from './lib/arrival-transformer.mjs';
 import { buildEffectiveTransitShare } from './lib/correction-engine.mjs';
-import { fetchWingMap, normalizeFlightNumber } from './lib/haneda-exits.mjs';
+import { fetchWingMap, normalizeFlightNumber, poolLane } from './lib/haneda-exits.mjs';
 
 const TOKEN = process.env.ODPT_TOKEN;
 if (!TOKEN) {
@@ -111,6 +111,12 @@ try {
   console.log(`[fetch-arrivals] wing matched ${matched}/${out.flights.length} flights`);
 } catch (e) {
   console.error(`[fetch-arrivals] wing enrichment skipped: ${e.message}`);
+}
+
+// タクシープール乗り場番号(号)。国際線は wing 取得有無に関わらず 4号。
+// 国内 T1/T2 は wing が決まり次第 1〜4号、未確定は null。
+for (const f of out.flights) {
+  f.poolLane = poolLane(f.terminal, f.wing, f.isInternational);
 }
 
 const outPath = './data/arrivals.json';

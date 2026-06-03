@@ -5,6 +5,7 @@ import {
   normalizeFlightNumber,
   exitToWing,
   flightWing,
+  poolLane,
   parseHanedaArrivals,
   buildWingMap,
   fetchHanedaArrivalsRaw,
@@ -49,6 +50,20 @@ test('flightWing: 北南混在は最小番号の出口を優先', () => {
   assert.equal(flightWing('T1', ['4', '5'], wingTable), '南');
   // T2 出口4(北)と5(南) → 最小=4=北
   assert.equal(flightWing('T2', ['5', '4'], wingTable), '北');
+});
+
+test('poolLane: 号乗り場マッピング', () => {
+  assert.equal(poolLane('T1', '南', false), 1);
+  assert.equal(poolLane('T1', '北', false), 2);
+  assert.equal(poolLane('T2', '北', false), 3);
+  assert.equal(poolLane('T2', '南', false), 4);
+  // 国際線は terminal によらず 4号
+  assert.equal(poolLane('T3', null, true), 4);
+  assert.equal(poolLane('T3', null, false), 4); // T3 はそれ自体国際線
+  assert.equal(poolLane('T2', null, true), 4);  // T2 の国際便も 4号
+  // wing 未確定の国内便は null
+  assert.equal(poolLane('T1', null, false), null);
+  assert.equal(poolLane('T2', null, false), null);
 });
 
 test('parseHanedaArrivals: terminal/便名/出口を抽出', () => {
