@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fetchHndArrivals } from './lib/odpt-client.mjs';
 import { transformArrivals } from './lib/arrival-transformer.mjs';
 import { buildEffectiveTransitShare } from './lib/correction-engine.mjs';
+import { fetchWingMap, normalizeFlightNumber } from './lib/haneda-exits.mjs';
 
 const TOKEN = process.env.ODPT_TOKEN;
 if (!TOKEN) {
@@ -92,6 +93,26 @@ const out = transformArrivals(
   },
   aircraftFallbackMaster
 );
+
+// 到着出口 → 北/南ウイング を best-effort で付与する。
+// 羽田公式サイトの非公開 API（国内線 T1/T2 のみ）。取得失敗しても arrivals.json は壊さない。
+// 各便に wing: '北'|'南'|null を必ず付ける（表示側は wing があれば併記する）。
+for (const f of out.flights) f.wing = null;
+try {
+  const wingTableFull = JSON.parse(readFileSync('./data/haneda-exit-wing.json', 'utf8'));
+  const searchDt = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/-/g, '');
+  const wingMap = await fetchWingMap(searchDt, wingTableFull.wing);
+  let matched = 0;
+  for (const f of out.flights) {
+    const w = wingMap[normalizeFlightNumber(f.flightNumber)];
+    if (w) { f.wing = w; matched++; }
+  }
+  out.stats.wingMatched = matched;
+  console.log(`[fetch-arrivals] wing matched ${matched}/${out.flights.length} flights`);
+} catch (e) {
+  console.error(`[fetch-arrivals] wing enrichment skipped: ${e.message}`);
+}
+
 const outPath = './data/arrivals.json';
 const newJson = JSON.stringify(out, null, 2);
 
