@@ -5,33 +5,84 @@
 
 import { detectAdvances } from './advance-counter.mjs';
 
+const DEFAULT_STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
+
+function median(a) {
+  if (!a.length) return 0;
+  const s = [...a].sort((x, y) => x - y);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
 /**
- * movement-shift-history 風の行から、直近 windowMin 分の frontDensity 変化で
- * 乗り場の実測前進回数を数える。
+ * コモンモード除去: 全乗り場が同時に同方向へ動く成分(=照明/夜明け等)を各時点で中央値として
+ * 求めて差し引き、乗り場ごとの「固有の動き」だけを残した残差 frontDensity 系列を返す。
+ * 実際の列移動は乗り場ごとに独立なので残るが、空全体の明るさ変化は相殺される。
+ * 同時に3乗り場未満しか観測が無い時点は補正しない(中央値が不安定なため)。
  * @param {{ts:string, stalls:Record<string,{frontDensity?:number}>}[]} rows
- * @param {string} stall
- * @param {number} nowEpoch 現在 epoch 秒
- * @param {{windowMin?:number, absThreshold?:number, debounceSec?:number}} opts
+ * @param {string[]} stalls
+ * @returns {Record<string, {t:number, v:number}[]>}
+ */
+export function commonModeResiduals(rows, stalls) {
+  const ticks = [];
+  for (const r of rows) {
+    const t = Math.floor(new Date(r.ts).getTime() / 1000);
+    if (!Number.isFinite(t)) continue;
+    const vals = {};
+    for (const s of stalls) {
+      const fd = r?.stalls?.[s]?.frontDensity;
+      if (typeof fd === 'number') vals[s] = fd;
+    }
+    if (Object.keys(vals).length) ticks.push({ t, vals });
+  }
+  ticks.sort((a, b) => a.t - b.t);
+  // 乗り場ごとの基準(窓内中央値)。レベル差を除いて変化成分だけ比較するため。
+  const baseline = {};
+  for (const s of stalls) baseline[s] = median(ticks.map((x) => x.vals[s]).filter((v) => typeof v === 'number'));
+  const out = {};
+  for (const s of stalls) out[s] = [];
+  for (const { t, vals } of ticks) {
+    const centered = [];
+    for (const s of stalls) if (typeof vals[s] === 'number') centered.push(vals[s] - baseline[s]);
+    const common = centered.length >= 3 ? median(centered) : 0;
+    for (const s of stalls) if (typeof vals[s] === 'number') out[s].push({ t, v: vals[s] - common });
+  }
+  return out;
+}
+
+/**
+ * 窓内の行から、コモンモード除去後に乗り場別の前進回数を数える。
+ * @returns {Record<string, number>} count>0 の乗り場のみ
+ */
+export function binAdvanceCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
+  const absThreshold = opts.absThreshold ?? 15;
+  const debounceSec = opts.debounceSec ?? 120;
+  const res = commonModeResiduals(rows, stalls);
+  const out = {};
+  for (const s of stalls) {
+    const arr = res[s] || [];
+    if (arr.length < 2) continue;
+    const c = detectAdvances(arr.map((p) => p.v), arr.map((p) => p.t), { absThreshold, debounceSec }).count;
+    if (c > 0) out[s] = c;
+  }
+  return out;
+}
+
+/**
+ * 直近 windowMin 分の frontDensity 変化で乗り場の実測前進回数を数える(コモンモード除去込み)。
+ * rows は全乗り場ぶんを渡す(共通成分の推定に必要)。
  * @returns {number}
  */
 export function recentActualCount(rows, stall, nowEpoch, opts = {}) {
   const windowMin = opts.windowMin ?? 15;
   const cutoff = nowEpoch - windowMin * 60;
-  const pts = [];
-  for (const r of rows) {
-    const fd = r.stalls?.[stall]?.frontDensity;
-    if (typeof fd !== 'number') continue;
+  const stalls = opts.stalls ?? DEFAULT_STALLS;
+  const inWin = rows.filter((r) => {
     const t = Math.floor(new Date(r.ts).getTime() / 1000);
-    if (t < cutoff || t > nowEpoch) continue;
-    pts.push({ t, v: fd });
-  }
-  if (pts.length < 2) return 0;
-  pts.sort((a, b) => a.t - b.t);
-  return detectAdvances(
-    pts.map((p) => p.v),
-    pts.map((p) => p.t),
-    { absThreshold: opts.absThreshold ?? 8, debounceSec: opts.debounceSec ?? 120 },
-  ).count;
+    return t >= cutoff && t <= nowEpoch;
+  });
+  const counts = binAdvanceCounts(inWin, stalls, { absThreshold: opts.absThreshold ?? 8, debounceSec: opts.debounceSec ?? 120 });
+  return counts[stall] || 0;
 }
 
 function epochToJstIso(ep) {
@@ -47,7 +98,7 @@ function epochToJstIso(ep) {
  */
 export function lastCompletedBinRow(historyRows, msRows, nowEpoch, opts = {}) {
   const BIN = 900;
-  const stalls = opts.stalls ?? ['stall1', 'stall2', 'stall3', 'stall4'];
+  const stalls = opts.stalls ?? DEFAULT_STALLS;
   const lastStart = Math.floor(nowEpoch / BIN) * BIN - BIN; // 直前の完成ビン開始
   let lastHistEpoch = -Infinity;
   for (const r of historyRows) {
@@ -56,25 +107,19 @@ export function lastCompletedBinRow(historyRows, msRows, nowEpoch, opts = {}) {
   }
   if (lastHistEpoch >= lastStart) return null; // 既にこのビンを記録済み
   const winEnd = lastStart + BIN;
-  const stallsOut = {};
+  const binRows = msRows.filter((r) => {
+    const t = Math.floor(new Date(r.ts).getTime() / 1000);
+    return t >= lastStart && t < winEnd;
+  });
+  // 観測判定: いずれかの乗り場で2点以上あればそのビンは観測ありとみなす。
   let observed = false;
   for (const s of stalls) {
-    const pts = [];
-    for (const r of msRows) {
-      const fd = r.stalls?.[s]?.frontDensity;
-      if (typeof fd !== 'number') continue;
-      const t = Math.floor(new Date(r.ts).getTime() / 1000);
-      if (t < lastStart || t >= winEnd) continue;
-      pts.push({ t, v: fd });
-    }
-    if (pts.length < 2) continue;
-    observed = true;
-    pts.sort((a, b) => a.t - b.t);
-    const c = detectAdvances(pts.map((p) => p.v), pts.map((p) => p.t),
-      { absThreshold: opts.absThreshold ?? 15, debounceSec: opts.debounceSec ?? 120 }).count;
-    if (c > 0) stallsOut[s] = c;
+    const n = binRows.filter((r) => typeof r?.stalls?.[s]?.frontDensity === 'number').length;
+    if (n >= 2) { observed = true; break; }
   }
   if (!observed) return null;
+  // コモンモード除去込みで乗り場別カウント。
+  const stallsOut = binAdvanceCounts(binRows, stalls, { absThreshold: opts.absThreshold ?? 15, debounceSec: opts.debounceSec ?? 120 });
   return { ts: epochToJstIso(lastStart), stalls: stallsOut };
 }
 

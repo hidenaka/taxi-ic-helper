@@ -1,6 +1,27 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag } from '../scripts/lib/advance-forecast.mjs';
+import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts } from '../scripts/lib/advance-forecast.mjs';
+
+test('binAdvanceCounts: 全レーン同時の照明変化(コモンモード)は数えない/固有の動きは残す', () => {
+  // 4レーンが同時に同じ大きさで上下(=夜明け等の照明)。stall4だけ独立した動きを上乗せ。
+  const base = Math.floor(new Date('2026-06-04T06:00:00+09:00').getTime() / 1000);
+  const common = [0, 0, 0, 40, 40, 40, 0, 0, 0, 40, 40, 40]; // 全レーン共通の±40スイング
+  const s4extra = [0, 0, 0, 0, 0, 0, 0, 0, 30, 30, 30, 30]; // stall4だけの独立変化
+  const rows = common.map((c, i) => ({
+    ts: new Date((base + i * 60) * 1000).toISOString(),
+    stalls: {
+      stall1: { frontDensity: 150 + c },
+      stall2: { frontDensity: 145 + c },
+      stall3: { frontDensity: 140 + c },
+      stall4: { frontDensity: 110 + c + s4extra[i] },
+    },
+  }));
+  const counts = binAdvanceCounts(rows, ['stall1', 'stall2', 'stall3', 'stall4'], { absThreshold: 15, debounceSec: 120 });
+  assert.equal(counts.stall1 || 0, 0, 'stall1は照明だけ→0');
+  assert.equal(counts.stall2 || 0, 0, 'stall2は照明だけ→0');
+  assert.equal(counts.stall3 || 0, 0, 'stall3は照明だけ→0');
+  assert.ok((counts.stall4 || 0) >= 1, 'stall4は固有の動きが残る');
+});
 
 test('learnArrivalLag: 既知のラグを復元(合成データ)', () => {
   // stall3: 需要の2バケット後に列移動が比例して出る(lag=2)。十分なサンプル数。

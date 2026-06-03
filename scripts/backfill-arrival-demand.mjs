@@ -14,7 +14,7 @@ import { dirname, join } from 'node:path';
 import { flightWing, poolLane } from './lib/haneda-exits.mjs';
 import { estimatePax } from './lib/pax-estimator.mjs';
 import { computeLobbyExitTime } from './lib/route-reachability.mjs';
-import { detectAdvances } from './lib/advance-counter.mjs';
+import { binAdvanceCounts } from './lib/advance-forecast.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'data/arrival-demand-history.jsonl');
@@ -77,8 +77,8 @@ function flightToDemand(f, isIntl, dateKey) {
   const lobby = computeLobbyExitTime(at, terminal, isIntl, egress); // "HH:MM"
   if (!lobby) return null;
   const fn = f.airlines?.[0]?.flightNumber ?? null;
-  let pax = estimatePax({ aircraftCode: null, flightNumber: fn, from: null }, seatsMaster, factorsMaster, aircraftFallback);
-  if (!(typeof pax === 'number' && pax > 0)) pax = PAX_FALLBACK;
+  const est = estimatePax({ aircraftCode: null, flightNumber: fn, from: null }, seatsMaster, factorsMaster, aircraftFallback);
+  const pax = (est && typeof est.estimatedPax === 'number' && est.estimatedPax > 0) ? est.estimatedPax : PAX_FALLBACK;
   return { stall, lobby, pax, dateKey };
 }
 
@@ -89,48 +89,27 @@ function backfillAdvanceHistory() {
   if (!existsSync(MS_HIST)) return 0;
   const rows = readFileSync(MS_HIST, 'utf8').trim().split('\n')
     .map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
-  // stall -> bin(epoch) -> [{t,v}]
-  const bins = {};
-  for (const s of STALLS) bins[s] = new Map();
+  // bin(epoch) -> その15分の全行(全乗り場込み。コモンモード除去に必要)
+  const binRows = new Map();
   for (const r of rows) {
     const e = Math.floor(new Date(r.ts).getTime() / 1000);
+    if (!Number.isFinite(e)) continue;
     const bin = Math.floor(e / 900) * 900;
-    for (const s of STALLS) {
-      const fd = r.stalls?.[s]?.frontDensity;
-      if (typeof fd !== 'number') continue;
-      if (!bins[s].has(bin)) bins[s].set(bin, []);
-      bins[s].get(bin).push({ t: e, v: fd });
-    }
+    if (!binRows.has(bin)) binRows.set(bin, []);
+    binRows.get(bin).push(r);
   }
-  // 全bin集合
-  const allBins = new Set();
-  for (const s of STALLS) for (const b of bins[s].keys()) allBins.add(b);
-  const existing = new Set();
-  if (existsSync(ADV_HIST)) {
-    for (const l of readFileSync(ADV_HIST, 'utf8').trim().split('\n')) {
-      try { existing.add(JSON.parse(l).ts); } catch { /* skip */ }
-    }
-  }
+  // 全期間をコモンモード除去込みで再構築(overwrite)。movement-shift-history が
+  // advance 全ビンの正本なので、過去の汚染済み(夜明け誤検出入り)カウントもここで一掃する。
   const lines = [];
-  for (const bin of [...allBins].sort((a, b) => a - b)) {
-    const ts = epochToJstIso(bin);
-    if (existing.has(ts)) continue;
-    const stallsOut = {};
-    for (const s of STALLS) {
-      const pts = (bins[s].get(bin) || []).sort((a, b) => a.t - b.t);
-      if (pts.length < 2) continue;
-      const c = detectAdvances(pts.map((p) => p.v), pts.map((p) => p.t), { absThreshold: ADV_THR, debounceSec: 120 }).count;
-      if (c > 0) stallsOut[s] = c;
-    }
-    // 観測のあったビンのみ(空でも記録して0回を明示=モデルの欠損0扱いと整合)
-    if (Object.keys(bins).some((s) => bins[s].has(bin))) {
-      lines.push(JSON.stringify({ ts, stalls: stallsOut }));
-    }
+  for (const bin of [...binRows.keys()].sort((a, b) => a - b)) {
+    const rowsIn = binRows.get(bin);
+    const observed = STALLS.some((s) => rowsIn.filter((r) => typeof r?.stalls?.[s]?.frontDensity === 'number').length >= 2);
+    if (!observed) continue;
+    // コモンモード除去込みで乗り場別カウント(夜明け等の全レーン同時変化を相殺)。
+    const stallsOut = binAdvanceCounts(rowsIn, STALLS, { absThreshold: ADV_THR, debounceSec: 120 });
+    lines.push(JSON.stringify({ ts: epochToJstIso(bin), stalls: stallsOut }));
   }
-  if (lines.length) {
-    const prev = existsSync(ADV_HIST) ? readFileSync(ADV_HIST, 'utf8') : '';
-    writeFileSync(ADV_HIST, prev + (prev && !prev.endsWith('\n') ? '\n' : '') + lines.join('\n') + '\n');
-  }
+  if (lines.length) writeFileSync(ADV_HIST, lines.join('\n') + '\n'); // 再構築なので上書き
   return lines.length;
 }
 
