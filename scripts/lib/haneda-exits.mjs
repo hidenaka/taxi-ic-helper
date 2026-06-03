@@ -60,19 +60,23 @@ export function flightWing(terminal, exitNames, wingTable) {
 }
 
 /**
- * ターミナル+ウイング(+国際線フラグ) → タクシープール乗り場番号(号)。
+ * ターミナル+ウイング → タクシープール乗り場番号(号)。
  * 乗り場の対応(ユーザー現場定義):
  *   1号 = 第1ターミナル 南 / 2号 = 第1ターミナル 北
  *   3号 = 第2ターミナル 北 / 4号 = 第2ターミナル 南
- *   国際線(T3 等)は 4号
+ *   国際線ターミナル(T3) は 4号
  * 不明(出口未割当の国内便など)は null。
+ *
+ * 注: isInternational フラグは使わない。ODPT 側の国内/国際判定は
+ *     空港マスタ未収録だと誤判定する(例: 宇部UBJ が国際扱い)。
+ *     T1 は必ず国内・T3 は必ず国際、T2 は wing で判定する terminal ベースが堅牢。
+ *     T2 の国際便(wing 無し)は null になるが、誤った 4号 表示より安全。
  * @returns {number|null} 1|2|3|4|null
  */
-export function poolLane(terminal, wing, isInternational) {
-  if (isInternational === true) return 4;     // 国際線は4号
-  if (terminal === 'T3') return 4;            // T3=国際線ターミナル
+export function poolLane(terminal, wing) {
   if (terminal === 'T1') return wing === '南' ? 1 : wing === '北' ? 2 : null;
   if (terminal === 'T2') return wing === '北' ? 3 : wing === '南' ? 4 : null;
+  if (terminal === 'T3') return 4; // T3 = 国際線
   return null;
 }
 

@@ -113,10 +113,10 @@ try {
   console.error(`[fetch-arrivals] wing enrichment skipped: ${e.message}`);
 }
 
-// タクシープール乗り場番号(号)。国際線は wing 取得有無に関わらず 4号。
+// タクシープール乗り場番号(号)。terminal+wing ベース(T3=国際=4号)。
 // 国内 T1/T2 は wing が決まり次第 1〜4号、未確定は null。
 for (const f of out.flights) {
-  f.poolLane = poolLane(f.terminal, f.wing, f.isInternational);
+  f.poolLane = poolLane(f.terminal, f.wing);
 }
 
 const outPath = './data/arrivals.json';
