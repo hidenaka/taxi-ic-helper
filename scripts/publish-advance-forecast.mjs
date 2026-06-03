@@ -72,12 +72,22 @@ for (let b = 0; b < 96; b++) {
 }
 
 const nowIso = jstNowIso();
+const todayJst = nowIso.slice(0, 10);
+// 今日の実測列移動カーブ(15分・乗り場別)。学習履歴の今日分を整形(育てるロジックで随時増える)。
+const actualsToday = rows
+  .filter((r) => r.ts.slice(0, 10) === todayJst)
+  .map((r) => ({
+    time: r.ts.slice(11, 16),
+    stalls: Object.fromEntries(STALLS.map((s) => [s, r.stalls?.[s] || 0])),
+  }));
+
 const out = {
-  schema_version: 1,
+  schema_version: 2,
   generatedAt: nowIso,
   note: '15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。',
   trainedRows: rows.length,
   current: { time: nowIso.slice(11, 16), stalls: currentActuals(model, nowIso, msRows) },
+  actualsToday,
   slots,
 };
 writeFileSync(OUT, JSON.stringify(out, null, 2));
