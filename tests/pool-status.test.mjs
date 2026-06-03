@@ -5,7 +5,27 @@ import { currentOccupancy, fullRefFor, buildPoolStatus } from '../scripts/lib/po
 import { currentOccupancyByStall, waitMinFor, stallTrend, buildStalls, buildTerminalArrivals } from '../scripts/lib/pool-status.mjs';
 import { sameConditionCompare } from '../scripts/lib/pool-status.mjs';
 import { buildStallRankHint } from '../scripts/lib/pool-status.mjs';
-import { buildTerminalArrivalsList } from '../scripts/lib/pool-status.mjs';
+import { buildTerminalArrivalsList, buildNoribaArrivalsList } from '../scripts/lib/pool-status.mjs';
+
+test('buildNoribaArrivalsList: poolLane(号)別・60分内・欠航除外・lobbyExit順', () => {
+  const now = new Date(Date.parse('2026-05-25T12:00:00+09:00'));
+  const arrivals = { flights: [
+    { terminal: 'T1', poolLane: 1, flightNumber: 'JL024', airline: 'JAL', fromName: '伊丹', seatCount: 200, lobbyExitTime: '12:10' },
+    { terminal: 'T1', poolLane: 2, flightNumber: 'JL918', airline: 'JAL', fromName: '那覇', seatCount: 369, lobbyExitTime: '12:05' },
+    { terminal: 'T2', poolLane: 3, flightNumber: 'NH032', airline: 'ANA', fromName: '新千歳', seatCount: 195, lobbyExitTime: '12:08' },
+    { terminal: 'T3', poolLane: 4, flightNumber: 'JL001', airline: 'JAL', fromName: 'ホノルル', seatCount: 244, lobbyExitTime: '12:20' }, // 号4(国際)も含む
+    { terminal: 'T2', poolLane: 4, flightNumber: 'NH640', airline: 'ANA', fromName: '岩国', seatCount: 194, status: '欠航', lobbyExitTime: '12:15' }, // 欠航除外
+    { terminal: 'T1', flightNumber: 'JL999', airline: 'JAL', fromName: '小松', seatCount: 166, lobbyExitTime: '12:30' }, // poolLane無し→除外
+  ] };
+  const r = buildNoribaArrivalsList(arrivals, now);
+  assert.equal(r[1].length, 1);
+  assert.equal(r[1][0].flightNumber, 'JL024');
+  assert.equal(r[2][0].flightNumber, 'JL918');
+  assert.equal(r[3][0].flightNumber, 'NH032');
+  assert.equal(r[4].length, 1); // 欠航NH640除外、T3 JL001のみ
+  assert.equal(r[4][0].flightNumber, 'JL001');
+  assert.equal(r[1][0].lobbyExitMinutes, 10);
+});
 
 test('occLevel: occ/fullRef を 4 段階に写像', () => {
   assert.equal(occLevel(0, 50), 'empty');

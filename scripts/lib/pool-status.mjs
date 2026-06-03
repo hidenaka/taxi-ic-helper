@@ -248,6 +248,38 @@ export function buildTerminalArrivalsList(arrivals, now) {
   return out;
 }
 
+/** 乗り場号(poolLane 1-4)別の今後60分以内に lobbyExit を迎える便を最大5件返す。
+ * 欠航・過去便・60分超・poolLane未確定は除外。号: 1=T1南/2=T1北/3=T2北/4=T2南・国際。
+ * 並び: lobbyExitMinutes 昇順、同値時 flightNumber 順。 */
+export function buildNoribaArrivalsList(arrivals, now) {
+  const out = { 1: [], 2: [], 3: [], 4: [] };
+  const flights = arrivals?.flights ?? [];
+  const nowMs = now.getTime();
+  const ms60 = nowMs + 60 * 60000;
+  for (const f of flights) {
+    const lane = f.poolLane;
+    if (!Number.isInteger(lane) || lane < 1 || lane > 4) continue;
+    if (f.status === '欠航') continue;
+    const d = lobbyExitDate(f.lobbyExitTime, now);
+    if (!d) continue;
+    const ms = d.getTime();
+    if (ms <= nowMs || ms > ms60) continue;
+    out[lane].push({
+      flightNumber: f.flightNumber,
+      airline: f.airline,
+      fromName: f.fromName,
+      seatCount: f.seatCount,
+      lobbyExitMinutes: Math.round((ms - nowMs) / 60000),
+      lobbyExitTime: f.lobbyExitTime,
+    });
+  }
+  for (const n of [1, 2, 3, 4]) {
+    out[n].sort((a, b) => a.lobbyExitMinutes - b.lobbyExitMinutes || a.flightNumber.localeCompare(b.flightNumber));
+    out[n] = out[n].slice(0, 5);
+  }
+  return out;
+}
+
 /** 直近1h出庫合計（computeSlotActuals total の合算）。 */
 function recent1hDepartures(rows, now) {
   return computeSlotActuals(rows, now, 60).reduce((s, b) => s + b.total, 0);
@@ -304,5 +336,6 @@ export function buildPoolStatus(rows, now = new Date(), arrivals = null, holiday
     stalls,
     terminalArrivals: arrivals ? buildTerminalArrivals(arrivals, now) : null,
     terminalArrivalsList: buildTerminalArrivalsList(arrivals, now),
+    noribaArrivalsList: buildNoribaArrivalsList(arrivals, now),
   };
 }
