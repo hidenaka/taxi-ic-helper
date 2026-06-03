@@ -25,7 +25,11 @@ const DOMESTIC_AIRPORTS = {
   // 沖縄
   'OKA': '那覇', 'ISG': '石垣', 'MYE': '宮古', 'MMY': '宮古',
   'AGJ': '粟国', 'KKX': '北大東', 'KTD': '南大東', 'TRA': '多良間',
-  'UEO': '上五島', 'HAC': '八丈島'
+  'UEO': '上五島', 'HAC': '八丈島',
+  // 追補(国際線誤判定の修正: 旧マスタ未収録の国内空港)
+  'ASJ': '奄美', 'HSG': '佐賀', 'IWK': '岩国', 'SHM': '南紀白浜',
+  'SYO': '庄内', 'UBJ': '山口宇部', 'OKD': '丘珠', 'RIS': '利尻',
+  'MBE': '紋別', 'NKM': '名古屋(小牧)'
 };
 
 const INTERNATIONAL_AIRPORTS = {

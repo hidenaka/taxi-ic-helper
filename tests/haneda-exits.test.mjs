@@ -52,18 +52,28 @@ test('flightWing: 北南混在は最小番号の出口を優先', () => {
   assert.equal(flightWing('T2', ['5', '4'], wingTable), '北');
 });
 
-test('poolLane: 号乗り場マッピング(terminal+wingベース)', () => {
-  assert.equal(poolLane('T1', '南'), 1);
-  assert.equal(poolLane('T1', '北'), 2);
-  assert.equal(poolLane('T2', '北'), 3);
-  assert.equal(poolLane('T2', '南'), 4);
+test('poolLane: 号乗り場マッピング', () => {
+  assert.equal(poolLane('T1', '南', false), 1);
+  assert.equal(poolLane('T1', '北', false), 2);
+  assert.equal(poolLane('T2', '北', false), 3);
+  assert.equal(poolLane('T2', '南', false), 4);
   // T3 = 国際線 → 4号
-  assert.equal(poolLane('T3', null), 4);
+  assert.equal(poolLane('T3', null, true), 4);
   // wing 未確定の国内便は null
-  assert.equal(poolLane('T1', null), null);
-  assert.equal(poolLane('T2', null), null);
-  // T1 は国内専用: 誤った国際判定があっても 4号 にしない(UBJ等の回帰防止)
-  assert.equal(poolLane('T1', '南'), 1);
+  assert.equal(poolLane('T1', null, false), null);
+  assert.equal(poolLane('T2', null, false), null);
+});
+
+test('poolLane: T1は国際誤判定でも4号にしない(UBJ/ASJ回帰防止)', () => {
+  // T1 で isInternational が誤って true でも wing のみで判定
+  assert.equal(poolLane('T1', '南', true), 1);
+  assert.equal(poolLane('T1', '北', true), 2);
+  assert.equal(poolLane('T1', null, true), null); // 4号にしない
+});
+
+test('poolLane: T2の国際便はwing無しでも4号', () => {
+  assert.equal(poolLane('T2', null, true), 4);   // フランクフルト等
+  assert.equal(poolLane('T2', '北', true), 3);   // wingがあればwing優先
 });
 
 test('parseHanedaArrivals: terminal/便名/出口を抽出', () => {
