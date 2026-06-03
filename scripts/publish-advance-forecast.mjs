@@ -64,6 +64,7 @@ const model = buildAdvanceModel(rows);
 // --- 段階A: 到着便(乗り場号)を予測に効かせる(best-effort, 失敗時は係数なし=従来動作) ---
 let factorByStall = null;
 let flightApplied = false;
+let learnedLag = null; // 段階B 学習結果の可視化(relay先で確認用)
 try {
   if (existsSync(ARRIVALS)) {
     const arrivals = JSON.parse(readFileSync(ARRIVALS, 'utf8'));
@@ -72,6 +73,7 @@ try {
       try {
         const c = JSON.parse(readFileSync(COEFFS, 'utf8'));
         for (const s of STALLS) if (c?.coeffs?.[s] && Number.isInteger(c.coeffs[s].lag)) lagByStall[s] = c.coeffs[s].lag;
+        learnedLag = Object.fromEntries(STALLS.map((s) => [s, c?.coeffs?.[s] ? { lag: c.coeffs[s].lag, corr: c.coeffs[s].corr, n: c.coeffs[s].n, applied: c.coeffs[s].applied } : null]));
       } catch { /* coeffs 不正は無視 */ }
     }
     factorByStall = flightFactorByStall(arrivals, { stalls: STALLS, lagByStall });
@@ -119,6 +121,7 @@ const out = {
   note: '15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。',
   trainedRows: rows.length,
   flightApplied,
+  learnedLag,
   current: { time: nowIso.slice(11, 16), stalls: currentActuals(model, nowIso, msRows, factorByStall) },
   actualsToday,
   slots,
