@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { buildAdvanceModel, predictAdvance, predictAdvanceWithFlights, flightFactorByStall, arrivalDemandByStall, recentActualCount, lastCompletedBinRow } from './lib/advance-forecast.mjs';
 
-const THR = 15; // 列移動検出の絶対しきい値(夜の行灯フリッカ抑制込みで昼夜共通=検証で最良)
+const THR = 8; // 列移動検出の絶対しきい値。コモンモード除去で照明/夜明け/行灯フリッカを
+               // 別途相殺するため、しきい値は感度重視で8に下げる(15は過小検出=予測が低すぎた)。
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HIST = join(ROOT, 'data/advance-count-history.jsonl');
