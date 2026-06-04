@@ -14,11 +14,12 @@ import { dirname, join } from 'node:path';
 import { flightWing, poolLane } from './lib/haneda-exits.mjs';
 import { estimatePax } from './lib/pax-estimator.mjs';
 import { computeLobbyExitTime } from './lib/route-reachability.mjs';
-import { binAdvanceCounts } from './lib/advance-forecast.mjs';
+import { binAdvanceCounts, medianOccForBin } from './lib/advance-forecast.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'data/arrival-demand-history.jsonl');
 const MS_HIST = join(ROOT, 'data/movement-shift-history.jsonl');
+const OCC_HIST = join(ROOT, 'data/slot-occupancy-history.jsonl');
 const ADV_HIST = join(ROOT, 'data/advance-count-history.jsonl');
 const ADV_THR = 8; // publish側 THR と一致(コモンモード除去前提で感度重視)
 const STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
@@ -89,6 +90,10 @@ function backfillAdvanceHistory() {
   if (!existsSync(MS_HIST)) return 0;
   const rows = readFileSync(MS_HIST, 'utf8').trim().split('\n')
     .map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  // 占有履歴(空レーンのゲート用)。無くても動く。
+  const occRows = existsSync(OCC_HIST)
+    ? readFileSync(OCC_HIST, 'utf8').trim().split('\n').map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean)
+    : [];
   // bin(epoch) -> その15分の全行(全乗り場込み。コモンモード除去に必要)
   const binRows = new Map();
   for (const r of rows) {
@@ -105,8 +110,9 @@ function backfillAdvanceHistory() {
     const rowsIn = binRows.get(bin);
     const observed = STALLS.some((s) => rowsIn.filter((r) => typeof r?.stalls?.[s]?.frontDensity === 'number').length >= 2);
     if (!observed) continue;
-    // コモンモード除去込みで乗り場別カウント(夜明け等の全レーン同時変化を相殺)。
-    const stallsOut = binAdvanceCounts(rowsIn, STALLS, { absThreshold: ADV_THR, debounceSec: 120 });
+    // コモンモード除去 + 占有ゲート込みで乗り場別カウント(夜明け等の全レーン同時変化を相殺、空レーンは0)。
+    const occByStall = medianOccForBin(occRows, STALLS, bin, bin + 900);
+    const stallsOut = binAdvanceCounts(rowsIn, STALLS, { absThreshold: ADV_THR, debounceSec: 120, occByStall, minOcc: 1 });
     lines.push(JSON.stringify({ ts: epochToJstIso(bin), stalls: stallsOut }));
   }
   if (lines.length) writeFileSync(ADV_HIST, lines.join('\n') + '\n'); // 再構築なので上書き

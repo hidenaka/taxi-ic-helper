@@ -1,6 +1,27 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts } from '../scripts/lib/advance-forecast.mjs';
+import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, medianOccForBin } from '../scripts/lib/advance-forecast.mjs';
+
+test('binAdvanceCounts: 占有0(空レーン)はゲートして数えない/占有ありは数える', () => {
+  const base = Math.floor(new Date('2026-06-05T05:45:00+09:00').getTime() / 1000);
+  // stall1 だけ大きく動くfrontDensity(本来なら検出される)
+  const v = [120, 120, 150, 150, 150, 120, 120];
+  const rows = v.map((x, i) => ({ ts: new Date((base + i * 60) * 1000).toISOString(), stalls: { stall1: { frontDensity: x } } }));
+  // 占有: stall1 は空(occ 0)
+  const occEmpty = v.map((_, i) => ({ ts: new Date((base + i * 60) * 1000).toISOString(), stalls: { stall1: { occ: 0 } } }));
+  const occByEmpty = medianOccForBin(occEmpty, ['stall1'], base, base + 900);
+  const gated = binAdvanceCounts(rows, ['stall1'], { absThreshold: 10, debounceSec: 120, occByStall: occByEmpty, minOcc: 1 });
+  assert.equal(gated.stall1 || 0, 0, '空レーンは0');
+  // 占有あり(occ 3)なら数える
+  const occFull = v.map((_, i) => ({ ts: new Date((base + i * 60) * 1000).toISOString(), stalls: { stall1: { occ: 3 } } }));
+  const occByFull = medianOccForBin(occFull, ['stall1'], base, base + 900);
+  const counted = binAdvanceCounts(rows, ['stall1'], { absThreshold: 10, debounceSec: 120, occByStall: occByFull, minOcc: 1 });
+  assert.ok((counted.stall1 || 0) >= 1, '占有ありは数える');
+  // occ未知(null)ならゲートしない
+  const occByNull = medianOccForBin([], ['stall1'], base, base + 900);
+  const noGate = binAdvanceCounts(rows, ['stall1'], { absThreshold: 10, debounceSec: 120, occByStall: occByNull, minOcc: 1 });
+  assert.ok((noGate.stall1 || 0) >= 1, 'occ不明はゲートせず従来通り');
+});
 
 test('binAdvanceCounts: 全レーン同時の照明変化(コモンモード)は数えない/固有の動きは残す', () => {
   // 4レーンが同時に同じ大きさで上下(=夜明け等の照明)。stall4だけ独立した動きを上乗せ。

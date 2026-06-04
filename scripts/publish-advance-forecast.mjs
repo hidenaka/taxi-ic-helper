@@ -14,6 +14,7 @@ const THR = 8; // 列移動検出の絶対しきい値。コモンモード除�
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HIST = join(ROOT, 'data/advance-count-history.jsonl');
 const MS_HIST = join(ROOT, 'data/movement-shift-history.jsonl');
+const OCC_HIST = join(ROOT, 'data/slot-occupancy-history.jsonl'); // 空レーンのゲート用
 const OUT = join(ROOT, 'data/advance-forecast.json');
 const ARRIVALS = join(ROOT, 'data/arrivals.json');
 const COEFFS = join(ROOT, 'data/arrival-advance-coeffs.json');     // 段階B学習結果(任意)
@@ -27,12 +28,12 @@ function jstNowIso() {
 }
 
 // 直近15分の実測前進回数(ライブfrontDensityから)。履歴が無ければ全て null。
-function currentActuals(model, nowIso, msRows, factorByStall) {
+function currentActuals(model, nowIso, msRows, factorByStall, occRows) {
   const out = {};
   const nowEpoch = Math.floor(Date.now() / 1000);
   for (const s of STALLS) {
     const actual = msRows.length
-      ? recentActualCount(msRows, s, nowEpoch, { windowMin: 15, absThreshold: THR, debounceSec: 120 })
+      ? recentActualCount(msRows, s, nowEpoch, { windowMin: 15, absThreshold: THR, debounceSec: 120, occRows })
       : null;
     out[s] = { actual, forecast: Number(predictAdvanceWithFlights(model, nowIso, s, factorByStall).toFixed(1)) };
   }
@@ -50,9 +51,16 @@ if (existsSync(MS_HIST)) {
   msRows = all.slice(-60).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
 }
 
+// 占有履歴(空レーンのゲート用)。直近ぶんだけ読む。
+let occRows = [];
+if (existsSync(OCC_HIST)) {
+  const all = readFileSync(OCC_HIST, 'utf8').trim().split('\n');
+  occRows = all.slice(-90).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+}
+
 // ① 履歴を育てる: 直前に完成した15分ビンを学習データへ追記(重複なし)。次回以降の予測精度が上がる。
 const grown = msRows.length
-  ? lastCompletedBinRow(rows, msRows, Math.floor(Date.now() / 1000), { stalls: STALLS, absThreshold: THR, debounceSec: 120 })
+  ? lastCompletedBinRow(rows, msRows, Math.floor(Date.now() / 1000), { stalls: STALLS, absThreshold: THR, debounceSec: 120, occRows })
   : null;
 if (grown) {
   appendFileSync(HIST, JSON.stringify(grown) + '\n');
@@ -123,7 +131,7 @@ const out = {
   trainedRows: rows.length,
   flightApplied,
   learnedLag,
-  current: { time: nowIso.slice(11, 16), stalls: currentActuals(model, nowIso, msRows, factorByStall) },
+  current: { time: nowIso.slice(11, 16), stalls: currentActuals(model, nowIso, msRows, factorByStall, occRows) },
   actualsToday,
   slots,
 };

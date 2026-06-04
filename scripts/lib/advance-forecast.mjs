@@ -57,14 +57,40 @@ export function commonModeResiduals(rows, stalls) {
 export function binAdvanceCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
   const absThreshold = opts.absThreshold ?? 15;
   const debounceSec = opts.debounceSec ?? 120;
+  const occByStall = opts.occByStall || null; // {stall: median occ} があれば空レーンをゲート
+  const minOcc = opts.minOcc ?? 1;
   const res = commonModeResiduals(rows, stalls);
   const out = {};
   for (const s of stalls) {
+    // 占有ゲート: その乗り場の在台が(観測できていて)ほぼ0なら列移動は起き得ない→0。
+    // occ が未知(null)の場合はゲートしない(誤抑制を避ける)。
+    if (occByStall && typeof occByStall[s] === 'number' && occByStall[s] < minOcc) continue;
     const arr = res[s] || [];
     if (arr.length < 2) continue;
     const c = detectAdvances(arr.map((p) => p.v), arr.map((p) => p.t), { absThreshold, debounceSec }).count;
     if (c > 0) out[s] = c;
   }
+  return out;
+}
+
+/**
+ * slot-occupancy 風の行から、指定窓[startEpoch,endEpoch)の乗り場別 occ 中央値を返す。
+ * occ 観測の無い乗り場は null(=ゲートしない)。
+ * @param {{ts:string, stalls:Record<string,{occ?:number}>}[]} occRows
+ */
+export function medianOccForBin(occRows, stalls, startEpoch, endEpoch) {
+  const per = {};
+  for (const s of stalls) per[s] = [];
+  for (const r of occRows || []) {
+    const t = Math.floor(new Date(r.ts).getTime() / 1000);
+    if (!Number.isFinite(t) || t < startEpoch || t >= endEpoch) continue;
+    for (const s of stalls) {
+      const v = r?.stalls?.[s]?.occ;
+      if (typeof v === 'number') per[s].push(v);
+    }
+  }
+  const out = {};
+  for (const s of stalls) out[s] = per[s].length ? median(per[s]) : null;
   return out;
 }
 
@@ -81,7 +107,8 @@ export function recentActualCount(rows, stall, nowEpoch, opts = {}) {
     const t = Math.floor(new Date(r.ts).getTime() / 1000);
     return t >= cutoff && t <= nowEpoch;
   });
-  const counts = binAdvanceCounts(inWin, stalls, { absThreshold: opts.absThreshold ?? 8, debounceSec: opts.debounceSec ?? 120 });
+  const occByStall = opts.occRows ? medianOccForBin(opts.occRows, stalls, cutoff, nowEpoch + 1) : null;
+  const counts = binAdvanceCounts(inWin, stalls, { absThreshold: opts.absThreshold ?? 8, debounceSec: opts.debounceSec ?? 120, occByStall, minOcc: opts.minOcc ?? 1 });
   return counts[stall] || 0;
 }
 
@@ -118,8 +145,9 @@ export function lastCompletedBinRow(historyRows, msRows, nowEpoch, opts = {}) {
     if (n >= 2) { observed = true; break; }
   }
   if (!observed) return null;
-  // コモンモード除去込みで乗り場別カウント。
-  const stallsOut = binAdvanceCounts(binRows, stalls, { absThreshold: opts.absThreshold ?? 15, debounceSec: opts.debounceSec ?? 120 });
+  // コモンモード除去＋占有ゲート込みで乗り場別カウント。
+  const occByStall = opts.occRows ? medianOccForBin(opts.occRows, stalls, lastStart, winEnd) : null;
+  const stallsOut = binAdvanceCounts(binRows, stalls, { absThreshold: opts.absThreshold ?? 15, debounceSec: opts.debounceSec ?? 120, occByStall, minOcc: opts.minOcc ?? 1 });
   return { ts: epochToJstIso(lastStart), stalls: stallsOut };
 }
 
