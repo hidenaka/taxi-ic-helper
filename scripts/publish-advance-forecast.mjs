@@ -19,7 +19,23 @@ const OUT = join(ROOT, 'data/advance-forecast.json');
 const ARRIVALS = join(ROOT, 'data/arrivals.json');
 const COEFFS = join(ROOT, 'data/arrival-advance-coeffs.json');     // 段階B学習結果(任意)
 const DEMAND_HIST = join(ROOT, 'data/arrival-demand-history.jsonl'); // 段階B学習用ログ
+const ROW_WIDTH = join(ROOT, 'data/noriba-row-width.json'); // 号別 横台数(列移動回数×これ=出庫台数)
 const STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
+
+// 号別 横台数(1列の補充で動く台数)。出庫台数 = 列移動回数 × 横台数。
+// ファイルが無ければ既定値(1号8/2号7/3号8/4号8)。
+function loadRowWidth() {
+  const fallback = { stall1: 8, stall2: 7, stall3: 8, stall4: 8 };
+  try {
+    if (existsSync(ROW_WIDTH)) {
+      const j = JSON.parse(readFileSync(ROW_WIDTH, 'utf8'));
+      const out = {};
+      for (const s of STALLS) out[s] = typeof j?.[s] === 'number' ? j[s] : fallback[s];
+      return out;
+    }
+  } catch { /* 不正は既定にフォールバック */ }
+  return fallback;
+}
 
 function jstNowIso() {
   const z = (n) => String(n).padStart(2, '0');
@@ -124,13 +140,15 @@ const actualsToday = rows
     stalls: Object.fromEntries(STALLS.map((s) => [s, r.stalls?.[s] || 0])),
   }));
 
+const rowWidth = loadRowWidth(); // 号別 横台数。表示側で 回数×横台数=出庫台数 に切替できる。
 const out = {
-  schema_version: 2,
+  schema_version: 3,
   generatedAt: nowIso,
-  note: '15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。',
+  note: '15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。',
   trainedRows: rows.length,
   flightApplied,
   learnedLag,
+  rowWidth,
   current: { time: nowIso.slice(11, 16), stalls: currentActuals(model, nowIso, msRows, factorByStall, occRows) },
   actualsToday,
   slots,

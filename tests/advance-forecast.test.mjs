@@ -129,12 +129,12 @@ function mkRows(stall, vals, startIso) {
   }));
 }
 
-test('recentActualCount: 直近窓のfrontDensity変化から前進回数を数える', () => {
-  // 100→130(上,t=120s)→…→100(下,t=300s) の2遷移。debounce120s未満を避ける間隔
+test('recentActualCount: 直近窓のfrontDensity変化から列移動(補充)回数を数える', () => {
+  // 100→130(補充, 3フレーム持続)→100(出庫)。補充エッジ方式は立ち上がりのみ=1回(下降は数えない)。
   const rows = mkRows('stall1', [100, 100, 130, 130, 130, 100, 100], '2026-06-03T13:00:00Z');
   const now = Math.floor(new Date('2026-06-03T13:07:00Z').getTime() / 1000);
   const n = recentActualCount(rows, 'stall1', now, { windowMin: 15, absThreshold: 10, debounceSec: 120 });
-  assert.equal(n, 2);
+  assert.equal(n, 1);
 });
 
 test('lastCompletedBinRow: 直前の完成15分ビンの行を返す/重複は返さない', () => {
@@ -142,12 +142,12 @@ test('lastCompletedBinRow: 直前の完成15分ビンの行を返す/重複は�
   const binStart = Math.floor(new Date('2026-06-03T13:00:00+09:00').getTime() / 1000);
   const isoZ = (ep) => new Date(ep * 1000).toISOString();
   const ms = [];
-  const vals = [100, 100, 130, 130, 130, 100, 100]; // 13:00..13:06, 2遷移
+  const vals = [100, 100, 130, 130, 130, 100, 100]; // 13:00..13:06, 補充1回(下降は数えない)
   vals.forEach((v, i) => ms.push({ ts: isoZ(binStart + i * 60), stalls: { stall1: { frontDensity: v } } }));
   const now = binStart + 16 * 60; // 13:16 → 現在ビン13:15、完成ビン=13:00
   const row = lastCompletedBinRow([], ms, now, { stalls: ['stall1'], absThreshold: 10, debounceSec: 120 });
   assert.ok(row, '行が返る');
-  assert.equal(row.stalls.stall1, 2);
+  assert.equal(row.stalls.stall1, 1);
   assert.equal(bucketOfDay(row.ts), 52); // 13:00 = 13*4 = 52
 
   // 既に履歴にそのビンがあれば null

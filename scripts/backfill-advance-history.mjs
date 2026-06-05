@@ -10,7 +10,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
 import { Jimp } from 'jimp';
-import { frontBox, meanGrayInBox, detectAdvances } from './lib/advance-counter.mjs';
+import { frontBox, meanGrayInBox, detectReplenishments } from './lib/advance-counter.mjs';
 
 // binCountsByWindow と同等(デプロイ済みモジュールに無くても単独実行できるよう内蔵)。
 // 正本は scripts/lib/advance-counter.mjs(TDD済)。
@@ -42,7 +42,6 @@ for (const [name, def] of stalls) {
   const cam = String(def.source).includes('real02') ? 'real02' : 'real01_line';
   (byCamera[cam] = byCamera[cam] || []).push(name);
 }
-const med3 = (a) => a.map((_, i) => { const w = [a[Math.max(0, i - 1)], a[i], a[Math.min(a.length - 1, i + 1)]].sort((x, y) => x - y); return w[1]; });
 const fsec = (f) => { const m = f.match(/^(\d{2})(\d{2})(\d{2})\.jpg$/); return m ? (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) : -1; };
 const jstEpoch = (day, secOfDay) => Math.floor(new Date(`${day}T00:00:00+09:00`).getTime() / 1000) + secOfDay;
 const jstIso = (epoch) => { const z = (n) => String(n).padStart(2, '0'); const j = new Date((epoch + 9 * 3600) * 1000); return `${j.getUTCFullYear()}-${z(j.getUTCMonth() + 1)}-${z(j.getUTCDate())}T${z(j.getUTCHours())}:${z(j.getUTCMinutes())}:00+09:00`; };
@@ -78,7 +77,8 @@ for (const day of days) {
       }
     }
     for (const n of names) {
-      const { eventTimes } = detectAdvances(med3(ser[n].v), ser[n].t, { absThreshold: THR, debounceSec: DEBOUNCE });
+      // 補充エッジ方式: 平滑化(内蔵)→手薄→補充の立ち上がりだけを持続条件つきで数える。
+      const { eventTimes } = detectReplenishments(ser[n].v, ser[n].t, { absThreshold: THR, debounceSec: DEBOUNCE });
       const bins = binCountsByWindow(eventTimes, BIN, midnight);
       for (const [start, count] of Object.entries(bins)) {
         (dayBins[start] = dayBins[start] || {})[n] = count;

@@ -3,7 +3,7 @@
 // 履歴が少ない(数週間)ので過学習を避けた素直なベースライン。
 // 注: bin行に乗り場キーが無い=その時間帯0回として平均に算入する。
 
-import { detectAdvances } from './advance-counter.mjs';
+import { detectReplenishments } from './advance-counter.mjs';
 
 const DEFAULT_STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
 
@@ -57,6 +57,9 @@ export function commonModeResiduals(rows, stalls) {
 export function binAdvanceCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
   const absThreshold = opts.absThreshold ?? 15;
   const debounceSec = opts.debounceSec ?? 120;
+  const persistSec = opts.persistSec ?? 120;     // 補充後この秒数 高を保って初めて1回(一過性ブリップ除外)
+  const holdThreshold = opts.holdThreshold;       // 未指定なら detectReplenishments 側で rise*0.5
+  const smoothK = opts.smoothK ?? 3;              // メディアン平滑化で1フレームのスパイク除去
   const occByStall = opts.occByStall || null; // {stall: median occ} があれば空レーンをゲート
   const minOcc = opts.minOcc ?? 1;
   const res = commonModeResiduals(rows, stalls);
@@ -67,7 +70,8 @@ export function binAdvanceCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
     if (occByStall && typeof occByStall[s] === 'number' && occByStall[s] < minOcc) continue;
     const arr = res[s] || [];
     if (arr.length < 2) continue;
-    const c = detectAdvances(arr.map((p) => p.v), arr.map((p) => p.t), { absThreshold, debounceSec }).count;
+    // 補充エッジ方式: 手薄→補充の立ち上がりだけを持続条件つきで数える(下降=出庫は数えない)。
+    const c = detectReplenishments(arr.map((p) => p.v), arr.map((p) => p.t), { absThreshold, debounceSec, persistSec, holdThreshold, smoothK }).count;
     if (c > 0) out[s] = c;
   }
   return out;

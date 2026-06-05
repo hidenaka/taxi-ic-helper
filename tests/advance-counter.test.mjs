@@ -4,7 +4,7 @@ import { Jimp } from 'jimp';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { frontBox, meanGrayInBox, detectAdvances, binCountsByWindow } from '../scripts/lib/advance-counter.mjs';
+import { frontBox, meanGrayInBox, detectAdvances, binCountsByWindow, medianSmooth, detectReplenishments } from '../scripts/lib/advance-counter.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -73,4 +73,56 @@ test('meanGradInBox: 実カメラ画像の先頭ボックスで有限の輝度�
   const box = frontBox(cfg.stalls.stall1.slots, 6);
   const g = meanGrayInBox(img, box, 3);
   assert.ok(Number.isFinite(g) && g > 0, `gray=${g}`);
+});
+
+// medianSmooth: k=3 のメディアン窓で1フレームの突発スパイクを潰す。プラトーは保つ。
+test('medianSmooth: 1フレームのスパイクを除去する', () => {
+  assert.deepEqual(medianSmooth([100, 100, 160, 100, 100], 3), [100, 100, 100, 100, 100]);
+});
+
+test('medianSmooth: 立ち上がってからのプラトーは保持する', () => {
+  assert.deepEqual(medianSmooth([100, 100, 160, 160, 160], 3), [100, 100, 160, 160, 160]);
+});
+
+// detectReplenishments: 「手薄(低)→補充(高)」の立ち上がりエッジだけを数える(補充エッジ方式)。
+// 下降(出庫)は数えない。一過性ブリップは持続条件で除外。
+const TR = (n) => Array.from({ length: n }, (_, i) => i * 60); // 60秒刻みの時刻
+
+test('detectReplenishments: 平坦な系列は0', () => {
+  const v = [100, 101, 99, 100, 100, 101];
+  const r = detectReplenishments(v, TR(v.length), { absThreshold: 10, debounceSec: 120, persistSec: 120 });
+  assert.equal(r.count, 0);
+});
+
+test('detectReplenishments: 持続する1段の立ち上がりで1回', () => {
+  const v = [100, 100, 100, 130, 130, 130]; // +30 が3フレーム持続
+  const r = detectReplenishments(v, TR(v.length), { absThreshold: 10, debounceSec: 120, persistSec: 120 });
+  assert.equal(r.count, 1);
+});
+
+test('detectReplenishments: 立ち上がり→下降は1回だけ(下降=出庫は数えない)', () => {
+  // 旧 detectAdvances は双方向で2回数えた。補充エッジ方式では立ち上がりのみ=1回。
+  const v = [100, 100, 100, 130, 130, 130, 130, 130, 100, 100];
+  const r = detectReplenishments(v, TR(v.length), { absThreshold: 10, debounceSec: 120, persistSec: 120 });
+  assert.equal(r.count, 1);
+});
+
+test('detectReplenishments: 手薄に戻ってから再補充で2回', () => {
+  const v = [100, 100, 130, 130, 130, 100, 100, 130, 130, 130];
+  const r = detectReplenishments(v, TR(v.length), { absThreshold: 10, debounceSec: 120, persistSec: 120 });
+  assert.equal(r.count, 2);
+});
+
+test('detectReplenishments: 一過性ブリップ(すぐ手薄へ戻る)は数えない', () => {
+  // 先頭をたまたま車が横切っただけ。2フレームで戻る=持続しない→0。
+  const v = [100, 100, 160, 160, 100, 100];
+  const r = detectReplenishments(v, TR(v.length), { absThreshold: 10, debounceSec: 120, persistSec: 120 });
+  assert.equal(r.count, 0);
+});
+
+test('detectReplenishments: 連続して高くなり続けても1回(同じ補充の続き)', () => {
+  // 100→130→160 と段階的に増えるのは1つの補充の継続。debounce/状態で二重計上しない。
+  const v = [100, 130, 160, 160, 160, 160];
+  const r = detectReplenishments(v, TR(v.length), { absThreshold: 10, debounceSec: 120, persistSec: 120 });
+  assert.equal(r.count, 1);
 });

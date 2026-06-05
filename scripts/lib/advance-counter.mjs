@@ -77,6 +77,91 @@ export function detectAdvances(values, times, opts) {
 }
 
 /**
+ * メディアン平滑化。各点を中心とした幅 k(奇数)の窓の中央値に置き換える。
+ * 端は端値でクランプ。1〜(k-1)/2 フレームの突発スパイク(計測ノイズ)を潰し、
+ * 立ち上がってからのプラトーは保つ。補充エッジ検出の前段に使う。
+ * @param {number[]} values
+ * @param {number} k 窓幅(既定3)
+ * @returns {number[]}
+ */
+export function medianSmooth(values, k = 3) {
+  if (!values || values.length === 0) return [];
+  const h = Math.floor(k / 2);
+  const n = values.length;
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const w = [];
+    for (let j = i - h; j <= i + h; j++) w.push(values[Math.min(n - 1, Math.max(0, j))]);
+    w.sort((a, b) => a - b);
+    out[i] = w[Math.floor(w.length / 2)];
+  }
+  return out;
+}
+
+/**
+ * 「列移動(補充)」を立ち上がりエッジだけで数える。
+ * 先頭が手薄(低い基準 low)のところに車が補充されて先頭面密度が立ち上がり(low+absThreshold 以上)、
+ * その高い状態が persistSec 秒以上 持続(low+holdThreshold 以上を保つ)して初めて 1 回とする。
+ * - 下降(出庫=先頭が空く)は数えない。手薄へ戻ってから次の補充を拾えるよう基準だけ追従させる。
+ * - 一過性ブリップ(たまたま車が先頭を横切ってすぐ戻る)は持続条件で除外。
+ * - 1フレームのスパイクは smoothK のメディアン平滑化で前段除去。
+ * - 同一補充の連続上昇は HIGH 状態の間は二重計上しない。debounceSec でも最小間隔を担保。
+ * @param {number[]} values フレームごとの先頭面密度
+ * @param {number[]} times 対応する epoch 秒(昇順)
+ * @param {{absThreshold:number, holdThreshold?:number, persistSec?:number, debounceSec?:number, smoothK?:number}} opts
+ * @returns {{count:number, eventTimes:number[]}}
+ */
+export function detectReplenishments(values, times, opts) {
+  const rise = opts.absThreshold;
+  const hold = opts.holdThreshold ?? rise * 0.5; // ヒステリシス下限(補充ラインより低い手薄ライン)
+  const persistSec = opts.persistSec ?? 120;
+  const debounceSec = opts.debounceSec ?? 120;
+  const smoothK = opts.smoothK ?? 3;
+  let count = 0;
+  const eventTimes = [];
+  if (!values || values.length < 2) return { count, eventTimes };
+  const v = smoothK > 1 ? medianSmooth(values, smoothK) : values.slice();
+  let state = 'LOW'; // LOW=手薄で補充待ち / HIGH=補充済みで出庫待ち
+  let low = v[0]; // 手薄基準
+  let high = v[0]; // 補充後の高基準
+  let lastEvent = -Infinity;
+  for (let i = 1; i < v.length; i++) {
+    if (state === 'LOW') {
+      if (v[i] - low >= rise) {
+        // 補充ラインを超えた。持続を確認(末尾で先のフレームが無ければ確定保留=数えない)。
+        const t0 = times[i];
+        let held = false;
+        for (let kk = i + 1; kk < v.length; kk++) {
+          if (times[kk] - t0 > persistSec) { held = true; break; } // 持続を確認できた
+          if (v[kk] - low < hold) { held = false; break; }        // 途中で崩れた=ブリップ
+          held = true;                                             // ここまで保っている
+        }
+        if (held) {
+          if (t0 - lastEvent >= debounceSec) {
+            count++;
+            eventTimes.push(t0);
+            lastEvent = t0;
+          }
+          state = 'HIGH';
+          high = v[i];
+        }
+        // held=false: 一過性ブリップ or 確定保留。LOW のまま low は据え置き。
+      } else if (v[i] < low) {
+        low = v[i]; // さらに手薄へ→基準を下げて次の補充に備える
+      }
+    } else { // HIGH
+      if (v[i] > high) high = v[i]; // プラトー追従(同一補充の継続上昇は数えない)
+      if (high - v[i] >= rise) {
+        // 補充分が出庫=手薄へ戻った。数えず再アーム。
+        state = 'LOW';
+        low = v[i];
+      }
+    }
+  }
+  return { count, eventTimes };
+}
+
+/**
  * イベント時刻(epoch秒)の配列を、windowSec ごとの窓に丸めて回数を集計する。
  * @param {number[]} eventTimes 昇順でなくても可
  * @param {number} windowSec 窓幅(秒) 例 900=15分
