@@ -67,8 +67,8 @@ node scripts/publish-pool-status.mjs || true
 # 完成便は出口がほぼ全便埋まっているため過去の号別需要を再構成できる。以降は publish が日々追記。
 # v6: 列移動検出を補充エッジ方式(detectReplenishments)に作り替えたので、過去の advance-count-history を
 #     新方式で上書き再構築させる(backfill-arrival-demand 内 backfillAdvanceHistory が新 binAdvanceCounts 経由)。
-if [ ! -f data/.arrival-backfill-done-v6 ]; then
-  if node scripts/backfill-arrival-demand.mjs; then touch data/.arrival-backfill-done-v6; fi
+if [ ! -f data/.arrival-backfill-done-v7 ]; then
+  if node scripts/backfill-arrival-demand.mjs; then touch data/.arrival-backfill-done-v7; fi
 fi
 
 # 前進カウント(実測+予測)を data/advance-forecast.json に生成 (fail-safe)。

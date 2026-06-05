@@ -7,6 +7,14 @@ import { detectReplenishments } from './advance-counter.mjs';
 
 const DEFAULT_STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
 
+// 列移動の信号源(frontDensity/occ)の読み出しキー。表示は乗り場号(stall1-4)だが、
+// 4号の列が実際に動くのは奥の待機列(real02 カメラ=stall4_back)なので、4号はそこを見る。
+// stall1-3 は手前カメラ(real01)の自分自身。
+const DENSITY_SOURCE = { stall1: 'stall1', stall2: 'stall2', stall3: 'stall3', stall4: 'stall4_back' };
+// コモンモード(照明相殺)は同一カメラのレーン同士でのみ意味がある。stall4 は real02 に相方が
+// いない(単独)ので相殺対象から外す(代わりに平滑化+持続+占有ゲートでノイズを抑える)。
+const NO_COMMON_STALLS = new Set(['stall4']);
+
 function median(a) {
   if (!a.length) return 0;
   const s = [...a].sort((x, y) => x - y);
@@ -23,14 +31,16 @@ function median(a) {
  * @param {string[]} stalls
  * @returns {Record<string, {t:number, v:number}[]>}
  */
-export function commonModeResiduals(rows, stalls) {
+export function commonModeResiduals(rows, stalls, opts = {}) {
+  const src = opts.densitySource || DENSITY_SOURCE;       // 乗り場号→frontDensity読み出しキー(4号=stall4_back)
+  const noCommon = opts.noCommonStalls || NO_COMMON_STALLS; // 照明相殺しない乗り場(別カメラ単独)
   const ticks = [];
   for (const r of rows) {
     const t = Math.floor(new Date(r.ts).getTime() / 1000);
     if (!Number.isFinite(t)) continue;
     const vals = {};
     for (const s of stalls) {
-      const fd = r?.stalls?.[s]?.frontDensity;
+      const fd = r?.stalls?.[src[s] || s]?.frontDensity;
       if (typeof fd === 'number') vals[s] = fd;
     }
     if (Object.keys(vals).length) ticks.push({ t, vals });
@@ -42,10 +52,14 @@ export function commonModeResiduals(rows, stalls) {
   const out = {};
   for (const s of stalls) out[s] = [];
   for (const { t, vals } of ticks) {
+    // コモンモードは同一カメラのレーン(noCommon以外)だけで推定する。別カメラ単独(stall4)は混ぜない。
     const centered = [];
-    for (const s of stalls) if (typeof vals[s] === 'number') centered.push(vals[s] - baseline[s]);
+    for (const s of stalls) if (!noCommon.has(s) && typeof vals[s] === 'number') centered.push(vals[s] - baseline[s]);
     const common = centered.length >= 3 ? median(centered) : 0;
-    for (const s of stalls) if (typeof vals[s] === 'number') out[s].push({ t, v: vals[s] - common });
+    for (const s of stalls) if (typeof vals[s] === 'number') {
+      const c = noCommon.has(s) ? 0 : common; // 別カメラ単独は相殺しない
+      out[s].push({ t, v: vals[s] - c });
+    }
   }
   return out;
 }
@@ -82,14 +96,15 @@ export function binAdvanceCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
  * occ 観測の無い乗り場は null(=ゲートしない)。
  * @param {{ts:string, stalls:Record<string,{occ?:number}>}[]} occRows
  */
-export function medianOccForBin(occRows, stalls, startEpoch, endEpoch) {
+export function medianOccForBin(occRows, stalls, startEpoch, endEpoch, opts = {}) {
+  const src = opts.densitySource || DENSITY_SOURCE; // 4号の占有も奥列(stall4_back)を見る
   const per = {};
   for (const s of stalls) per[s] = [];
   for (const r of occRows || []) {
     const t = Math.floor(new Date(r.ts).getTime() / 1000);
     if (!Number.isFinite(t) || t < startEpoch || t >= endEpoch) continue;
     for (const s of stalls) {
-      const v = r?.stalls?.[s]?.occ;
+      const v = r?.stalls?.[src[s] || s]?.occ;
       if (typeof v === 'number') per[s].push(v);
     }
   }

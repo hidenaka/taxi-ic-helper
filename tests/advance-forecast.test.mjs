@@ -23,25 +23,55 @@ test('binAdvanceCounts: 占有0(空レーン)はゲートして数えない/占�
   assert.ok((noGate.stall1 || 0) >= 1, 'occ不明はゲートせず従来通り');
 });
 
-test('binAdvanceCounts: 全レーン同時の照明変化(コモンモード)は数えない/固有の動きは残す', () => {
-  // 4レーンが同時に同じ大きさで上下(=夜明け等の照明)。stall4だけ独立した動きを上乗せ。
+test('binAdvanceCounts: real01の照明変化(コモンモード)は数えない/4号は奥列(stall4_back)で固有の動きを残す', () => {
+  // stall1-3(real01)が同時に同じ大きさで上下(=夜明け等の照明)→相殺。
+  // 4号の列移動は奥の待機列(real02=stall4_back)で測る。そこに独立した補充(立ち上がり)を仕込む。
   const base = Math.floor(new Date('2026-06-04T06:00:00+09:00').getTime() / 1000);
-  const common = [0, 0, 0, 40, 40, 40, 0, 0, 0, 40, 40, 40]; // 全レーン共通の±40スイング
-  const s4extra = [0, 0, 0, 0, 0, 0, 0, 0, 30, 30, 30, 30]; // stall4だけの独立変化
+  const common = [0, 0, 0, 40, 40, 40, 0, 0, 0, 40, 40, 40]; // real01共通の±40スイング
+  const s4 = [0, 0, 0, 0, 0, 0, 0, 0, 30, 30, 30, 30];       // stall4_back の独立した補充
   const rows = common.map((c, i) => ({
     ts: new Date((base + i * 60) * 1000).toISOString(),
     stalls: {
       stall1: { frontDensity: 150 + c },
       stall2: { frontDensity: 145 + c },
       stall3: { frontDensity: 140 + c },
-      stall4: { frontDensity: 110 + c + s4extra[i] },
+      stall4_back: { frontDensity: 110 + s4[i] }, // 4号=別カメラ。照明スイングは乗らない
     },
   }));
   const counts = binAdvanceCounts(rows, ['stall1', 'stall2', 'stall3', 'stall4'], { absThreshold: 15, debounceSec: 120 });
   assert.equal(counts.stall1 || 0, 0, 'stall1は照明だけ→0');
   assert.equal(counts.stall2 || 0, 0, 'stall2は照明だけ→0');
   assert.equal(counts.stall3 || 0, 0, 'stall3は照明だけ→0');
-  assert.ok((counts.stall4 || 0) >= 1, 'stall4は固有の動きが残る');
+  assert.ok((counts.stall4 || 0) >= 1, '4号は奥列(stall4_back)の固有の動きで数える');
+});
+
+test('binAdvanceCounts: 4号は stall4(手前real01)ではなく stall4_back(奥real02)を見る', () => {
+  const base = Math.floor(new Date('2026-06-04T13:00:00+09:00').getTime() / 1000);
+  const rise = [100, 100, 130, 130, 130, 100, 100]; // 補充1回ぶんの立ち上がり
+  // 手前(stall4)は平坦、奥(stall4_back)が動く → 4号は動きを検出するべき
+  const rows = rise.map((v, i) => ({
+    ts: new Date((base + i * 60) * 1000).toISOString(),
+    stalls: { stall4: { frontDensity: 120 }, stall4_back: { frontDensity: v } },
+  }));
+  const counts = binAdvanceCounts(rows, ['stall4'], { absThreshold: 10, debounceSec: 120 });
+  assert.ok((counts.stall4 || 0) >= 1, '奥列の動きを4号として数える');
+  // 逆: 手前(stall4)だけ動いて奥が平坦なら 4号は数えない(手前は見ない)
+  const rows2 = rise.map((v, i) => ({
+    ts: new Date((base + i * 60) * 1000).toISOString(),
+    stalls: { stall4: { frontDensity: v }, stall4_back: { frontDensity: 120 } },
+  }));
+  const counts2 = binAdvanceCounts(rows2, ['stall4'], { absThreshold: 10, debounceSec: 120 });
+  assert.equal(counts2.stall4 || 0, 0, '手前(stall4)の動きは4号に数えない');
+});
+
+test('medianOccForBin: 4号の占有は stall4_back を見る', () => {
+  const base = Math.floor(new Date('2026-06-04T13:00:00+09:00').getTime() / 1000);
+  const rows = [0, 1, 2].map((i) => ({
+    ts: new Date((base + i * 60) * 1000).toISOString(),
+    stalls: { stall4: { occ: 0 }, stall4_back: { occ: 4 } },
+  }));
+  const occ = medianOccForBin(rows, ['stall4'], base, base + 900);
+  assert.equal(occ.stall4, 4, '4号の占有=奥列(stall4_back)の値');
 });
 
 test('learnArrivalLag: 既知のラグを復元(合成データ)', () => {
