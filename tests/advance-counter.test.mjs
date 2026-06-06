@@ -4,7 +4,21 @@ import { Jimp } from 'jimp';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { frontBox, meanGrayInBox, detectAdvances, binCountsByWindow, medianSmooth, detectReplenishments } from '../scripts/lib/advance-counter.mjs';
+import { frontBox, meanGrayInBox, detectAdvances, binCountsByWindow, medianSmooth, detectReplenishments, frontBoxBothLines } from '../scripts/lib/advance-counter.mjs';
+
+test('frontBoxBothLines: 左列+右列の先頭をまたぐ矩形(両列を測る)', () => {
+  // 前半=左列(cx0.1〜)、後半=右列(cx0.5〜)。各列 先頭→末尾。
+  const slots = [
+    { cx: 0.10, cy: 0.10 }, { cx: 0.11, cy: 0.12 }, { cx: 0.12, cy: 0.14 }, { cx: 0.13, cy: 0.16 }, // 左列
+    { cx: 0.50, cy: 0.10 }, { cx: 0.51, cy: 0.12 }, { cx: 0.52, cy: 0.14 }, { cx: 0.53, cy: 0.16 }, // 右列
+  ];
+  const box = frontBoxBothLines(slots, 2);
+  // 左列先頭2(cx0.10,0.11 / cy0.10,0.12) + 右列先頭2(cx0.50,0.51 / cy0.10,0.12)
+  assert.equal(box.x0, 0.10);
+  assert.equal(box.x1, 0.51); // 右列も含む = 両列をまたぐ
+  assert.equal(box.y0, 0.10);
+  assert.equal(box.y1, 0.12);
+});
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 

@@ -19,6 +19,26 @@ export function frontBox(slots, nFront) {
 }
 
 /**
+ * 2列(左列+右列)で並ぶ乗り場の「両列の先頭」をまたぐ外接矩形。
+ * スロットは [左列(先頭→末尾)] + [右列(先頭→末尾)] の順に並んでいる前提で前半/後半に二分し、
+ * 各列の先頭 nPerLine スロットを合わせた矩形を返す。
+ * 列移動(2列分が前に詰める動き)を片側だけでなく両列で捉えるために使う。
+ * @param {{cx:number,cy:number}[]} slots
+ * @param {number} nPerLine 各列から取る先頭スロット数
+ * @returns {{x0:number,x1:number,y0:number,y1:number}}
+ */
+export function frontBoxBothLines(slots, nPerLine = 3) {
+  const half = Math.floor(slots.length / 2);
+  const a = slots.slice(0, half).slice(0, nPerLine);
+  const b = slots.slice(half).slice(0, nPerLine);
+  const fs = [...a, ...b];
+  if (fs.length === 0) return frontBox(slots, nPerLine);
+  const xs = fs.map((s) => s.cx);
+  const ys = fs.map((s) => s.cy);
+  return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+}
+
+/**
  * Jimp 画像の正規化ボックス領域の平均輝度。pad は画素単位の外側マージン。
  * @returns {number}
  */

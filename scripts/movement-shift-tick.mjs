@@ -15,10 +15,13 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync } 
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { profileForSlots, bestShift } from './lib/movement-shift.mjs';
-import { frontBox, meanGrayInBox } from './lib/advance-counter.mjs';
+import { frontBox, frontBoxBothLines, meanGrayInBox } from './lib/advance-counter.mjs';
 import { archivePath, defaultArchiveDir } from './lib/slot-archive.mjs';
 
 const N_FRONT = 6; // 先頭エリアとみなすスロット数(乗車ポール側)
+// 2列(左列+右列)で並ぶ乗り場。列移動は両列の先頭をまたいで測る。
+const TWO_LINE_STALLS = new Set(['stall1', 'stall2', 'stall3']);
+const N_FRONT_PER_LINE = 3; // 各列から取る先頭スロット数(両列で計6)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SLOTS_PATH = join(ROOT, 'scripts/lib/stall-slots.json');
@@ -70,8 +73,13 @@ async function main() {
     try {
       const img = await loadImage(imagePathForSource(def.source));
       profile = profileForSlots(img, def.slots, { oversample: OVERSAMPLE, radius: RADIUS });
-      // b5: 先頭エリア(面)の平均輝度。後段で detectAdvances により前進カウントへ。
-      frontDensity = Number(meanGrayInBox(img, frontBox(def.slots, N_FRONT), 3).toFixed(2));
+      // b5: 先頭エリア(面)の平均輝度。後段で列移動カウントへ。
+      // 1〜3号は「2列(左列+右列)」で並ぶので、両列の先頭をまたいで測る(片側だけだと
+      // 2列分の列移動を取りこぼす)。それ以外(4号の奥列等)は従来どおり先頭nスロット。
+      const box = TWO_LINE_STALLS.has(name)
+        ? frontBoxBothLines(def.slots, N_FRONT_PER_LINE)
+        : frontBox(def.slots, N_FRONT);
+      frontDensity = Number(meanGrayInBox(img, box, 3).toFixed(2));
     } catch (e) {
       continue; // 画像欠損などはこの stall を飛ばす
     }
