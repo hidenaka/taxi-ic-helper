@@ -61,6 +61,54 @@ export function meanGrayInBox(img, box, pad = 3) {
 }
 
 /**
+ * Jimp 画像の正規化ボックス領域で「明るい光点(行灯/ヘッドライト)」が占める割合(0-100)。
+ * 夜は車体が見えず屋根の行灯だけが点になる。閾値 T を超える画素の割合で「列の前に車がいるか」を見る。
+ * @returns {number} 0-100 (%)
+ */
+export function brightPixelRatio(img, box, T = 50, pad = 3) {
+  const { width, height } = img.bitmap;
+  const getLum = jimpLumSampler(img);
+  const px0 = Math.max(0, Math.floor(box.x0 * (width - 1)) - pad);
+  const px1 = Math.min(width - 1, Math.ceil(box.x1 * (width - 1)) + pad);
+  const py0 = Math.max(0, Math.floor(box.y0 * (height - 1)) - pad);
+  const py1 = Math.min(height - 1, Math.ceil(box.y1 * (height - 1)) + pad);
+  let bright = 0;
+  let n = 0;
+  for (let y = py0; y <= py1; y++) {
+    for (let x = px0; x <= px1; x++) {
+      if (getLum(x, y) > T) bright++;
+      n++;
+    }
+  }
+  return n ? (bright / n) * 100 : 0;
+}
+
+/**
+ * 昼夜で先頭エリアの「列移動の生信号」を出し分ける純関数(分岐のみ・テスト容易)。
+ * 昼(mean >= nightLum)は平均輝度をそのまま。夜は行灯の光点割合×lanternK(昼の輝度と同程度のスケールに)。
+ * これにより後段の補充エッジ検出(同じしきい値)が昼夜とも回る。
+ * @returns {number}
+ */
+export function pickFrontSignal(mean, ratio, opts = {}) {
+  const nightLum = opts.nightLum ?? 60;
+  const lanternK = opts.lanternK ?? 4;
+  return mean < nightLum ? ratio * lanternK : mean;
+}
+
+/**
+ * 画像の先頭ボックスから列移動の生信号を得る。昼=平均輝度／夜=行灯の光点割合×係数。
+ * 夜判定はボックスの平均輝度が nightLum 未満かどうか(暗くなったら夜)。
+ * @returns {number}
+ */
+export function frontSignal(img, box, opts = {}) {
+  const pad = opts.pad ?? 3;
+  const mean = meanGrayInBox(img, box, pad);
+  if (mean >= (opts.nightLum ?? 60)) return mean; // 昼: 平均輝度
+  const ratio = brightPixelRatio(img, box, opts.lanternT ?? 50, pad); // 夜: 行灯の光点割合
+  return ratio * (opts.lanternK ?? 4);
+}
+
+/**
  * 先頭面密度の時系列から「前進/補充イベント」を数える。
  * 現在の基準レベル lvl から absThreshold 以上動いたら 1 イベント(方向は問わない)。
  * 直前イベントから debounceSec 未満なら数えない(連続変化の重複防止)。

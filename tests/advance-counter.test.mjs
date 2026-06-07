@@ -4,7 +4,21 @@ import { Jimp } from 'jimp';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { frontBox, meanGrayInBox, detectAdvances, binCountsByWindow, medianSmooth, detectReplenishments, frontBoxBothLines } from '../scripts/lib/advance-counter.mjs';
+import { frontBox, meanGrayInBox, detectAdvances, binCountsByWindow, medianSmooth, detectReplenishments, frontBoxBothLines, brightPixelRatio, pickFrontSignal, frontSignal } from '../scripts/lib/advance-counter.mjs';
+
+test('pickFrontSignal: 昼(明るい)は平均輝度そのまま', () => {
+  assert.equal(pickFrontSignal(115, 5), 115); // mean>=60 → 昼
+});
+
+test('pickFrontSignal: 夜(暗い)は行灯割合×係数', () => {
+  assert.equal(pickFrontSignal(20, 5), 20); // mean20<60 → 夜: ratio5×K4=20
+  assert.equal(pickFrontSignal(20, 5, { lanternK: 3 }), 15);
+});
+
+test('pickFrontSignal: nightLum 境界', () => {
+  assert.equal(pickFrontSignal(60, 5), 60); // 60は昼(>=)
+  assert.equal(pickFrontSignal(59, 5), 20); // 59は夜
+});
 
 test('frontBoxBothLines: 左列+右列の先頭をまたぐ矩形(両列を測る)', () => {
   // 前半=左列(cx0.1〜)、後半=右列(cx0.5〜)。各列 先頭→末尾。

@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync } 
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { profileForSlots, bestShift } from './lib/movement-shift.mjs';
-import { frontBox, frontBoxBothLines, meanGrayInBox } from './lib/advance-counter.mjs';
+import { frontBox, frontBoxBothLines, meanGrayInBox, frontSignal } from './lib/advance-counter.mjs';
 import { archivePath, defaultArchiveDir } from './lib/slot-archive.mjs';
 
 const N_FRONT = 6; // 先頭エリアとみなすスロット数(乗車ポール側)
@@ -79,7 +79,8 @@ async function main() {
       const box = TWO_LINE_STALLS.has(name)
         ? frontBoxBothLines(def.slots, N_FRONT_PER_LINE)
         : frontBox(def.slots, N_FRONT);
-      frontDensity = Number(meanGrayInBox(img, box, 3).toFixed(2));
+      // 昼=平均輝度／夜=行灯の光点割合×係数(暗所でも列移動を拾う)。後段の補充エッジ検出は共通。
+      frontDensity = Number(frontSignal(img, box).toFixed(2));
     } catch (e) {
       continue; // 画像欠損などはこの stall を飛ばす
     }
