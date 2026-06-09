@@ -15,6 +15,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { meanGrayInBox, brightPixelRatio, pickFrontSignal } from './lib/advance-counter.mjs';
+import { saveArchive } from './lib/slot-archive.mjs';
 import {
   parseT3FrontFlowRois, gateToBox, isSameFrame, toJstIso, buildFlowRow,
 } from './lib/t3-front-flow.mjs';
@@ -47,6 +48,12 @@ async function main() {
     console.log(`[t3-front-flow] 同一フレーム skip (${lastModified ?? hash.slice(0, 7)})`);
     return;
   }
+
+  // 新フレームだけ画像アーカイブへ保存 (~/taxi-image-archive/real108/YYYY-MM-DD/HHMMSS.jpg)。
+  // Phase 2 の極性確定で「イベント時刻に本当に車が抜けたか」を目視検証する材料。
+  // 7日超の掃除は既存の taxi-image-archive-sync (毎日04:15) がそのまま面倒を見る。
+  const frameDate = lastModified ? new Date(lastModified) : new Date();
+  await saveArchive('real108', buffer, frameDate);
 
   const img = await Jimp.read(buffer);
   const box = gateToBox(cfg.gate);
