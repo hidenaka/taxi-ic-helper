@@ -2,6 +2,8 @@
 // 画像 I/O・ネットワークに依存しない。tick 本体は scripts/t3-front-flow-tick.mjs。
 // 設計: docs/superpowers/specs/2026-06-10-t3-front-flow-movement-shift-design.md
 
+import { detectReplenishments, binCountsByWindow } from './advance-counter.mjs';
+
 export const T3_FRONT_FLOW_SCHEMA_VERSION = 1;
 
 const DEFAULT_PARAMS = { nightLum: 60, lanternK: 4, lanternT: 50 };
@@ -76,5 +78,30 @@ export function buildFlowRow({ frameTs, tickTs, camera, isNight, frontDensity, f
     is_night: isNight,
     front_density: Math.round(frontDensity * 100) / 100,
     frame_hash: frameHash,
+  };
+}
+
+/**
+ * 上昇エッジ(補充=詰め)と下降エッジ(枯渇=出庫)の両方を 15分窓などで集計する。
+ * 極性は Phase 2 の実データ検証で確定するため、ここでは両方を併記する (R3)。
+ * 下降は値の符号反転で detectReplenishments に対称に通す。
+ * @param {number[]} values front_density 列(時系列順)
+ * @param {number[]} times  epoch 秒(昇順, frame_ts 由来)
+ * @param {{absThreshold:number, persistSec?:number, debounceSec?:number, smoothK?:number, windowSec?:number}} opts
+ * @returns {{rising:Record<number,number>, falling:Record<number,number>}}
+ */
+export function summarizeBothPolarities(values, times, opts) {
+  const windowSec = opts.windowSec ?? 900;
+  const detectOpts = {
+    absThreshold: opts.absThreshold,
+    persistSec: opts.persistSec ?? 120,
+    debounceSec: opts.debounceSec ?? 120,
+    smoothK: opts.smoothK ?? 3,
+  };
+  const rising = detectReplenishments(values, times, detectOpts);
+  const falling = detectReplenishments(values.map((v) => -v), times, detectOpts);
+  return {
+    rising: binCountsByWindow(rising.eventTimes, windowSec),
+    falling: binCountsByWindow(falling.eventTimes, windowSec),
   };
 }

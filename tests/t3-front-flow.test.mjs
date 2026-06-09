@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
 import {
   parseT3FrontFlowRois, gateToBox, isSameFrame, toJstIso, buildFlowRow,
+  summarizeBothPolarities,
 } from '../scripts/lib/t3-front-flow.mjs';
 
 // ---- parseT3FrontFlowRois ----
@@ -127,4 +128,30 @@ test('buildFlowRow: front_density は小数2桁に丸める', () => {
     isNight: true, frontDensity: 12.3456, frameHash: 'h',
   });
   assert.equal(row.front_density, 12.35);
+});
+
+// ---- summarizeBothPolarities ----
+
+test('summarizeBothPolarities: 上昇段は rising、下降段は falling に出る', () => {
+  // 60秒刻み。100→160 の立ち上がり(持続)と、160→100 の立ち下がり(持続)を1回ずつ。
+  const t0 = Date.parse('2026-06-10T03:00:00+09:00') / 1000;
+  const times = Array.from({ length: 12 }, (_, i) => t0 + i * 60);
+  const values = [100, 100, 100, 160, 160, 160, 160, 160, 100, 100, 100, 100];
+  const r = summarizeBothPolarities(values, times, {
+    absThreshold: 30, persistSec: 120, debounceSec: 120, smoothK: 1, windowSec: 900,
+  });
+  const risingTotal = Object.values(r.rising).reduce((a, b) => a + b, 0);
+  const fallingTotal = Object.values(r.falling).reduce((a, b) => a + b, 0);
+  assert.equal(risingTotal, 1);
+  assert.equal(fallingTotal, 1);
+});
+
+test('summarizeBothPolarities: 平坦な系列は両方 0', () => {
+  const t0 = 1765000000;
+  const times = Array.from({ length: 6 }, (_, i) => t0 + i * 60);
+  const r = summarizeBothPolarities([100, 101, 99, 100, 100, 101], times, {
+    absThreshold: 30, persistSec: 120, debounceSec: 120, smoothK: 1, windowSec: 900,
+  });
+  assert.deepEqual(r.rising, {});
+  assert.deepEqual(r.falling, {});
 });
