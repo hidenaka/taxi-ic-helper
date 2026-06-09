@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
 import {
-  parseT3FrontFlowRois, gateToBox,
+  parseT3FrontFlowRois, gateToBox, isSameFrame,
 } from '../scripts/lib/t3-front-flow.mjs';
 
 // ---- parseT3FrontFlowRois ----
@@ -57,4 +57,32 @@ test('gateToBox: 1.0 を超える端は 1.0 にクランプ', () => {
   const b = gateToBox({ x: 0.8, y: 0.9, width: 0.5, height: 0.5 });
   assert.equal(b.x1, 1.0);
   assert.equal(b.y1, 1.0);
+});
+
+// ---- isSameFrame (dedup) ----
+
+test('isSameFrame: Last-Modified が同じなら true', () => {
+  const prev = { last_modified: 'Tue, 09 Jun 2026 17:18:11 GMT', frame_hash: 'aaa' };
+  assert.equal(isSameFrame(prev, { lastModified: 'Tue, 09 Jun 2026 17:18:11 GMT', hash: 'bbb' }), true);
+});
+
+test('isSameFrame: Last-Modified が異なれば false (hash が同じでも)', () => {
+  const prev = { last_modified: 'Tue, 09 Jun 2026 17:18:11 GMT', frame_hash: 'aaa' };
+  assert.equal(isSameFrame(prev, { lastModified: 'Tue, 09 Jun 2026 17:20:17 GMT', hash: 'aaa' }), false);
+});
+
+test('isSameFrame: Last-Modified が両方無ければ hash で判定', () => {
+  const prev = { last_modified: null, frame_hash: 'aaa' };
+  assert.equal(isSameFrame(prev, { lastModified: null, hash: 'aaa' }), true);
+  assert.equal(isSameFrame(prev, { lastModified: null, hash: 'bbb' }), false);
+});
+
+test('isSameFrame: prev が無い(初回)は false', () => {
+  assert.equal(isSameFrame(null, { lastModified: 'x', hash: 'y' }), false);
+  assert.equal(isSameFrame(undefined, { lastModified: 'x', hash: 'y' }), false);
+});
+
+test('isSameFrame: 片方だけ Last-Modified 無しは hash フォールバック', () => {
+  const prev = { last_modified: 'Tue, 09 Jun 2026 17:18:11 GMT', frame_hash: 'aaa' };
+  assert.equal(isSameFrame(prev, { lastModified: null, hash: 'aaa' }), true);
 });

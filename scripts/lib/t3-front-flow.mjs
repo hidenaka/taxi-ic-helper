@@ -37,3 +37,18 @@ export function gateToBox(gate) {
     y1: Math.min(1.0, gate.y + gate.height),
   };
 }
+
+/**
+ * 前回 state と今回の取得結果が「同じフレーム」かを判定する (R4: 同一フレーム連打防止)。
+ * Last-Modified が両方あればそれで比較、どちらか欠けたら画像バイト列の md5 で比較。
+ * @param {{last_modified?:string|null, frame_hash?:string}|null} prevState
+ * @param {{lastModified:string|null, hash:string}} current
+ * @returns {boolean}
+ */
+export function isSameFrame(prevState, current) {
+  if (!prevState) return false;
+  if (prevState.last_modified && current.lastModified) {
+    return prevState.last_modified === current.lastModified;
+  }
+  return prevState.frame_hash === current.hash;
+}
