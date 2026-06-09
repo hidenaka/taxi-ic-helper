@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
 import {
-  parseT3FrontFlowRois, gateToBox, isSameFrame,
+  parseT3FrontFlowRois, gateToBox, isSameFrame, toJstIso, buildFlowRow,
 } from '../scripts/lib/t3-front-flow.mjs';
 
 // ---- parseT3FrontFlowRois ----
@@ -85,4 +85,46 @@ test('isSameFrame: prev が無い(初回)は false', () => {
 test('isSameFrame: 片方だけ Last-Modified 無しは hash フォールバック', () => {
   const prev = { last_modified: 'Tue, 09 Jun 2026 17:18:11 GMT', frame_hash: 'aaa' };
   assert.equal(isSameFrame(prev, { lastModified: null, hash: 'aaa' }), true);
+});
+
+// ---- toJstIso ----
+
+test('toJstIso: Date → JST ISO 文字列 (+09:00)', () => {
+  // 2026-06-09T17:18:11Z = JST 2026-06-10T02:18:11+09:00
+  const d = new Date('2026-06-09T17:18:11Z');
+  assert.equal(toJstIso(d), '2026-06-10T02:18:11+09:00');
+});
+
+test('toJstIso: HTTP Last-Modified 形式の文字列も受ける', () => {
+  assert.equal(toJstIso(new Date('Tue, 09 Jun 2026 17:18:11 GMT')), '2026-06-10T02:18:11+09:00');
+});
+
+// ---- buildFlowRow ----
+
+test('buildFlowRow: schema_version 1 の履歴行を組み立てる', () => {
+  const row = buildFlowRow({
+    frameTs: '2026-06-10T02:18:11+09:00',
+    tickTs: '2026-06-10T02:19:36+09:00',
+    camera: 'Real108',
+    isNight: false,
+    frontDensity: 84.234,
+    frameHash: 'af655cd',
+  });
+  assert.deepEqual(row, {
+    schema_version: 1,
+    frame_ts: '2026-06-10T02:18:11+09:00',
+    tick_ts: '2026-06-10T02:19:36+09:00',
+    camera: 'Real108',
+    is_night: false,
+    front_density: 84.23,
+    frame_hash: 'af655cd',
+  });
+});
+
+test('buildFlowRow: front_density は小数2桁に丸める', () => {
+  const row = buildFlowRow({
+    frameTs: 'a', tickTs: 'b', camera: 'Real108',
+    isNight: true, frontDensity: 12.3456, frameHash: 'h',
+  });
+  assert.equal(row.front_density, 12.35);
 });

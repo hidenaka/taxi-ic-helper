@@ -52,3 +52,29 @@ export function isSameFrame(prevState, current) {
   }
   return prevState.frame_hash === current.hash;
 }
+
+/**
+ * Date → JST ISO 文字列 (+09:00)。movement-shift-tick.mjs の jstTimestamp と同じ表現。
+ */
+export function toJstIso(d) {
+  const z = (n) => String(n).padStart(2, '0');
+  const j = new Date(d.getTime() + 9 * 3600 * 1000);
+  return `${j.getUTCFullYear()}-${z(j.getUTCMonth() + 1)}-${z(j.getUTCDate())}T` +
+    `${z(j.getUTCHours())}:${z(j.getUTCMinutes())}:${z(j.getUTCSeconds())}+09:00`;
+}
+
+/**
+ * t3-front-flow-history.jsonl の1行を組み立てる。frame_ts はフレームの実時刻
+ * (Last-Modified 由来)で、後段の計数の時刻軸に使う。front_density は小数2桁。
+ */
+export function buildFlowRow({ frameTs, tickTs, camera, isNight, frontDensity, frameHash }) {
+  return {
+    schema_version: T3_FRONT_FLOW_SCHEMA_VERSION,
+    frame_ts: frameTs,
+    tick_ts: tickTs,
+    camera,
+    is_night: isNight,
+    front_density: Math.round(frontDensity * 100) / 100,
+    frame_hash: frameHash,
+  };
+}
