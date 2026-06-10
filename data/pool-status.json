@@ -1,30 +1,30 @@
 {
-  "generatedAt": "2026-06-11T07:04:09+09:00",
+  "generatedAt": "2026-06-11T07:09:41+09:00",
   "cameras": {
     "real01": {
-      "occ": 24,
+      "occ": 25,
       "fullRef": 43,
       "level": "normal"
     },
     "real02": {
-      "occ": 1,
+      "occ": 2,
       "fullRef": 8,
       "level": "empty"
     }
   },
   "total": {
-    "occ": 25,
+    "occ": 27,
     "level": "normal"
   },
   "activity": {
-    "recent1hDepartures": 18,
-    "typical1h": 11,
-    "ratio": 1.64,
+    "recent1hDepartures": 20,
+    "typical1h": 14,
+    "ratio": 1.43,
     "level": "active",
     "arrow": "up",
     "sameConditionCompare": {
-      "peers_typical": 23,
-      "percent": -22,
+      "peers_typical": 25,
+      "percent": -20,
       "label": "いつもより少なめ",
       "dayLabel": "木曜平日"
     }
@@ -33,12 +33,12 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 0,
+      "occ": 2,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
       "sameConditionCompare": {
-        "peers_typical": 10,
+        "peers_typical": 11,
         "percent": -100,
         "label": "いつもより少なめ",
         "dayLabel": "木曜平日"
@@ -48,13 +48,13 @@
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 5,
-      "recent1hDep": 5,
-      "waitMin": 60,
-      "trend": "down",
+      "occ": 3,
+      "recent1hDep": 7,
+      "waitMin": 26,
+      "trend": "up",
       "sameConditionCompare": {
-        "peers_typical": 1,
-        "percent": 400,
+        "peers_typical": 2,
+        "percent": 250,
         "label": "いつもより活発",
         "dayLabel": "木曜平日"
       },
@@ -78,14 +78,14 @@
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 4,
+      "occ": 6,
       "recent1hDep": 10,
-      "waitMin": 24,
-      "trend": "up",
+      "waitMin": 36,
+      "trend": "flat",
       "sameConditionCompare": {
-        "peers_typical": 12,
-        "percent": -17,
-        "label": "いつもより少なめ",
+        "peers_typical": 11,
+        "percent": -9,
+        "label": "いつも通り",
         "dayLabel": "木曜平日"
       },
       "rankHint": "most-active"
@@ -94,22 +94,31 @@
   "terminalArrivals": {
     "T1": {
       "next30": 0,
-      "next60": 0
+      "next60": 1
     },
     "T2": {
       "next30": 0,
-      "next60": 3
+      "next60": 5
     }
   },
   "terminalArrivalsList": {
-    "T1": [],
+    "T1": [
+      {
+        "flightNumber": "JL220",
+        "airline": "JAL",
+        "fromName": "関空",
+        "seatCount": 166,
+        "lobbyExitMinutes": 55,
+        "lobbyExitTime": "08:05"
+      }
+    ],
     "T2": [
       {
         "flightNumber": "NH856",
         "airline": "ANA",
         "fromName": "ジャカルタ",
         "seatCount": 184,
-        "lobbyExitMinutes": 36,
+        "lobbyExitMinutes": 30,
         "lobbyExitTime": "07:40"
       },
       {
@@ -117,7 +126,7 @@
         "airline": "ANA",
         "fromName": "ミュンヘン",
         "seatCount": 215,
-        "lobbyExitMinutes": 41,
+        "lobbyExitMinutes": 35,
         "lobbyExitTime": "07:45"
       },
       {
@@ -125,13 +134,38 @@
         "airline": "ANA",
         "fromName": "関空",
         "seatCount": 146,
-        "lobbyExitMinutes": 58,
+        "lobbyExitMinutes": 52,
         "lobbyExitTime": "08:02"
+      },
+      {
+        "flightNumber": "NH208",
+        "airline": "ANA",
+        "fromName": "MXP",
+        "seatCount": 215,
+        "lobbyExitMinutes": 55,
+        "lobbyExitTime": "08:05"
+      },
+      {
+        "flightNumber": "NH222",
+        "airline": "ANA",
+        "fromName": "ARN",
+        "seatCount": 184,
+        "lobbyExitMinutes": 55,
+        "lobbyExitTime": "08:05"
       }
     ]
   },
   "noribaArrivalsList": {
-    "1": [],
+    "1": [
+      {
+        "flightNumber": "JL220",
+        "airline": "JAL",
+        "fromName": "関空",
+        "seatCount": 166,
+        "lobbyExitMinutes": 55,
+        "lobbyExitTime": "08:05"
+      }
+    ],
     "2": [],
     "3": [
       {
@@ -139,7 +173,7 @@
         "airline": "ANA",
         "fromName": "関空",
         "seatCount": 146,
-        "lobbyExitMinutes": 58,
+        "lobbyExitMinutes": 52,
         "lobbyExitTime": "08:02"
       }
     ],
@@ -149,7 +183,7 @@
         "airline": "JAL",
         "fromName": "デリー",
         "seatCount": 246,
-        "lobbyExitMinutes": 31,
+        "lobbyExitMinutes": 25,
         "lobbyExitTime": "07:35"
       },
       {
@@ -157,7 +191,7 @@
         "airline": "JAL",
         "fromName": "ロンドン",
         "seatCount": 200,
-        "lobbyExitMinutes": 31,
+        "lobbyExitMinutes": 25,
         "lobbyExitTime": "07:35"
       },
       {
@@ -165,7 +199,7 @@
         "airline": "ANA",
         "fromName": "ジャカルタ",
         "seatCount": 184,
-        "lobbyExitMinutes": 36,
+        "lobbyExitMinutes": 30,
         "lobbyExitTime": "07:40"
       },
       {
@@ -173,7 +207,7 @@
         "airline": "ANA",
         "fromName": "ミュンヘン",
         "seatCount": 215,
-        "lobbyExitMinutes": 41,
+        "lobbyExitMinutes": 35,
         "lobbyExitTime": "07:45"
       },
       {
@@ -181,11 +215,11 @@
         "airline": "ANA",
         "fromName": "SGN",
         "seatCount": 294,
-        "lobbyExitMinutes": 46,
+        "lobbyExitMinutes": 40,
         "lobbyExitTime": "07:50"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-06-11T07:04:03+09:00"
+  "sourceStaleSince": "2026-06-11T07:09:35+09:00"
 }
