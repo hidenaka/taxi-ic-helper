@@ -92,13 +92,18 @@ node scripts/learn-arrival-advance.mjs || true
 # 再開する場合は下行のコメントを外す。scripts/detect_vehicles.py は温存。
 # if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/detect_vehicles.py || true; fi
 
-if [ -z "$(git status --porcelain data/taxi-pool-history.jsonl)" ]; then
-  echo "[observe-tick] no jsonl change, skip commit"
+# コミット要否ゲート: 生履歴 jsonl は git 管理外 (ローカルのみ・容量肥大回避) にしたため、
+# 毎 tick 再生成される派生 json の変化で判定する。advance-forecast.json は generatedAt が
+# 毎 tick 変わるので、新しい観測があれば必ずここで commit→push→relay→アプリ更新まで流れる。
+if [ -z "$(git status --porcelain data/advance-forecast.json data/pool-status.json data/stall-forecast.json)" ]; then
+  echo "[observe-tick] no derived-data change, skip commit"
   exit 0
 fi
 
-# 観測関連ファイル 3 点を 1 コミットにまとめる (Web UI が forecast/pattern-match の最新を必要とする)
-git add data/taxi-pool-history.jsonl data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/t3-pool-history.jsonl data/vehicle-detection-history.jsonl data/vehicle-track-history.jsonl data/throughput-calibration.json data/slot-occupancy-history.jsonl data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/movement-shift-history.jsonl data/advance-forecast.json data/t3-front-flow-history.jsonl 2>/dev/null || true
+# 配信に必要な派生 json + サムネだけを commit する。
+# 生履歴 (taxi-pool / slot-occupancy / t3-pool / vehicle-* / movement-shift / t3-front-flow の各 history.jsonl)
+# は Mac mini ローカルのみで保持し push しない (アプリ非配信・8.5G 画像アーカイブから再生成可・GitHub 100MB 制限回避)。
+git add data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/advance-forecast.json 2>/dev/null || true
 git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
 
 # 同期 + push (残骸掃除 → fetch → rebase → push を最大 5 回リトライ。
