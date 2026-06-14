@@ -33,17 +33,17 @@ if ! command -v node >/dev/null 2>&1; then
   exit 0
 fi
 
+# 共有 git 同期関数を読み込む (孤立 rebase 残骸の強制掃除 + push 失敗の可視化 + 競合リトライ)。
+# 2026-06-15 のアプリ 21 時間凍結 (push 停止 → relay 不発) の再発防止。
+source "$SCRIPT_DIR/lib/git-safe-sync.sh"
+
 # --- 自己回復: 前回 tick で残った rebase/merge 残骸を検出してリセット ---
 # unmerged index entries (ls-files -u) or rebase/merge 状態ディレクトリがあれば異常
 if [ -n "$(git ls-files -u 2>/dev/null)" ] || [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ] || [ -f .git/MERGE_HEAD ]; then
   echo "[observe-tick] WARN: dirty merge/rebase state detected, cleaning up"
-  git rebase --abort 2>/dev/null || true
-  git merge --abort 2>/dev/null || true
-  # 観測 jsonl の append-only 変更は救出 (merge=union で衝突しないが念のため)
+  git_clean_interrupted_state   # rebase/merge 残骸を強制除去 (abort で消えない孤立残骸も rm -rf)
   # forecast / pattern-match は次 tick で再生成されるので捨ててよい
   git checkout HEAD -- data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json 2>/dev/null || true
-  # 残った staged 変更を unstage
-  git reset HEAD 2>/dev/null || true
 fi
 
 # --- pull 前に forecast/pattern-match の working tree 変更を捨てる ---
@@ -51,6 +51,7 @@ fi
 # 次の observe 実行で最新内容に上書きされる。
 git checkout HEAD -- data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json 2>/dev/null || true
 
+git_clean_interrupted_state   # pull 前に孤立残骸を掃除 (これが無いと pull --rebase が永久に失敗する)
 git pull --rebase --autostash origin main 2>&1 | tail -3
 
 node scripts/observe-taxi-pool.mjs
@@ -100,17 +101,12 @@ fi
 git add data/taxi-pool-history.jsonl data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/t3-pool-history.jsonl data/vehicle-detection-history.jsonl data/vehicle-track-history.jsonl data/throughput-calibration.json data/slot-occupancy-history.jsonl data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/movement-shift-history.jsonl data/advance-forecast.json data/t3-front-flow-history.jsonl 2>/dev/null || true
 git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
 
-for i in 1 2 3; do
-  git push origin main 2>&1 | tail -3
-  push_status=${PIPESTATUS[0]}
-  if [ "$push_status" -eq 0 ]; then
-    echo "[observe-tick] push ok (attempt $i)"
-    exit 0
-  fi
-  echo "[observe-tick] push failed (attempt $i, exit=$push_status), pull-rebase and retry"
-  git pull --rebase --autostash origin main 2>&1 | tail -3
-  sleep $((i * 3))
-done
-
-echo "[observe-tick] push failed after 3 attempts"
+# 同期 + push (残骸掃除 → fetch → rebase → push を最大 5 回リトライ。
+# weather/arrivals の 15 分ごとの auto-commit による non-fast-forward 競合に勝つ。
+# 失敗時は .local/push-stuck.flag + デスクトップ通知で可視化し、無音で詰まらせない)。
+if git_safe_sync_and_push "$REPO" main 5; then
+  echo "[observe-tick] push ok"
+else
+  echo "[observe-tick] push STILL failing after retries — see .local/push-stuck.flag"
+fi
 exit 0
