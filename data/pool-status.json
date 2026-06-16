@@ -1,27 +1,27 @@
 {
-  "generatedAt": "2026-06-17T04:11:48+09:00",
+  "generatedAt": "2026-06-17T04:17:21+09:00",
   "cameras": {
     "real01": {
-      "occ": 14,
+      "occ": 1,
       "fullRef": 43,
-      "level": "normal"
+      "level": "empty"
     },
     "real02": {
-      "occ": 8,
+      "occ": 6,
       "fullRef": 8,
-      "level": "full"
+      "level": "crowded"
     }
   },
   "total": {
-    "occ": 22,
-    "level": "normal"
+    "occ": 7,
+    "level": "empty"
   },
   "activity": {
-    "recent1hDepartures": 1,
-    "typical1h": 2,
-    "ratio": 0.5,
-    "level": "low",
-    "arrow": "down",
+    "recent1hDepartures": 16,
+    "typical1h": 7,
+    "ratio": 2.29,
+    "level": "active",
+    "arrow": "up",
     "sameConditionCompare": {
       "peers_typical": 0,
       "percent": null,
@@ -33,9 +33,9 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 12,
-      "recent1hDep": 0,
-      "waitMin": null,
+      "occ": 0,
+      "recent1hDep": 12,
+      "waitMin": 0,
       "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": 0,
@@ -43,14 +43,14 @@
         "label": null,
         "dayLabel": "水曜平日"
       },
-      "rankHint": "most-low"
+      "rankHint": "most-active"
     },
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 1,
-      "recent1hDep": 0,
-      "waitMin": null,
+      "occ": 0,
+      "recent1hDep": 1,
+      "waitMin": 0,
       "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": 0,
@@ -58,7 +58,7 @@
         "label": null,
         "dayLabel": "水曜平日"
       },
-      "rankHint": "most-low"
+      "rankHint": null
     },
     "stall3": {
       "label": "第3乗り場",
@@ -78,17 +78,17 @@
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 9,
-      "recent1hDep": 1,
-      "waitMin": 540,
-      "trend": "down",
+      "occ": 7,
+      "recent1hDep": 3,
+      "waitMin": 140,
+      "trend": "up",
       "sameConditionCompare": {
         "peers_typical": 0,
         "percent": null,
         "label": null,
         "dayLabel": "水曜平日"
       },
-      "rankHint": "most-active"
+      "rankHint": null
     }
   },
   "terminalArrivals": {
@@ -98,12 +98,21 @@
     },
     "T2": {
       "next30": 0,
-      "next60": 0
+      "next60": 5
     }
   },
   "terminalArrivalsList": {
     "T1": [],
-    "T2": []
+    "T2": [
+      {
+        "flightNumber": "NH159",
+        "airline": "ANA",
+        "fromName": "ニューヨーク",
+        "seatCount": 264,
+        "lobbyExitMinutes": 59,
+        "lobbyExitTime": "05:16"
+      }
+    ]
   },
   "noribaArrivalsList": {
     "1": [],
@@ -115,11 +124,19 @@
         "airline": "JAL",
         "fromName": "香港",
         "seatCount": 246,
-        "lobbyExitMinutes": 38,
+        "lobbyExitMinutes": 33,
         "lobbyExitTime": "04:50"
+      },
+      {
+        "flightNumber": "NH159",
+        "airline": "ANA",
+        "fromName": "ニューヨーク",
+        "seatCount": 264,
+        "lobbyExitMinutes": 59,
+        "lobbyExitTime": "05:16"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-06-17T04:11:41+09:00"
+  "sourceStaleSince": "2026-06-17T04:17:13+09:00"
 }
