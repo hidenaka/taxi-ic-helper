@@ -1,30 +1,30 @@
 {
-  "generatedAt": "2026-06-18T07:17:52+09:00",
+  "generatedAt": "2026-06-18T07:23:25+09:00",
   "cameras": {
     "real01": {
-      "occ": 23,
+      "occ": 21,
       "fullRef": 43,
       "level": "normal"
     },
     "real02": {
-      "occ": 2,
+      "occ": 7,
       "fullRef": 8,
-      "level": "empty"
+      "level": "crowded"
     }
   },
   "total": {
-    "occ": 25,
+    "occ": 28,
     "level": "normal"
   },
   "activity": {
-    "recent1hDepartures": 10,
-    "typical1h": 20,
-    "ratio": 0.5,
+    "recent1hDepartures": 11,
+    "typical1h": 21,
+    "ratio": 0.52,
     "level": "low",
     "arrow": "down",
     "sameConditionCompare": {
-      "peers_typical": 28,
-      "percent": -64,
+      "peers_typical": 29,
+      "percent": -62,
       "label": "いつもより少なめ",
       "dayLabel": "木曜平日"
     }
@@ -33,13 +33,13 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 3,
-      "recent1hDep": 1,
-      "waitMin": 180,
+      "occ": 2,
+      "recent1hDep": 2,
+      "waitMin": 60,
       "trend": "flat",
       "sameConditionCompare": {
-        "peers_typical": 6,
-        "percent": -83,
+        "peers_typical": 5,
+        "percent": -60,
         "label": "いつもより少なめ",
         "dayLabel": "木曜平日"
       },
@@ -68,8 +68,8 @@
       "waitMin": 480,
       "trend": "flat",
       "sameConditionCompare": {
-        "peers_typical": 4,
-        "percent": -50,
+        "peers_typical": 5,
+        "percent": -60,
         "label": "いつもより少なめ",
         "dayLabel": "木曜平日"
       },
@@ -78,13 +78,13 @@
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 5,
+      "occ": 9,
       "recent1hDep": 7,
-      "waitMin": 43,
-      "trend": "flat",
+      "waitMin": 77,
+      "trend": "up",
       "sameConditionCompare": {
-        "peers_typical": 12,
-        "percent": -42,
+        "peers_typical": 13,
+        "percent": -46,
         "label": "いつもより少なめ",
         "dayLabel": "木曜平日"
       },
@@ -94,11 +94,11 @@
   "terminalArrivals": {
     "T1": {
       "next30": 0,
-      "next60": 1
+      "next60": 2
     },
     "T2": {
       "next30": 2,
-      "next60": 5
+      "next60": 9
     }
   },
   "terminalArrivalsList": {
@@ -108,8 +108,16 @@
         "airline": "JAL",
         "fromName": "関空",
         "seatCount": 166,
-        "lobbyExitMinutes": 38,
+        "lobbyExitMinutes": 33,
         "lobbyExitTime": "07:56"
+      },
+      {
+        "flightNumber": "NH3872",
+        "airline": "ANA",
+        "fromName": "北九州",
+        "seatCount": 146,
+        "lobbyExitMinutes": 60,
+        "lobbyExitTime": "08:23"
       }
     ],
     "T2": [
@@ -118,7 +126,7 @@
         "airline": "ANA",
         "fromName": "ジャカルタ",
         "seatCount": 184,
-        "lobbyExitMinutes": 22,
+        "lobbyExitMinutes": 17,
         "lobbyExitTime": "07:40"
       },
       {
@@ -126,7 +134,7 @@
         "airline": "ANA",
         "fromName": "ミュンヘン",
         "seatCount": 215,
-        "lobbyExitMinutes": 27,
+        "lobbyExitMinutes": 22,
         "lobbyExitTime": "07:45"
       },
       {
@@ -134,7 +142,7 @@
         "airline": "ANA",
         "fromName": "関空",
         "seatCount": 146,
-        "lobbyExitMinutes": 42,
+        "lobbyExitMinutes": 37,
         "lobbyExitTime": "08:00"
       },
       {
@@ -142,7 +150,7 @@
         "airline": "ANA",
         "fromName": "MXP",
         "seatCount": 215,
-        "lobbyExitMinutes": 47,
+        "lobbyExitMinutes": 42,
         "lobbyExitTime": "08:05"
       },
       {
@@ -150,7 +158,7 @@
         "airline": "ANA",
         "fromName": "ARN",
         "seatCount": 184,
-        "lobbyExitMinutes": 47,
+        "lobbyExitMinutes": 42,
         "lobbyExitTime": "08:05"
       }
     ]
@@ -162,19 +170,52 @@
         "airline": "JAL",
         "fromName": "関空",
         "seatCount": 166,
-        "lobbyExitMinutes": 38,
+        "lobbyExitMinutes": 33,
         "lobbyExitTime": "07:56"
+      },
+      {
+        "flightNumber": "NH3872",
+        "airline": "ANA",
+        "fromName": "北九州",
+        "seatCount": 146,
+        "lobbyExitMinutes": 60,
+        "lobbyExitTime": "08:23"
       }
     ],
     "2": [],
-    "3": [],
+    "3": [
+      {
+        "flightNumber": "NH986",
+        "airline": "ANA",
+        "fromName": "伊丹",
+        "seatCount": 194,
+        "lobbyExitMinutes": 56,
+        "lobbyExitTime": "08:19"
+      },
+      {
+        "flightNumber": "NH312",
+        "airline": "ANA",
+        "fromName": "富山",
+        "seatCount": 166,
+        "lobbyExitMinutes": 58,
+        "lobbyExitTime": "08:21"
+      },
+      {
+        "flightNumber": "NH452",
+        "airline": "ANA",
+        "fromName": "佐賀",
+        "seatCount": 194,
+        "lobbyExitMinutes": 60,
+        "lobbyExitTime": "08:23"
+      }
+    ],
     "4": [
       {
         "flightNumber": "JL030",
         "airline": "JAL",
         "fromName": "デリー",
         "seatCount": 246,
-        "lobbyExitMinutes": 17,
+        "lobbyExitMinutes": 12,
         "lobbyExitTime": "07:35"
       },
       {
@@ -182,7 +223,7 @@
         "airline": "JAL",
         "fromName": "ロンドン",
         "seatCount": 200,
-        "lobbyExitMinutes": 17,
+        "lobbyExitMinutes": 12,
         "lobbyExitTime": "07:35"
       },
       {
@@ -190,7 +231,7 @@
         "airline": "ANA",
         "fromName": "ジャカルタ",
         "seatCount": 184,
-        "lobbyExitMinutes": 22,
+        "lobbyExitMinutes": 17,
         "lobbyExitTime": "07:40"
       },
       {
@@ -198,7 +239,7 @@
         "airline": "ANA",
         "fromName": "ミュンヘン",
         "seatCount": 215,
-        "lobbyExitMinutes": 27,
+        "lobbyExitMinutes": 22,
         "lobbyExitTime": "07:45"
       },
       {
@@ -206,11 +247,11 @@
         "airline": "ANA",
         "fromName": "SGN",
         "seatCount": 294,
-        "lobbyExitMinutes": 32,
+        "lobbyExitMinutes": 27,
         "lobbyExitTime": "07:50"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-06-18T07:17:45+09:00"
+  "sourceStaleSince": "2026-06-18T07:23:18+09:00"
 }
