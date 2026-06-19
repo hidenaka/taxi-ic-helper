@@ -52,13 +52,14 @@ export function commonModeResiduals(rows, stalls, opts = {}) {
   const out = {};
   for (const s of stalls) out[s] = [];
   for (const { t, vals } of ticks) {
-    // コモンモードは同一カメラのレーン(noCommon以外)だけで推定する。別カメラ単独(stall4)は混ぜない。
-    const centered = [];
-    for (const s of stalls) if (!noCommon.has(s) && typeof vals[s] === 'number') centered.push(vals[s] - baseline[s]);
-    const common = centered.length >= 3 ? median(centered) : 0;
     for (const s of stalls) if (typeof vals[s] === 'number') {
-      const c = noCommon.has(s) ? 0 : common; // 別カメラ単独は相殺しない
-      out[s].push({ t, v: vals[s] - c });
+      if (noCommon.has(s)) { out[s].push({ t, v: vals[s] }); continue; } // 別カメラ単独(stall4)は相殺しない
+      // コモンモードは「対象s を除いた」同一カメラの他レーンで推定する(leave-one-out)。
+      // s自身を含めると、中央レーン(2号)が自分でmedianを定義し、実際の補充移動が自己相殺で消える。
+      const others = [];
+      for (const o of stalls) if (o !== s && !noCommon.has(o) && typeof vals[o] === 'number') others.push(vals[o] - baseline[o]);
+      const common = others.length >= 2 ? median(others) : 0;
+      out[s].push({ t, v: vals[s] - common });
     }
   }
   return out;

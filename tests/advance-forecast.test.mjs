@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, medianOccForBin } from '../scripts/lib/advance-forecast.mjs';
+import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, medianOccForBin, commonModeResiduals } from '../scripts/lib/advance-forecast.mjs';
 
 test('binAdvanceCounts: 占有0(空レーン)はゲートして数えない/占有ありは数える', () => {
   const base = Math.floor(new Date('2026-06-05T05:45:00+09:00').getTime() / 1000);
@@ -218,4 +218,25 @@ test('predictAdvance: 学習データの無い時間帯は0', () => {
   const m = buildAdvanceModel([{ ts: '2026-05-20T12:00:00+09:00', stalls: { stall1: 3 } }]);
   assert.equal(predictAdvance(m, '2026-06-01T03:00:00+09:00', 'stall1'), 0);
   assert.equal(predictAdvance(m, '2026-06-01T12:00:00+09:00', 'stall9'), 0);
+});
+
+test('commonModeResiduals: leave-one-out — 中央レーン(2号)が自己相殺で消えない', () => {
+  const base = Math.floor(new Date('2026-06-19T12:00:00+09:00').getTime() / 1000);
+  const mk = (sec, a, b, c) => ({ ts: new Date(sec * 1000).toISOString(), stalls: { stall1: { frontDensity: a }, stall2: { frontDensity: b }, stall3: { frontDensity: c } } });
+  // baseline は各stall 0 になる(値 [0,*,0] の median は 0)。
+  const rows = [mk(base, 0, 0, 0), mk(base + 60, 0, 20, 50), mk(base + 120, 0, 0, 0)];
+  const res = commonModeResiduals(rows, ['stall1', 'stall2', 'stall3', 'stall4']);
+  // tick2 stall2: 他レーン[s1=0, s3=50] の median=25 → 残差 20-25 = -5(旧方式は自分含むmedian=20で 20-20=0 と消えていた)。
+  assert.equal(res.stall2[1].v, -5);
+  // tick2 stall1: 他レーン[s2=20, s3=50] の median=35 → 残差 0-35 = -35。
+  assert.equal(res.stall1[1].v, -35);
+});
+
+test('commonModeResiduals: 全レーン同時移動(照明)は leave-one-out でも相殺(残差一定)', () => {
+  const base = Math.floor(new Date('2026-06-19T12:00:00+09:00').getTime() / 1000);
+  const sw = [0, 40, 0, 40]; // 全レーン同じ±40スイング
+  const rows = sw.map((c, i) => ({ ts: new Date((base + i * 60) * 1000).toISOString(), stalls: { stall1: { frontDensity: 150 + c }, stall2: { frontDensity: 145 + c }, stall3: { frontDensity: 140 + c } } }));
+  const res = commonModeResiduals(rows, ['stall1', 'stall2', 'stall3', 'stall4']);
+  const v2 = res.stall2.map((x) => x.v);
+  assert.ok(Math.max(...v2) - Math.min(...v2) < 1e-9, 'stall2残差はスイングが消えて一定');
 });
