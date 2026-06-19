@@ -5,6 +5,7 @@ import { currentOccupancy, fullRefFor, buildPoolStatus } from '../scripts/lib/po
 import { currentOccupancyByStall, waitMinFor, stallTrend, buildStalls, buildTerminalArrivals } from '../scripts/lib/pool-status.mjs';
 import { sameConditionCompare } from '../scripts/lib/pool-status.mjs';
 import { buildStallRankHint } from '../scripts/lib/pool-status.mjs';
+import { yoloOccByStall } from '../scripts/lib/pool-status.mjs';
 import { buildTerminalArrivalsList, buildNoribaArrivalsList } from '../scripts/lib/pool-status.mjs';
 
 test('buildNoribaArrivalsList: poolLane(号)別・60分内・欠航除外・lobbyExit順', () => {
@@ -431,4 +432,45 @@ test('buildStalls: holidays 未指定（既存呼び出し）でも壊れず、s
   // 既存フィールド（label/terminal/occ/recent1hDep/waitMin/trend）は維持
   assert.equal(stalls.stall1.label, '第1乗り場');
   assert.equal(stalls.stall1.terminal, 'T1');
+});
+
+
+test('yoloOccByStall: 直近5件のmedian / 空・30分超は null', () => {
+  const now = new Date('2026-06-19T12:00:00+09:00');
+  const t = (m) => new Date(now.getTime() - m * 60000).toISOString();
+  const rows = [
+    { ts: t(20), stall1: 10, stall2: 12 },
+    { ts: t(10), stall1: 14, stall2: 13 },
+    { ts: t(5),  stall1: 12, stall2: 14 },
+  ];
+  const o = yoloOccByStall(rows, now);
+  assert.equal(o.stall1, 12);
+  assert.equal(o.stall2, 13);
+  assert.equal(yoloOccByStall([], now), null);
+  assert.equal(yoloOccByStall([{ ts: t(60), stall1: 9, stall2: 9 }], now), null);
+});
+
+test('buildStalls: yoloOcc が stall1/2 occ を上書き(3/4は fill のまま)', () => {
+  const base = Date.parse('2026-06-19T12:00:00+09:00');
+  const rows = [0, 1, 2].map((i) => ({
+    ts: new Date(base - (2 - i) * 30000).toISOString(), mode: 'day',
+    stalls: { stall1: { occ: 3 }, stall2: { occ: 3 }, stall3: { occ: 3 }, stall4: { occ: 3 } },
+  }));
+  const s = buildStalls(rows, new Date(base), null, { stall1: 15, stall2: 11 });
+  assert.equal(s.stall1.occ, 15);
+  assert.equal(s.stall2.occ, 11);
+  assert.equal(s.stall3.occ, 3);
+});
+
+test('buildPoolStatus: 昼は yolo で stall1/2 を上書き・夜は fill のまま', () => {
+  const base = Date.parse('2026-06-19T12:00:00+09:00');
+  const mkRows = (mode) => [0, 1, 2].map((i) => ({
+    ts: new Date(base - (2 - i) * 30000).toISOString(), mode,
+    stalls: { stall1: { occ: 2 }, stall2: { occ: 2 }, stall3: { occ: 2 }, stall4: { occ: 2 } },
+  }));
+  const yolo = [{ ts: new Date(base - 60000).toISOString(), stall1: 15, stall2: 13 }];
+  const day = buildPoolStatus(mkRows('day'), new Date(base), null, null, yolo);
+  assert.equal(day.stalls.stall1.occ, 15);
+  const night = buildPoolStatus(mkRows('night'), new Date(base), null, null, yolo);
+  assert.equal(night.stalls.stall1.occ, 2);
 });

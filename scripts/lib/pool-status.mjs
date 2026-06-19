@@ -79,6 +79,23 @@ export function currentOccupancyByStall(rows, now, windowTicks = 5) {
 }
 
 /** 待ち時間目安（分）。在台×60÷直近1h出庫。出庫0は算出不能で null。 */
+
+/** YOLO占有履歴(yolo-occupancy-history)の直近windowTicks件のmedianをstall1/2について返す。
+ *  遠景fillが満車/空を分離不可のため、昼の最奥占有はこの値で上書きする。30分より古い/無→null。 */
+export function yoloOccByStall(yoloRows, now, windowTicks = 5) {
+  if (!Array.isArray(yoloRows) || yoloRows.length === 0) return null;
+  const rs = yoloRows.map(r => ({ ...r, tsMs: new Date(r.ts).getTime() }))
+    .filter(r => Number.isFinite(r.tsMs) && r.tsMs <= now.getTime()).sort((a, b) => a.tsMs - b.tsMs);
+  const fresh = rs.filter(r => r.tsMs >= now.getTime() - 30 * 60000).slice(-windowTicks);
+  if (fresh.length < 1) return null;
+  const out = {};
+  for (const k of ["stall1", "stall2"]) {
+    const vals = fresh.map(r => (typeof r[k] === "number" ? r[k] : null)).filter(v => v != null);
+    if (vals.length) out[k] = Math.round(median(vals));
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 export function waitMinFor(occ, recent1hDep) {
   if (!(recent1hDep > 0)) return null;
   return Math.round((occ * 60) / recent1hDep);
@@ -123,8 +140,12 @@ export function buildStallRankHint(stalls) {
 
 /** 乗り場別ブロック（在台・直近1h出庫・待ち目安・動き方・ターミナル）を組み立てる。
  *  holidays 指定時は各 stall に sameConditionCompare を付与（省略時は null）。 */
-export function buildStalls(rows, now, holidays = null) {
+export function buildStalls(rows, now, holidays = null, yoloOcc = null) {
   const occ = currentOccupancyByStall(rows, now, 5);
+  if (yoloOcc) {
+    if (typeof yoloOcc.stall1 === "number") occ.stall1 = yoloOcc.stall1;
+    if (typeof yoloOcc.stall2 === "number") occ.stall2 = yoloOcc.stall2;
+  }
   const dep1h = stallDepartures(rows, now, 60);
   const depRecent30 = stallDepartures(rows, now, 30);
   const depPrior30 = stallDepartures(rows, new Date(now.getTime() - 30 * 60000), 30);
@@ -302,7 +323,7 @@ function jstIso(d) {
 
 /** pool-status.json オブジェクトを組み立てる。
  * arrivals, holidays は optional（省略時は後方互換: terminalArrivals=null, sameConditionCompare=null）。 */
-export function buildPoolStatus(rows, now = new Date(), arrivals = null, holidays = null) {
+export function buildPoolStatus(rows, now = new Date(), arrivals = null, holidays = null, yoloRows = null) {
   const cur = currentOccupancy(rows, now, 5);
   const cameras = {};
   for (const g of Object.keys(GROUPS)) {
@@ -314,7 +335,11 @@ export function buildPoolStatus(rows, now = new Date(), arrivals = null, holiday
   const recent = recent1hDepartures(rows, now);
   const typical = typical1hDepartures(rows, now, 7);
   const act = activityLevel(recent, typical);
-  const stallsBase = buildStalls(rows, now, holidays);
+  // 昼は最奥 stall1/2 の占有を YOLO 計測で上書き(fillは遠景で満車/空を分離不可)。夜/データ無は fill のまま。
+  const _latest = sorted(rows).filter(r => r.tsMs <= now.getTime()).slice(-1)[0];
+  const _isDay = _latest ? _latest.mode === "day" : false;
+  const _yoloOcc = (_isDay && yoloRows) ? yoloOccByStall(yoloRows, now) : null;
+  const stallsBase = buildStalls(rows, now, holidays, _yoloOcc);
   const rankHints = buildStallRankHint(stallsBase);
   const stalls = {};
   for (const k of ['stall1', 'stall2', 'stall3', 'stall4']) {

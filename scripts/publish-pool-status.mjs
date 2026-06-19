@@ -8,6 +8,7 @@ import { Jimp } from 'jimp';
 import { buildPoolStatus } from './lib/pool-status.mjs';
 
 const OCC_PATH = './data/slot-occupancy-history.jsonl';
+const YOLO_OCC_PATH = './data/yolo-occupancy-history.jsonl';
 const ARCHIVE = process.env.TAXI_IMAGE_ARCHIVE_DIR || path.join(os.homedir(), 'taxi-image-archive');
 const THUMB_W = 480;
 
@@ -45,7 +46,14 @@ async function main() {
           holidays = JSON.parse(readFileSync('./data/jp-holidays.json', 'utf8'));
         }
       } catch (e) { console.error(`[pool-status] holidays read failed: ${e.message}`); }
-      const status = buildPoolStatus(rows, new Date(), arrivals, holidays);
+      let yoloRows = null;
+      try {
+        if (existsSync(YOLO_OCC_PATH)) {
+          yoloRows = readFileSync(YOLO_OCC_PATH, 'utf8').trim().split('\n')
+            .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+        }
+      } catch { yoloRows = null; }
+      const status = buildPoolStatus(rows, new Date(), arrivals, holidays, yoloRows);
       // observe が書いた映像ソースの stale 状態をマージ(本番UIの注意喚起用)。
       // generatedAt は毎 tick 進む(publish は stale 時も走る)ため経年判定では映像エラーを検知できない。
       // observe の明示フラグを載せて、日報アプリ側で専用の注意文を出せるようにする。
