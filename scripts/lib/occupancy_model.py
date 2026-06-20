@@ -46,13 +46,18 @@ def infer(pil_image, model, slots_json, stalls=("stall1", "stall2")):
     im = pil_image.convert("RGB"); W, H = im.size
     arr = np.asarray(im, dtype=np.uint8)
     out = {"per_slot": {}}
+    corr = model.get("centers", {})  # 補正中心(枠ズレ修正)。あればstall-slots.jsonより優先
     for name in stalls:
         cnt = 0
-        for p in slots_json["stalls"][name]["slots"]:
-            fv = _feats(_patch_at(arr, p["cx"] * W, p["cy"] * H, W, H))
+        if name in corr:
+            positions = [(c[0], c[1], name + "-c" + str(i)) for i, c in enumerate(corr[name])]
+        else:
+            positions = [(p["cx"], p["cy"], p["id"]) for p in slots_json["stalls"][name]["slots"]]
+        for cx, cy, sid in positions:
+            fv = _feats(_patch_at(arr, cx * W, cy * H, W, H))
             prob = 0.0 if fv is None else 1.0 / (1.0 + np.exp(-(((fv - model["mu"]) / model["sd"]) @ model["w"] + model["b"])))
             occ = int(prob > model["thr"])
-            out["per_slot"][p["id"]] = {"p": round(float(prob), 4), "occ": occ}
+            out["per_slot"][sid] = {"p": round(float(prob), 4), "occ": occ}
             cnt += occ
         out[name] = cnt
     return out

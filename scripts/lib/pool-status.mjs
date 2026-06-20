@@ -93,8 +93,11 @@ export function slotTexOccByStall(texRows, now, windowTicks = 5) {
     .filter(r => Number.isFinite(r.tsMs) && r.tsMs <= now.getTime()).sort((a, b) => a.tsMs - b.tsMs);
   const fresh = rs.filter(r => r.tsMs >= now.getTime() - 25 * 60000).slice(-windowTicks);
   if (fresh.length < 1) return null;
+  // 最新行が暗所(dark=stall値なし)なら、古い昼値を出し続けずfillへ退避(夕暮れ移行対策)。
+  const latest = fresh[fresh.length - 1];
+  if (!latest || (typeof latest.stall1 !== "number" && typeof latest.stall2 !== "number")) return null;
   const out = {};
-  // テクスチャ占有は車の有無で安定。直近25分の中央値で「今の埋まり」を出す(現状追従)。
+  // 学習版占有は安定。直近25分の中央値で「今の埋まり」を出す(現状追従)。
   for (const k of ["stall1", "stall2"]) {
     const vals = fresh.map(r => (typeof r[k] === "number" ? r[k] : null)).filter(v => v != null);
     if (vals.length) out[k] = Math.round(median(vals));
