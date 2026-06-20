@@ -344,7 +344,8 @@ export function buildPoolStatus(rows, now = new Date(), arrivals = null, holiday
   // 昼は最奥 stall1/2 の占有を YOLO 計測で上書き(fillは遠景で満車/空を分離不可)。夜/データ無は fill のまま。
   const _latest = sorted(rows).filter(r => r.tsMs <= now.getTime()).slice(-1)[0];
   const _isDay = _latest ? _latest.mode === "day" : false;
-  const _texOcc = (_isDay && texRows) ? slotTexOccByStall(texRows, now) : null;
+  // 独立検証(サブエージェント+codex)でテクスチャ占有は固定閾値std>28が脆く、昼でも16->3->16と振動・暗い車で大量偽陰性=出荷不可と判明。占有上書きを一旦停止しfillへ戻す(2026-06-20)。texRows/slotTexOccByStallはシャドウ温存。
+  const _texOcc = null; void texRows; void slotTexOccByStall;
   const stallsBase = buildStalls(rows, now, holidays, _texOcc);
   const rankHints = buildStallRankHint(stallsBase);
   const stalls = {};

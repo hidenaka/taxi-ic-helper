@@ -462,7 +462,7 @@ test('buildStalls: yoloOcc が stall1/2 occ を上書き(3/4は fill のまま)'
   assert.equal(s.stall3.occ, 3);
 });
 
-test('buildPoolStatus: 昼は yolo で stall1/2 を上書き・夜は fill のまま', () => {
+test('buildPoolStatus: テクスチャ占有上書きは停止中(検証で不安定)→昼夜ともfill', () => {
   const base = Date.parse('2026-06-19T12:00:00+09:00');
   const mkRows = (mode) => [0, 1, 2].map((i) => ({
     ts: new Date(base - (2 - i) * 30000).toISOString(), mode,
@@ -470,7 +470,7 @@ test('buildPoolStatus: 昼は yolo で stall1/2 を上書き・夜は fill の�
   }));
   const yolo = [{ ts: new Date(base - 60000).toISOString(), stall1: 15, stall2: 13 }];
   const day = buildPoolStatus(mkRows('day'), new Date(base), null, null, yolo);
-  assert.equal(day.stalls.stall1.occ, 15);
+  assert.equal(day.stalls.stall1.occ, 2);
   const night = buildPoolStatus(mkRows('night'), new Date(base), null, null, yolo);
   assert.equal(night.stalls.stall1.occ, 2);
 });
