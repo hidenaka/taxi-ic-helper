@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
-# texture-occupancy-tick — 最奥 stall1/2 の占有を「スロット占有率(テクスチャ)」で計測する。
+# occupancy-tick(構造差分方式) — 最奥 stall1/2 の占有を「空参照との構造差」で計測する。
 #
-# 背景: 最奥 stall1/2 は遠景で前列に隠れ、fill(背景差分)もYOLOカウントも信頼できない
-# (台数カウントが不可能だから列移動を測っている、という設計前提どおり)。
-# しかし「各スロットが車で埋まっているか」はテクスチャ(局所std)で判定できる:
-# 車=窓/輪郭/コントラストでテクスチャ高、空アスファルト=平坦でテクスチャ低(濡れでも平坦)。
-# これは列移動と同じ stall-slots.json のスロット位置を使い、台数でなく占有"割合"を出すため
-# 遮蔽に強い。実画像検証で 満車16/16・空0/16 と分離(thr=28)。
-import os, sys, json, glob
+# 旧 std>28(テクスチャ)は固定閾値で振動・暗い車偽陰性で破綻(独立検証で実証)。
+# 本方式: 各スロットpatchを明るさ正規化(patch-mean=構造のみ)し、最近の「空アスファルト」
+# 参照(data/slot-empty-reference.npz, build-empty-reference.pyが定期生成)との平均絶対差が
+# 閾値超なら占有。de-risk: 昼連続frame安定(無振動)/空0/満16/暗い車も検出。
+# 暗所(夜/夕方暗)は brightness gate で保留→publishがfillへフォールバック。
+import os, sys, json, glob, subprocess, time
 import numpy as np
-from PIL import Image
 from datetime import datetime, timezone, timedelta
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(SCRIPT_DIR, "lib"))
+import empty_reference as er
+
+ROOT = os.path.dirname(SCRIPT_DIR)
 SLOTS = os.path.join(ROOT, "scripts/lib/stall-slots.json")
-OUT = os.path.join(ROOT, "data/slot-texture-occupancy.jsonl")
 ARCH = os.path.expanduser("~/taxi-image-archive/real01_line")
+REF = os.path.join(ROOT, "data/slot-empty-reference.npz")
+OUT = os.path.join(ROOT, "data/slot-texture-occupancy.jsonl")
+BUILDER = os.path.join(SCRIPT_DIR, "build-empty-reference.py")
+REF_MAX_AGE_H = 3   # 参照がこれより古ければ再生成(天候/光に追従)
 JST = timezone(timedelta(hours=9))
-THR = 28.0     # スロットpatchのstdがこれ超で占有(車あり)。実画像で満車/空を分離する値。
-PATCH = 7      # スロット中心の±7px(=14x14)パッチ。
-STALLS = ["stall1", "stall2"]  # 最奥のみ。stall3/4(近距離)はfill据置。
+
 
 def latest_frame():
     for d in sorted(glob.glob(os.path.join(ARCH, "*")), reverse=True):
@@ -28,33 +31,43 @@ def latest_frame():
             return js[-1]
     return None
 
-def main():
+
+def ref_stale():
+    meta = REF + ".meta.json"
+    if not (os.path.exists(REF) and os.path.exists(meta)):
+        return True
     try:
-        cfg = json.load(open(SLOTS))
-    except Exception as e:
-        print(f"[tex-occ] slots read failed: {e}", file=sys.stderr); return 0
+        ts = datetime.fromisoformat(json.load(open(meta))["ts"])
+        return (datetime.now(JST) - ts).total_seconds() > REF_MAX_AGE_H * 3600
+    except Exception:
+        return True
+
+
+def main():
+    if ref_stale():
+        try:
+            subprocess.run([sys.executable, BUILDER], timeout=180, check=False)
+        except Exception as e:
+            print(f"[occ] ref rebuild failed: {e}", file=sys.stderr)
+    if not os.path.exists(REF):
+        print("[occ] no reference yet", file=sys.stderr); return 0
     fn = latest_frame()
     if not fn:
-        print("[tex-occ] no frame", file=sys.stderr); return 0
-    try:
-        g = np.asarray(Image.open(fn).convert("L")).astype(float)
-    except Exception as e:
-        print(f"[tex-occ] image read failed: {e}", file=sys.stderr); return 0
-    H, W = g.shape
+        print("[occ] no frame", file=sys.stderr); return 0
+    g = er.frame_gray(fn)
+    cfg = json.load(open(SLOTS))
+    refs = np.load(REF)
     row = {"ts": datetime.now(JST).isoformat(timespec="seconds")}
-    for st in STALLS:
-        slots = cfg["stalls"][st]["slots"]
-        n = 0
-        for s in slots:
-            cx, cy = int(s["cx"] * W), int(s["cy"] * H)
-            p = g[max(0, cy - PATCH):cy + PATCH, max(0, cx - PATCH):cx + PATCH]
-            if p.size and p.std() > THR:
-                n += 1
-        row[st] = n
+    if g.mean() < er.DARK_GATE:
+        row["dark"] = True   # 暗所は占有値を出さない(publishはfillへ)
+    else:
+        for st in er.STALLS:
+            row[st] = int(er.slot_occupancy(g, cfg["stalls"][st]["slots"], refs[st]))
     with open(OUT, "a") as f:
         f.write(json.dumps(row) + "\n")
-    print("[tex-occ]", row)
+    print("[occ]", row)
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
