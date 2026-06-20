@@ -20,7 +20,7 @@ ARCH = os.path.expanduser("~/taxi-image-archive/real01_line")
 REF = os.path.join(ROOT, "data/slot-empty-reference.npz")
 OUT = os.path.join(ROOT, "data/slot-texture-occupancy.jsonl")
 BUILDER = os.path.join(SCRIPT_DIR, "build-empty-reference.py")
-REF_MAX_AGE_H = 3   # 参照がこれより古ければ再生成(天候/光に追従)
+REF_MAX_AGE_H = 24   # 参照がこれより古ければ再生成(天候/光に追従)
 JST = timezone(timedelta(hours=9))
 
 
@@ -56,13 +56,17 @@ def main():
         print("[occ] no frame", file=sys.stderr); return 0
     g = er.frame_gray(fn)
     cfg = json.load(open(SLOTS))
-    refs = np.load(REF)
+    npz = np.load(REF)
+    refs = {st: npz[st].copy() for st in er.STALLS}
     row = {"ts": datetime.now(JST).isoformat(timespec="seconds")}
     if g.mean() < er.DARK_GATE:
         row["dark"] = True   # 暗所は占有値を出さない(publishはfillへ)
     else:
         for st in er.STALLS:
-            row[st] = int(er.slot_occupancy(g, cfg["stalls"][st]["slots"], refs[st]))
+            slots = cfg["stalls"][st]["slots"]
+            row[st] = int(er.slot_occupancy(g, slots, refs[st]))
+            er.adapt_reference(g, slots, refs[st])   # 占有判定後、空スロットだけ参照を現状へEMA追従
+        np.savez(REF, **refs)   # 適応後の参照を保存(天候/光に連続追従)
     with open(OUT, "a") as f:
         f.write(json.dumps(row) + "\n")
     print("[occ]", row)

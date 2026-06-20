@@ -68,3 +68,18 @@ def emptiest_frames(frame_paths, slots, k=N_EMPTY):
             continue
     scored.sort(key=lambda x: x[0])
     return [f for _, f in scored[:k]]
+
+
+UPDATE_THR = 6.0   # 現patchと参照の差がこれ未満=確実に空アスファルト→参照を現状へ追従(天候/光のドリフトを学習)
+EMA = 0.08         # 追従率(ゆっくり)
+
+def adapt_reference(gray, slots, ref):
+    """確実に空のスロットだけ参照を現フレームへEMA更新し、天候/光の変化に追従する。
+    車(差大)は更新しない=占有を保持。戻り値=更新後ref(in-place)。"""
+    H, W = gray.shape
+    for i, (cx, cy) in enumerate(_centers(slots, W, H)):
+        p = _patch16(gray, cx, cy)
+        if np.abs(p - ref[i]).mean() < UPDATE_THR:
+            ref[i] = (1 - EMA) * ref[i] + EMA * p
+    return ref
+
