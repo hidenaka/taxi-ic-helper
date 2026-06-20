@@ -87,9 +87,9 @@ function percentileVal(arr, p) {
   const b = [...arr].sort((x, y) => x - y);
   return b[Math.min(b.length - 1, Math.floor(p * (b.length - 1) + 0.5))];
 }
-export function yoloOccByStall(yoloRows, now, windowTicks = 9) {
-  if (!Array.isArray(yoloRows) || yoloRows.length === 0) return null;
-  const rs = yoloRows.map(r => ({ ...r, tsMs: new Date(r.ts).getTime() }))
+export function slotTexOccByStall(texRows, now, windowTicks = 9) {
+  if (!Array.isArray(texRows) || texRows.length === 0) return null;
+  const rs = texRows.map(r => ({ ...r, tsMs: new Date(r.ts).getTime() }))
     .filter(r => Number.isFinite(r.tsMs) && r.tsMs <= now.getTime()).sort((a, b) => a.tsMs - b.tsMs);
   const fresh = rs.filter(r => r.tsMs >= now.getTime() - 45 * 60000).slice(-windowTicks);
   if (fresh.length < 1) return null;
@@ -329,7 +329,7 @@ function jstIso(d) {
 
 /** pool-status.json オブジェクトを組み立てる。
  * arrivals, holidays は optional（省略時は後方互換: terminalArrivals=null, sameConditionCompare=null）。 */
-export function buildPoolStatus(rows, now = new Date(), arrivals = null, holidays = null, yoloRows = null) {
+export function buildPoolStatus(rows, now = new Date(), arrivals = null, holidays = null, texRows = null) {
   const cur = currentOccupancy(rows, now, 5);
   const cameras = {};
   for (const g of Object.keys(GROUPS)) {
@@ -344,8 +344,8 @@ export function buildPoolStatus(rows, now = new Date(), arrivals = null, holiday
   // 昼は最奥 stall1/2 の占有を YOLO 計測で上書き(fillは遠景で満車/空を分離不可)。夜/データ無は fill のまま。
   const _latest = sorted(rows).filter(r => r.tsMs <= now.getTime()).slice(-1)[0];
   const _isDay = _latest ? _latest.mode === "day" : false;
-  const _yoloOcc = (_isDay && yoloRows) ? yoloOccByStall(yoloRows, now) : null;
-  const stallsBase = buildStalls(rows, now, holidays, _yoloOcc);
+  const _texOcc = (_isDay && texRows) ? slotTexOccByStall(texRows, now) : null;
+  const stallsBase = buildStalls(rows, now, holidays, _texOcc);
   const rankHints = buildStallRankHint(stallsBase);
   const stalls = {};
   for (const k of ['stall1', 'stall2', 'stall3', 'stall4']) {

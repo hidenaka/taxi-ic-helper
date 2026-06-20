@@ -61,8 +61,8 @@ if [ "$NODE_EXIT" -ne 0 ]; then
   exit 0
 fi
 
-# YOLO占有(最奥 stall1/2)をシャドウ記録。fillは遠景マスク極小で満車/空を分離不可のため(2026-06-20)。
-if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/yolo-occupancy-tick.py || true; fi
+# 最奥 stall1/2 の占有率(テクスチャ)を計測。台数カウント不可の遠景でも占有割合は出せる(2026-06-20)。
+if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/texture-occupancy-tick.py || true; fi
 
 # 現況バンドル (pool-status.json + サムネ) を生成 (fail-safe)
 node scripts/publish-pool-status.mjs || true
