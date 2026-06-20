@@ -1,33 +1,24 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-20T18:36:54+09:00",
+  "generatedAt": "2026-06-20T18:42:29+09:00",
   "weights": {
     "lead30": {
-      "w_fc": 0.3934,
-      "w_pm": 0.6066,
+      "w_fc": 0.3933,
+      "w_pm": 0.6067,
       "source": "mae"
     },
     "lead60": {
-      "w_fc": 0.3923,
-      "w_pm": 0.6077,
+      "w_fc": 0.3926,
+      "w_pm": 0.6074,
       "source": "mae"
     },
     "lead120": {
-      "w_fc": 0.4129,
-      "w_pm": 0.5871,
+      "w_fc": 0.4137,
+      "w_pm": 0.5863,
       "source": "mae"
     }
   },
   "slots": [
-    {
-      "slotStart": "18:40",
-      "leadBucket": "lead30",
-      "stall1": 4,
-      "stall2": 2,
-      "stall3": 5,
-      "stall4": 2,
-      "total": 13
-    },
     {
       "slotStart": "18:45",
       "leadBucket": "lead30",
@@ -42,9 +33,9 @@
       "leadBucket": "lead30",
       "stall1": 2,
       "stall2": 3,
-      "stall3": 2,
+      "stall3": 3,
       "stall4": 2,
-      "total": 9
+      "total": 10
     },
     {
       "slotStart": "18:55",
@@ -102,7 +93,7 @@
     },
     {
       "slotStart": "19:25",
-      "leadBucket": "lead60",
+      "leadBucket": "lead30",
       "stall1": 0,
       "stall2": 0,
       "stall3": 0,
@@ -149,10 +140,10 @@
       "slotStart": "19:50",
       "leadBucket": "lead60",
       "stall1": 1,
-      "stall2": 0,
+      "stall2": 1,
       "stall3": 1,
       "stall4": 0,
-      "total": 2
+      "total": 3
     },
     {
       "slotStart": "19:55",
@@ -210,12 +201,12 @@
     },
     {
       "slotStart": "20:25",
-      "leadBucket": "lead120",
+      "leadBucket": "lead60",
       "stall1": 1,
-      "stall2": 0,
+      "stall2": 1,
       "stall3": 1,
       "stall4": 0,
-      "total": 2
+      "total": 3
     },
     {
       "slotStart": "20:30",
@@ -234,6 +225,15 @@
       "stall3": 2,
       "stall4": 1,
       "total": 5
+    },
+    {
+      "slotStart": "20:40",
+      "leadBucket": "lead120",
+      "stall1": 0,
+      "stall2": 0,
+      "stall3": 0,
+      "stall4": 0,
+      "total": 0
     }
   ],
   "throughputScaleK": 1
