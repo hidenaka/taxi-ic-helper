@@ -435,7 +435,7 @@ test('buildStalls: holidays 未指定（既存呼び出し）でも壊れず、s
 });
 
 
-test('slotTexOccByStall: 上側80%パーセンタイル / 空・45分超は null', () => {
+test('slotTexOccByStall: 直近中央値 / 空・25分超は null', () => {
   const now = new Date('2026-06-19T12:00:00+09:00');
   const t = (m) => new Date(now.getTime() - m * 60000).toISOString();
   const rows = [
@@ -444,8 +444,8 @@ test('slotTexOccByStall: 上側80%パーセンタイル / 空・45分超は null
     { ts: t(5),  stall1: 12, stall2: 14 },
   ];
   const o = slotTexOccByStall(rows, now);
-  assert.equal(o.stall1, 14);
-  assert.equal(o.stall2, 14);
+  assert.equal(o.stall1, 12);
+  assert.equal(o.stall2, 13);
   assert.equal(slotTexOccByStall([], now), null);
   assert.equal(slotTexOccByStall([{ ts: t(60), stall1: 9, stall2: 9 }], now), null);
 });

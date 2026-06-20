@@ -87,17 +87,17 @@ function percentileVal(arr, p) {
   const b = [...arr].sort((x, y) => x - y);
   return b[Math.min(b.length - 1, Math.floor(p * (b.length - 1) + 0.5))];
 }
-export function slotTexOccByStall(texRows, now, windowTicks = 9) {
+export function slotTexOccByStall(texRows, now, windowTicks = 5) {
   if (!Array.isArray(texRows) || texRows.length === 0) return null;
   const rs = texRows.map(r => ({ ...r, tsMs: new Date(r.ts).getTime() }))
     .filter(r => Number.isFinite(r.tsMs) && r.tsMs <= now.getTime()).sort((a, b) => a.tsMs - b.tsMs);
-  const fresh = rs.filter(r => r.tsMs >= now.getTime() - 45 * 60000).slice(-windowTicks);
+  const fresh = rs.filter(r => r.tsMs >= now.getTime() - 25 * 60000).slice(-windowTicks);
   if (fresh.length < 1) return null;
   const out = {};
-  // 最奥は隠れで下振れする。上側80%パーセンタイルで均すと満車時の過小を抑え、空は0近くで過大化しない。
+  // テクスチャ占有は車の有無で安定。直近25分の中央値で「今の埋まり」を出す(現状追従)。
   for (const k of ["stall1", "stall2"]) {
     const vals = fresh.map(r => (typeof r[k] === "number" ? r[k] : null)).filter(v => v != null);
-    if (vals.length) out[k] = Math.round(percentileVal(vals, 0.8));
+    if (vals.length) out[k] = Math.round(median(vals));
   }
   return Object.keys(out).length ? out : null;
 }
