@@ -435,7 +435,7 @@ test('buildStalls: holidays 未指定（既存呼び出し）でも壊れず、s
 });
 
 
-test('yoloOccByStall: 直近5件のmedian / 空・30分超は null', () => {
+test('yoloOccByStall: 上側80%パーセンタイル / 空・45分超は null', () => {
   const now = new Date('2026-06-19T12:00:00+09:00');
   const t = (m) => new Date(now.getTime() - m * 60000).toISOString();
   const rows = [
@@ -444,8 +444,8 @@ test('yoloOccByStall: 直近5件のmedian / 空・30分超は null', () => {
     { ts: t(5),  stall1: 12, stall2: 14 },
   ];
   const o = yoloOccByStall(rows, now);
-  assert.equal(o.stall1, 12);
-  assert.equal(o.stall2, 13);
+  assert.equal(o.stall1, 14);
+  assert.equal(o.stall2, 14);
   assert.equal(yoloOccByStall([], now), null);
   assert.equal(yoloOccByStall([{ ts: t(60), stall1: 9, stall2: 9 }], now), null);
 });

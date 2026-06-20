@@ -82,16 +82,22 @@ export function currentOccupancyByStall(rows, now, windowTicks = 5) {
 
 /** YOLO占有履歴(yolo-occupancy-history)の直近windowTicks件のmedianをstall1/2について返す。
  *  遠景fillが満車/空を分離不可のため、昼の最奥占有はこの値で上書きする。30分より古い/無→null。 */
-export function yoloOccByStall(yoloRows, now, windowTicks = 5) {
+function percentileVal(arr, p) {
+  if (!arr.length) return 0;
+  const b = [...arr].sort((x, y) => x - y);
+  return b[Math.min(b.length - 1, Math.floor(p * (b.length - 1) + 0.5))];
+}
+export function yoloOccByStall(yoloRows, now, windowTicks = 9) {
   if (!Array.isArray(yoloRows) || yoloRows.length === 0) return null;
   const rs = yoloRows.map(r => ({ ...r, tsMs: new Date(r.ts).getTime() }))
     .filter(r => Number.isFinite(r.tsMs) && r.tsMs <= now.getTime()).sort((a, b) => a.tsMs - b.tsMs);
-  const fresh = rs.filter(r => r.tsMs >= now.getTime() - 30 * 60000).slice(-windowTicks);
+  const fresh = rs.filter(r => r.tsMs >= now.getTime() - 45 * 60000).slice(-windowTicks);
   if (fresh.length < 1) return null;
   const out = {};
+  // 最奥は隠れで下振れする。上側80%パーセンタイルで均すと満車時の過小を抑え、空は0近くで過大化しない。
   for (const k of ["stall1", "stall2"]) {
     const vals = fresh.map(r => (typeof r[k] === "number" ? r[k] : null)).filter(v => v != null);
-    if (vals.length) out[k] = Math.round(median(vals));
+    if (vals.length) out[k] = Math.round(percentileVal(vals, 0.8));
   }
   return Object.keys(out).length ? out : null;
 }
