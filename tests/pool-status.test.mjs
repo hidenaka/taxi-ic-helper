@@ -474,3 +474,37 @@ test('buildPoolStatus: テクスチャ占有上書きは停止中(検証で不�
   const night = buildPoolStatus(mkRows('night'), new Date(base), null, null, yolo);
   assert.equal(night.stalls.stall1.occ, 2);
 });
+
+// === 号別全レーン埋まり率(fillRate) ===
+import { noribaFillByStall } from '../scripts/lib/pool-status.mjs';
+
+test('noribaFillByStall: 直近window medianを号→stallで返す。空/未来除外', () => {
+  const now = new Date(Date.parse('2026-06-21T18:00:00+09:00'));
+  assert.equal(noribaFillByStall(null, now), null);
+  assert.equal(noribaFillByStall([], now), null);
+  const rows = [
+    { ts: '2026-06-21T17:40:00+09:00', fill: { '1': 0.5, '2': 0.2, '3': 0.1, '4': 0.0 } },
+    { ts: '2026-06-21T17:45:00+09:00', fill: { '1': 0.9, '2': 0.4, '3': 0.3, '4': 0.2 } },
+    { ts: '2026-06-21T17:50:00+09:00', fill: { '1': 0.7, '2': 0.3, '3': 0.2, '4': 0.1 } },
+  ];
+  const r = noribaFillByStall(rows, now, 5);
+  assert.equal(r.stall1, 0.7); // median [0.5,0.7,0.9]
+  assert.equal(r.stall2, 0.3);
+  assert.equal(r.stall3, 0.2);
+  assert.equal(r.stall4, 0.1);
+  // 未来行(19:00)は除外され median 不変
+  const r2 = noribaFillByStall([...rows, { ts: '2026-06-21T19:00:00+09:00', fill: { '1': 1, '2': 1, '3': 1, '4': 1 } }], now);
+  assert.equal(r2.stall1, 0.7);
+});
+
+test('buildStalls: noribaFill 指定で fillRate を号別付与。未指定/非数は null', () => {
+  const base = Date.parse('2026-06-21T18:00:00+09:00');
+  const rows = [{ ts: new Date(base).toISOString(), stalls: { stall1: { occ: 5 }, stall2: { occ: 3 }, stall3: { occ: 4 }, stall4: { occ: 2 }, stall4_back: { occ: 1 } } }];
+  const noFill = buildStalls(rows, new Date(base), null, null);
+  assert.equal(noFill.stall1.fillRate, null);
+  const withFill = buildStalls(rows, new Date(base), null, null, { stall1: 0.9, stall2: 0.5, stall3: null, stall4: 0.3 });
+  assert.equal(withFill.stall1.fillRate, 0.9);
+  assert.equal(withFill.stall2.fillRate, 0.5);
+  assert.equal(withFill.stall3.fillRate, null); // 非数→null
+  assert.equal(withFill.stall4.fillRate, 0.3);
+});

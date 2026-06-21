@@ -63,6 +63,8 @@ fi
 
 # 最奥 stall1/2 の占有率(テクスチャ)を計測。台数カウント不可の遠景でも占有割合は出せる(2026-06-20)。
 if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/texture-occupancy-tick.py || true; fi
+# 号別(1〜4)全レーン埋まり率 tick (昼=学習モデル/夜=行灯)。publish が直近 median を pool-status に載せる。
+if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/noriba-fill-tick.py || true; fi
 
 # 現況バンドル (pool-status.json + サムネ) を生成 (fail-safe)
 node scripts/publish-pool-status.mjs || true

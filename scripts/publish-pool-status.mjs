@@ -9,6 +9,7 @@ import { buildPoolStatus } from './lib/pool-status.mjs';
 
 const OCC_PATH = './data/slot-occupancy-history.jsonl';
 const SLOT_TEX_PATH = './data/slot-texture-occupancy.jsonl';
+const FILL_PATH = './data/noriba-fill-history.jsonl';
 const ARCHIVE = process.env.TAXI_IMAGE_ARCHIVE_DIR || path.join(os.homedir(), 'taxi-image-archive');
 const THUMB_W = 480;
 
@@ -53,7 +54,14 @@ async function main() {
             .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
         }
       } catch { texRows = null; }
-      const status = buildPoolStatus(rows, new Date(), arrivals, holidays, texRows);
+      let fillRows = null;
+      try {
+        if (existsSync(FILL_PATH)) {
+          fillRows = readFileSync(FILL_PATH, 'utf8').trim().split('\n')
+            .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+        }
+      } catch { fillRows = null; }
+      const status = buildPoolStatus(rows, new Date(), arrivals, holidays, texRows, fillRows);
       // observe が書いた映像ソースの stale 状態をマージ(本番UIの注意喚起用)。
       // generatedAt は毎 tick 進む(publish は stale 時も走る)ため経年判定では映像エラーを検知できない。
       // observe の明示フラグを載せて、日報アプリ側で専用の注意文を出せるようにする。

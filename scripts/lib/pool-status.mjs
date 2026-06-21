@@ -119,6 +119,23 @@ export function stallTrend(recent30, prior30) {
   return 'flat';
 }
 
+/** 号別(1〜4)全レーン埋まり率(noriba-fill-history)の直近windowTicks件 median を
+ * {stall1..stall4} の比率(0-1)で返す。データ無は null。昼=学習モデル/夜=行灯の統合値。 */
+export function noribaFillByStall(fillRows, now, windowTicks = 5) {
+  if (!Array.isArray(fillRows) || fillRows.length === 0) return null;
+  const rs = fillRows.map(r => ({ ...r, tsMs: new Date(r.ts).getTime() }))
+    .filter(r => Number.isFinite(r.tsMs) && r.tsMs <= now.getTime())
+    .sort((a, b) => a.tsMs - b.tsMs).slice(-windowTicks);
+  if (rs.length === 0) return null;
+  const map = { stall1: '1', stall2: '2', stall3: '3', stall4: '4' };
+  const out = {};
+  for (const [stall, go] of Object.entries(map)) {
+    const vals = rs.map(r => r.fill?.[go]).filter(v => typeof v === 'number').sort((a, b) => a - b);
+    out[stall] = vals.length ? vals[Math.floor((vals.length - 1) / 2)] : null;
+  }
+  return out;
+}
+
 const STALL_NAMES = ['stall1', 'stall2', 'stall3', 'stall4'];
 const STALL_LABEL = { stall1: '第1乗り場', stall2: '第2乗り場', stall3: '第3乗り場', stall4: '第4乗り場' };
 const STALL_TERMINAL = { stall1: 'T1', stall2: 'T1', stall3: 'T2', stall4: 'T2' };
@@ -149,7 +166,7 @@ export function buildStallRankHint(stalls) {
 
 /** 乗り場別ブロック（在台・直近1h出庫・待ち目安・動き方・ターミナル）を組み立てる。
  *  holidays 指定時は各 stall に sameConditionCompare を付与（省略時は null）。 */
-export function buildStalls(rows, now, holidays = null, yoloOcc = null) {
+export function buildStalls(rows, now, holidays = null, yoloOcc = null, noribaFill = null) {
   const occ = currentOccupancyByStall(rows, now, 5);
   if (yoloOcc) {
     if (typeof yoloOcc.stall1 === "number") occ.stall1 = yoloOcc.stall1;
@@ -168,6 +185,7 @@ export function buildStalls(rows, now, holidays = null, yoloOcc = null) {
       waitMin: waitMinFor(occ[s], dep1h[s]),
       trend: stallTrend(depRecent30[s], depPrior30[s]),
       sameConditionCompare: holidays ? sameConditionCompare(rows, now, holidays, 4, s) : null,
+      fillRate: (noribaFill && typeof noribaFill[s] === 'number') ? noribaFill[s] : null,
     };
   }
   return out;
@@ -332,7 +350,7 @@ function jstIso(d) {
 
 /** pool-status.json オブジェクトを組み立てる。
  * arrivals, holidays は optional（省略時は後方互換: terminalArrivals=null, sameConditionCompare=null）。 */
-export function buildPoolStatus(rows, now = new Date(), arrivals = null, holidays = null, texRows = null) {
+export function buildPoolStatus(rows, now = new Date(), arrivals = null, holidays = null, texRows = null, fillRows = null) {
   const cur = currentOccupancy(rows, now, 5);
   const cameras = {};
   for (const g of Object.keys(GROUPS)) {
@@ -349,7 +367,8 @@ export function buildPoolStatus(rows, now = new Date(), arrivals = null, holiday
   const _isDay = _latest ? _latest.mode === "day" : false;
   // 独立検証(サブエージェント+codex)でテクスチャ占有は固定閾値std>28が脆く、昼でも16->3->16と振動・暗い車で大量偽陰性=出荷不可と判明。占有上書きを一旦停止しfillへ戻す(2026-06-20)。texRows/slotTexOccByStallはシャドウ温存。
   const _texOcc = null; void texRows; void slotTexOccByStall;
-  const stallsBase = buildStalls(rows, now, holidays, _texOcc);
+  const noribaFill = noribaFillByStall(fillRows, now);
+  const stallsBase = buildStalls(rows, now, holidays, _texOcc, noribaFill);
   const rankHints = buildStallRankHint(stallsBase);
   const stalls = {};
   for (const k of ['stall1', 'stall2', 'stall3', 'stall4']) {
