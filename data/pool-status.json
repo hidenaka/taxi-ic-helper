@@ -1,31 +1,31 @@
 {
-  "generatedAt": "2026-06-26T04:32:29+09:00",
+  "generatedAt": "2026-06-26T04:38:09+09:00",
   "cameras": {
     "real01": {
-      "occ": 23,
+      "occ": 7,
       "fullRef": 42,
-      "level": "normal"
+      "level": "empty"
     },
     "real02": {
-      "occ": 3,
+      "occ": 8,
       "fullRef": 8,
-      "level": "normal"
+      "level": "full"
     }
   },
   "total": {
-    "occ": 26,
+    "occ": 15,
     "level": "normal"
   },
   "activity": {
-    "recent1hDepartures": 6,
-    "typical1h": 11,
-    "ratio": 0.55,
-    "level": "low",
-    "arrow": "down",
+    "recent1hDepartures": 22,
+    "typical1h": 12,
+    "ratio": 1.83,
+    "level": "active",
+    "arrow": "up",
     "sameConditionCompare": {
       "peers_typical": 15,
-      "percent": -60,
-      "label": "いつもより少なめ",
+      "percent": 47,
+      "label": "いつもより活発",
       "dayLabel": "金曜平日"
     }
   },
@@ -33,14 +33,14 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 10,
-      "recent1hDep": 2,
-      "waitMin": 300,
+      "occ": 2,
+      "recent1hDep": 10,
+      "waitMin": 12,
       "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": 10,
-        "percent": -80,
-        "label": "いつもより少なめ",
+        "percent": 0,
+        "label": "いつも通り",
         "dayLabel": "金曜平日"
       },
       "fillRate": 0,
@@ -49,25 +49,25 @@
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 8,
-      "recent1hDep": 2,
-      "waitMin": 240,
+      "occ": 1,
+      "recent1hDep": 9,
+      "waitMin": 7,
       "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": 1,
-        "percent": 100,
+        "percent": 800,
         "label": "いつもより活発",
         "dayLabel": "金曜平日"
       },
       "fillRate": 0,
-      "rankHint": "most-active"
+      "rankHint": null
     },
     "stall3": {
       "label": "第3乗り場",
       "terminal": "T2",
-      "occ": 1,
-      "recent1hDep": 2,
-      "waitMin": 30,
+      "occ": 0,
+      "recent1hDep": 3,
+      "waitMin": 0,
       "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": 0,
@@ -76,12 +76,12 @@
         "dayLabel": "金曜平日"
       },
       "fillRate": 0,
-      "rankHint": "most-active"
+      "rankHint": null
     },
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 7,
+      "occ": 12,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
@@ -91,7 +91,7 @@
         "label": "いつもより少なめ",
         "dayLabel": "金曜平日"
       },
-      "fillRate": 0.5455,
+      "fillRate": 0.7727,
       "rankHint": "most-low"
     }
   },
@@ -102,7 +102,7 @@
     },
     "T2": {
       "next30": 0,
-      "next60": 5
+      "next60": 9
     }
   },
   "terminalArrivalsList": {
@@ -113,8 +113,16 @@
         "airline": "ANA",
         "fromName": "ニューヨーク",
         "seatCount": 264,
-        "lobbyExitMinutes": 48,
+        "lobbyExitMinutes": 42,
         "lobbyExitTime": "05:20"
+      },
+      {
+        "flightNumber": "NH105",
+        "airline": "ANA",
+        "fromName": "ロサンゼルス",
+        "seatCount": 215,
+        "lobbyExitMinutes": 60,
+        "lobbyExitTime": "05:38"
       }
     ]
   },
@@ -128,7 +136,7 @@
         "airline": "ANA",
         "fromName": "サンフランシスコ",
         "seatCount": 264,
-        "lobbyExitMinutes": 45,
+        "lobbyExitMinutes": 39,
         "lobbyExitTime": "05:17"
       },
       {
@@ -136,7 +144,7 @@
         "airline": "ANA",
         "fromName": "ニューヨーク",
         "seatCount": 264,
-        "lobbyExitMinutes": 48,
+        "lobbyExitMinutes": 42,
         "lobbyExitTime": "05:20"
       },
       {
@@ -144,11 +152,27 @@
         "airline": "JAL",
         "fromName": "ニューヨーク",
         "seatCount": 339,
-        "lobbyExitMinutes": 53,
+        "lobbyExitMinutes": 47,
         "lobbyExitTime": "05:25"
+      },
+      {
+        "flightNumber": "JL078",
+        "airline": "JAL",
+        "fromName": "マニラ",
+        "seatCount": 200,
+        "lobbyExitMinutes": 57,
+        "lobbyExitTime": "05:35"
+      },
+      {
+        "flightNumber": "NH105",
+        "airline": "ANA",
+        "fromName": "ロサンゼルス",
+        "seatCount": 215,
+        "lobbyExitMinutes": 60,
+        "lobbyExitTime": "05:38"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-06-26T04:32:21+09:00"
+  "sourceStaleSince": "2026-06-26T04:38:00+09:00"
 }
