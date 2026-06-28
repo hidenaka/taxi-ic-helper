@@ -1,33 +1,24 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-28T13:06:17+09:00",
+  "generatedAt": "2026-06-28T13:11:59+09:00",
   "weights": {
     "lead30": {
-      "w_fc": 0.4372,
-      "w_pm": 0.5628,
+      "w_fc": 0.4375,
+      "w_pm": 0.5625,
       "source": "mae"
     },
     "lead60": {
-      "w_fc": 0.4368,
-      "w_pm": 0.5632,
+      "w_fc": 0.4383,
+      "w_pm": 0.5617,
       "source": "mae"
     },
     "lead120": {
-      "w_fc": 0.417,
-      "w_pm": 0.583,
+      "w_fc": 0.4191,
+      "w_pm": 0.5809,
       "source": "mae"
     }
   },
   "slots": [
-    {
-      "slotStart": "13:10",
-      "leadBucket": "lead30",
-      "stall1": 4,
-      "stall2": 1,
-      "stall3": 8,
-      "stall4": 6,
-      "total": 19
-    },
     {
       "slotStart": "13:15",
       "leadBucket": "lead30",
@@ -102,7 +93,7 @@
     },
     {
       "slotStart": "13:55",
-      "leadBucket": "lead60",
+      "leadBucket": "lead30",
       "stall1": 5,
       "stall2": 4,
       "stall3": 2,
@@ -140,10 +131,10 @@
       "slotStart": "14:15",
       "leadBucket": "lead60",
       "stall1": 3,
-      "stall2": 5,
+      "stall2": 4,
       "stall3": 11,
       "stall4": 2,
-      "total": 21
+      "total": 20
     },
     {
       "slotStart": "14:20",
@@ -158,10 +149,10 @@
       "slotStart": "14:25",
       "leadBucket": "lead60",
       "stall1": 4,
-      "stall2": 2,
+      "stall2": 1,
       "stall3": 12,
       "stall4": 2,
-      "total": 20
+      "total": 19
     },
     {
       "slotStart": "14:30",
@@ -210,12 +201,12 @@
     },
     {
       "slotStart": "14:55",
-      "leadBucket": "lead120",
+      "leadBucket": "lead60",
       "stall1": 4,
       "stall2": 1,
-      "stall3": 17,
+      "stall3": 16,
       "stall4": 2,
-      "total": 24
+      "total": 23
     },
     {
       "slotStart": "15:00",
@@ -234,6 +225,15 @@
       "stall3": 5,
       "stall4": 0,
       "total": 6
+    },
+    {
+      "slotStart": "15:10",
+      "leadBucket": "lead120",
+      "stall1": 2,
+      "stall2": 1,
+      "stall3": 20,
+      "stall4": 2,
+      "total": 25
     }
   ],
   "throughputScaleK": 1
