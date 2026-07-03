@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-04T05:45:33+09:00",
+  "updatedAt": "2026-07-04T06:00:49+09:00",
   "source": "ODPT (api.odpt.org)",
   "flights": [
     {
@@ -184,7 +184,7 @@
       "terminal": "T3",
       "isInternational": true,
       "scheduledTime": "06:45",
-      "estimatedTime": "06:18",
+      "estimatedTime": "06:09",
       "actualTime": null,
       "status": "不明",
       "aircraftCode": "789",
@@ -192,12 +192,12 @@
       "loadFactor": 0.7,
       "loadFactorSource": "default",
       "estimatedPax": 172,
-      "lobbyExitTime": "07:08",
+      "lobbyExitTime": "06:59",
       "reachRate": 1,
       "reachTier": "high",
-      "estimatedTaxiPax": 5,
-      "taxiBucket": "early",
-      "taxiBaseRate": 0.0293525,
+      "estimatedTaxiPax": 4,
+      "taxiBucket": "fallback",
+      "taxiBaseRate": 0.025,
       "taxiBoost": 1,
       "taxiDelayBoost": 1,
       "taxiLightningBoost": 1,
@@ -9076,8 +9076,8 @@
       "taxiDelayBoost": 1,
       "taxiLightningBoost": 1,
       "taxiClamped": false,
-      "wing": null,
-      "poolLane": null
+      "wing": "北",
+      "poolLane": 3
     },
     {
       "flightNumber": "NH554",
@@ -13488,35 +13488,6 @@
       "poolLane": 4
     },
     {
-      "flightNumber": "NH476",
-      "airline": "ANA",
-      "from": "OKA",
-      "fromName": "那覇",
-      "terminal": "T2",
-      "isInternational": false,
-      "scheduledTime": "21:25",
-      "estimatedTime": "21:25",
-      "actualTime": null,
-      "status": "不明",
-      "aircraftCode": "773",
-      "seatCount": 525,
-      "loadFactor": 0.82,
-      "loadFactorSource": "route",
-      "estimatedPax": 431,
-      "lobbyExitTime": "21:40",
-      "reachRate": 0.96,
-      "reachTier": "high",
-      "estimatedTaxiPax": 10,
-      "taxiBucket": "peak2",
-      "taxiBaseRate": 0.024,
-      "taxiBoost": 1,
-      "taxiDelayBoost": 1,
-      "taxiLightningBoost": 1,
-      "taxiClamped": false,
-      "wing": "北",
-      "poolLane": 3
-    },
-    {
       "flightNumber": "NH462",
       "airline": "ANA",
       "from": "OKA",
@@ -13747,6 +13718,35 @@
       "taxiClamped": false,
       "wing": "南",
       "poolLane": 4
+    },
+    {
+      "flightNumber": "NH476",
+      "airline": "ANA",
+      "from": "OKA",
+      "fromName": "那覇",
+      "terminal": "T2",
+      "isInternational": false,
+      "scheduledTime": "21:25",
+      "estimatedTime": "21:25",
+      "actualTime": null,
+      "status": "不明",
+      "aircraftCode": "773",
+      "seatCount": 525,
+      "loadFactor": 0.82,
+      "loadFactorSource": "route",
+      "estimatedPax": 431,
+      "lobbyExitTime": "21:40",
+      "reachRate": 0.96,
+      "reachTier": "high",
+      "estimatedTaxiPax": 10,
+      "taxiBucket": "peak2",
+      "taxiBaseRate": 0.024,
+      "taxiBoost": 1,
+      "taxiDelayBoost": 1,
+      "taxiLightningBoost": 1,
+      "taxiClamped": false,
+      "wing": "北",
+      "poolLane": 3
     },
     {
       "flightNumber": "NH1096",
@@ -14220,7 +14220,7 @@
       "terminal": "T3",
       "isInternational": true,
       "scheduledTime": "05:45",
-      "estimatedTime": "05:51",
+      "estimatedTime": "05:54",
       "actualTime": null,
       "status": "不明",
       "aircraftCode": null,
@@ -14228,7 +14228,7 @@
       "loadFactor": 0.7,
       "loadFactorSource": "default",
       "estimatedPax": 129,
-      "lobbyExitTime": "06:41",
+      "lobbyExitTime": "06:44",
       "reachRate": 1,
       "reachTier": "high",
       "estimatedTaxiPax": 3,
@@ -15756,7 +15756,7 @@
     "weatherCode": 2,
     "temperature": 20.7,
     "precipitation": 0,
-    "cloudCover": 60
+    "cloudCover": 63
   },
   "stats": {
     "totalFlights": 543,
@@ -15767,7 +15767,7 @@
       "T1": 220,
       "T2": 273
     },
-    "totalEstimatedTaxiPax": 1416,
-    "wingMatched": 425
+    "totalEstimatedTaxiPax": 1415,
+    "wingMatched": 426
   }
 }
