@@ -97,15 +97,23 @@ export function pickFrontSignal(mean, ratio, opts = {}) {
 
 /**
  * 画像の先頭ボックスから列移動の生信号を得る。昼=平均輝度／夜=行灯の光点割合×係数。
- * 夜判定はボックスの平均輝度が nightLum 未満かどうか(暗くなったら夜)。
+ * 夜判定は画像全体の平均輝度で行い、昼夜境界はブレンドして不連続な跳ねを避ける。
  * @returns {number}
  */
 export function frontSignal(img, box, opts = {}) {
   const pad = opts.pad ?? 3;
   const mean = meanGrayInBox(img, box, pad);
-  if (mean >= (opts.nightLum ?? 60)) return mean; // 昼: 平均輝度
+  const nightLum = opts.nightLum ?? 60;
+  if (mean >= nightLum) return mean;
+  // Night mode must be decided from the whole image, not the target ROI.
+  // A dark taxi body in the ROI can fall below nightLum while the scene is still dusk/daylight.
+  const sceneMean = opts.sceneMean ?? meanGrayInBox(img, opts.sceneBox ?? { x0: 0, x1: 1, y0: 0, y1: 1 }, opts.scenePad ?? 0);
+  if (sceneMean >= nightLum) return mean; // 昼/薄暮: 平均輝度
   const ratio = brightPixelRatio(img, box, opts.lanternT ?? 50, pad); // 夜: 行灯の光点割合
-  return ratio * (opts.lanternK ?? 4);
+  const nightSignal = ratio * (opts.lanternK ?? 4);
+  const blendWidth = opts.nightBlendWidth ?? 15;
+  const nightWeight = blendWidth > 0 ? Math.min(1, Math.max(0, (nightLum - sceneMean) / blendWidth)) : 1;
+  return mean * (1 - nightWeight) + nightSignal * nightWeight;
 }
 
 /**

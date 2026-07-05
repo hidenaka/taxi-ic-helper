@@ -20,6 +20,40 @@ test('pickFrontSignal: nightLum 境界', () => {
   assert.equal(pickFrontSignal(59, 5), 20); // 59は夜
 });
 
+test('frontSignal: 明るい画像では暗い車体ROIだけで夜モードへ切り替えない', async () => {
+  const img = new Jimp({ width: 80, height: 80, color: 0x5a5a5aff }); // 全体平均=90
+  for (let y = 20; y < 40; y++) {
+    for (let x = 20; x < 40; x++) {
+      const bright = (x + y) % 2 === 0;
+      img.setPixelColor(bright ? 0x464646ff : 0x141414ff, x, y);
+    }
+  }
+  const box = { x0: 20 / 79, x1: 39 / 79, y0: 20 / 79, y1: 39 / 79 };
+  const roiMean = meanGrayInBox(img, box, 0);
+  const signal = frontSignal(img, box, { pad: 0 });
+
+  assert.ok(roiMean < 60, `test setup requires dark ROI, roiMean=${roiMean}`);
+  assert.ok(signal < 60, `bright overall image should stay in mean-luminance mode, signal=${signal}`);
+});
+
+test('frontSignal: 昼夜境界を少しまたいでも信号を急跳ねさせない', async () => {
+  const makeImage = (bg) => {
+    const img = new Jimp({ width: 80, height: 80, color: bg });
+    for (let y = 20; y < 40; y++) {
+      for (let x = 20; x < 40; x++) {
+        const bright = (x + y) % 2 === 0;
+        img.setPixelColor(bright ? 0x464646ff : 0x141414ff, x, y);
+      }
+    }
+    return img;
+  };
+  const box = { x0: 20 / 79, x1: 39 / 79, y0: 20 / 79, y1: 39 / 79 };
+  const above = frontSignal(makeImage(0x3f3f3fff), box, { pad: 0 }); // sceneMean is just above 60
+  const below = frontSignal(makeImage(0x3b3b3bff), box, { pad: 0 }); // sceneMean is just below 60
+
+  assert.ok(Math.abs(below - above) < 20, `signals should transition gradually, above=${above}, below=${below}`);
+});
+
 test('frontBoxBothLines: 左列+右列の先頭をまたぐ矩形(両列を測る)', () => {
   // 前半=左列(cx0.1〜)、後半=右列(cx0.5〜)。各列 先頭→末尾。
   const slots = [
