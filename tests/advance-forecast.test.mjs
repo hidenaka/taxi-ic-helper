@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, recentActualBreakdown, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, binMovementCounts, medianOccForBin, commonModeResiduals } from '../scripts/lib/advance-forecast.mjs';
+import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, medianOccForBin } from '../scripts/lib/advance-forecast.mjs';
 
 test('binAdvanceCounts: 占有0(空レーン)はゲートして数えない/占有ありは数える', () => {
   const base = Math.floor(new Date('2026-06-05T05:45:00+09:00').getTime() / 1000);
@@ -23,111 +23,96 @@ test('binAdvanceCounts: 占有0(空レーン)はゲートして数えない/占�
   assert.ok((noGate.stall1 || 0) >= 1, 'occ不明はゲートせず従来通り');
 });
 
-test('binMovementCounts: frontDensity上昇でも占有が減ったらdepartureとして扱いactualから除外する', () => {
-  const base = Math.floor(new Date('2026-07-05T15:20:00+09:00').getTime() / 1000);
-  const density = [100, 100, 130, 130, 130, 130];
-  const occ = [16, 16, 6, 6, 6, 6];
-  const rows = density.map((frontDensity, i) => ({
-    ts: new Date((base + i * 60) * 1000).toISOString(),
-    stalls: { stall3: { frontDensity } },
-  }));
-  const occRows = occ.map((count, i) => ({
-    ts: new Date((base + i * 60) * 1000).toISOString(),
-    stalls: { stall3: { occ: count } },
-  }));
-
-  const movement = binMovementCounts(rows, ['stall3'], { absThreshold: 10, debounceSec: 120, occRows });
-  assert.equal(movement.replenish.stall3 || 0, 0, '占有減少は補充ではない');
-  assert.equal(movement.departure.stall3 || 0, 1, '占有減少はdepartureとして残す');
-
-  const actuals = binAdvanceCounts(rows, ['stall3'], { absThreshold: 10, debounceSec: 120, occRows });
-  assert.equal(actuals.stall3 || 0, 0, '既存actualはreplenishのみ');
-});
-
-test('binMovementCounts: 占有差0なら生frontDensityの局所方向で種別を補正する', () => {
-  const base = Math.floor(new Date('2026-07-05T20:06:00+09:00').getTime() / 1000);
-  const common = [100, 100, 150, 150, 150, 150];
-  const target = [20, 20, 35, 35, 35, 35]; // 生信号は増加=補充方向
-  const rows = target.map((frontDensity, i) => ({
-    ts: new Date((base + i * 60) * 1000).toISOString(),
-    stalls: {
-      stall1: { frontDensity: common[i] },
-      stall2: { frontDensity: common[i] },
-      stall3: { frontDensity },
-    },
-  }));
-  const occRows = target.map((_, i) => ({
-    ts: new Date((base + i * 60) * 1000).toISOString(),
-    stalls: { stall3: { occ: 5 } },
-  }));
-
-  const movement = binMovementCounts(rows, ['stall1', 'stall2', 'stall3'], { absThreshold: 10, debounceSec: 120, occRows });
-  assert.equal(movement.replenish.stall3 || 0, 1, '生信号が増えていれば補充として扱う');
-  assert.equal(movement.departure.stall3 || 0, 0, '残差方向だけでdepartureにしない');
-});
-
-test('recentActualBreakdown: departureを返しrecentActualCountはreplenishだけ返す', () => {
-  const rows = mkRows('stall3', [100, 100, 130, 130, 130, 130], '2026-07-05T06:20:00Z');
-  const start = Math.floor(new Date('2026-07-05T06:20:00Z').getTime() / 1000);
-  const occRows = [16, 16, 6, 6, 6, 6].map((occ, i) => ({
-    ts: new Date((start + i * 60) * 1000).toISOString(),
-    stalls: { stall3: { occ } },
-  }));
-  const now = Math.floor(new Date('2026-07-05T06:26:00Z').getTime() / 1000);
-  const breakdown = recentActualBreakdown(rows, 'stall3', now, { windowMin: 15, absThreshold: 10, debounceSec: 120, occRows });
-  assert.deepEqual(breakdown, { replenish: 0, departure: 1 });
-  assert.equal(recentActualCount(rows, 'stall3', now, { windowMin: 15, absThreshold: 10, debounceSec: 120, occRows }), 0);
-});
-
-test('binAdvanceCounts: real01の照明変化(コモンモード)は数えない/4号は奥列(stall4_back)で固有の動きを残す', () => {
-  // stall1-3(real01)が同時に同じ大きさで上下(=夜明け等の照明)→相殺。
-  // 4号の列移動は奥の待機列(real02=stall4_back)で測る。そこに独立した補充(立ち上がり)を仕込む。
+test('binAdvanceCounts: 全レーン同時の照明変化(コモンモード)は数えない/固有の動きは残す', () => {
+  // 4レーンが同時に同じ大きさで上下(=夜明け等の照明)。stall4だけ独立した動きを上乗せ。
   const base = Math.floor(new Date('2026-06-04T06:00:00+09:00').getTime() / 1000);
-  const common = [0, 0, 0, 40, 40, 40, 0, 0, 0, 40, 40, 40]; // real01共通の±40スイング
-  const s4 = [0, 0, 0, 0, 0, 0, 0, 0, 30, 30, 30, 30];       // stall4_back の独立した補充
+  const common = [0, 0, 0, 40, 40, 40, 0, 0, 0, 40, 40, 40]; // 全レーン共通の±40スイング
+  const s4extra = [0, 0, 0, 0, 0, 0, 0, 0, 30, 30, 30, 30]; // stall4だけの独立変化
   const rows = common.map((c, i) => ({
     ts: new Date((base + i * 60) * 1000).toISOString(),
     stalls: {
       stall1: { frontDensity: 150 + c },
       stall2: { frontDensity: 145 + c },
       stall3: { frontDensity: 140 + c },
-      stall4_back: { frontDensity: 110 + s4[i] }, // 4号=別カメラ。照明スイングは乗らない
+      stall4: { frontDensity: 110 + c + s4extra[i] },
     },
   }));
   const counts = binAdvanceCounts(rows, ['stall1', 'stall2', 'stall3', 'stall4'], { absThreshold: 15, debounceSec: 120 });
   assert.equal(counts.stall1 || 0, 0, 'stall1は照明だけ→0');
   assert.equal(counts.stall2 || 0, 0, 'stall2は照明だけ→0');
   assert.equal(counts.stall3 || 0, 0, 'stall3は照明だけ→0');
-  assert.ok((counts.stall4 || 0) >= 1, '4号は奥列(stall4_back)の固有の動きで数える');
+  assert.ok((counts.stall4 || 0) >= 1, 'stall4は固有の動きが残る');
 });
 
-test('binAdvanceCounts: 4号は stall4(手前real01)ではなく stall4_back(奥real02)を見る', () => {
-  const base = Math.floor(new Date('2026-06-04T13:00:00+09:00').getTime() / 1000);
-  const rise = [100, 100, 130, 130, 130, 100, 100]; // 補充1回ぶんの立ち上がり
-  // 手前(stall4)は平坦、奥(stall4_back)が動く → 4号は動きを検出するべき
-  const rows = rise.map((v, i) => ({
+test('binAdvanceCounts: 占有変化もraw変化も弱い候補は本番カウントから除外する', () => {
+  const base = Math.floor(new Date('2026-07-05T12:10:00+09:00').getTime() / 1000);
+  const vals = [100, 100, 107, 107, 107];
+  const rows = vals.map((v, i) => ({
     ts: new Date((base + i * 60) * 1000).toISOString(),
-    stalls: { stall4: { frontDensity: 120 }, stall4_back: { frontDensity: v } },
+    stalls: { stall3: { frontDensity: v } },
   }));
-  const counts = binAdvanceCounts(rows, ['stall4'], { absThreshold: 10, debounceSec: 120 });
-  assert.ok((counts.stall4 || 0) >= 1, '奥列の動きを4号として数える');
-  // 逆: 手前(stall4)だけ動いて奥が平坦なら 4号は数えない(手前は見ない)
-  const rows2 = rise.map((v, i) => ({
+  const occRows = vals.map((_, i) => ({
     ts: new Date((base + i * 60) * 1000).toISOString(),
-    stalls: { stall4: { frontDensity: v }, stall4_back: { frontDensity: 120 } },
+    mode: 'day',
+    stalls: { stall3: { occ: 10 } },
   }));
-  const counts2 = binAdvanceCounts(rows2, ['stall4'], { absThreshold: 10, debounceSec: 120 });
-  assert.equal(counts2.stall4 || 0, 0, '手前(stall4)の動きは4号に数えない');
+
+  const counts = binAdvanceCounts(rows, ['stall3'], {
+    absThreshold: 6,
+    debounceSec: 120,
+    occRows,
+    weakRawDelta: 8,
+  });
+
+  assert.equal(counts.stall3 || 0, 0);
 });
 
-test('medianOccForBin: 4号の占有は stall4_back を見る', () => {
-  const base = Math.floor(new Date('2026-06-04T13:00:00+09:00').getTime() / 1000);
-  const rows = [0, 1, 2].map((i) => ({
+test('binAdvanceCounts: 夜は占有変化とraw変化が強く逆向きの候補を除外する', () => {
+  const base = Math.floor(new Date('2026-07-05T21:10:00+09:00').getTime() / 1000);
+  const vals = [100, 100, 112, 112, 112];
+  const occVals = [10, 10, 7, 7, 7];
+  const rows = vals.map((v, i) => ({
     ts: new Date((base + i * 60) * 1000).toISOString(),
-    stalls: { stall4: { occ: 0 }, stall4_back: { occ: 4 } },
+    stalls: { stall1: { frontDensity: v } },
   }));
-  const occ = medianOccForBin(rows, ['stall4'], base, base + 900);
-  assert.equal(occ.stall4, 4, '4号の占有=奥列(stall4_back)の値');
+  const occRows = occVals.map((occ, i) => ({
+    ts: new Date((base + i * 60) * 1000).toISOString(),
+    mode: 'night',
+    stalls: { stall1: { occ } },
+  }));
+
+  const counts = binAdvanceCounts(rows, ['stall1'], {
+    absThreshold: 8,
+    debounceSec: 120,
+    occRows,
+    weakRawDelta: 8,
+  });
+
+  assert.equal(counts.stall1 || 0, 0);
+});
+
+test('binAdvanceCounts: 日中は占有変化が強ければraw符号が逆でも数える', () => {
+  const base = Math.floor(new Date('2026-07-05T13:30:00+09:00').getTime() / 1000);
+  const vals = [100, 100, 112, 112, 112];
+  const occVals = [10, 10, 7, 7, 7];
+  const rows = vals.map((v, i) => ({
+    ts: new Date((base + i * 60) * 1000).toISOString(),
+    stalls: { stall3: { frontDensity: v } },
+  }));
+  const occRows = occVals.map((occ, i) => ({
+    ts: new Date((base + i * 60) * 1000).toISOString(),
+    mode: 'day',
+    stalls: { stall3: { occ } },
+  }));
+
+  const counts = binAdvanceCounts(rows, ['stall3'], {
+    absThreshold: 8,
+    debounceSec: 120,
+    occRows,
+    weakRawDelta: 8,
+  });
+
+  assert.equal(counts.stall3, 1);
 });
 
 test('learnArrivalLag: 既知のラグを復元(合成データ)', () => {
@@ -215,12 +200,12 @@ function mkRows(stall, vals, startIso) {
   }));
 }
 
-test('recentActualCount: 直近窓のfrontDensity変化から列移動(補充)回数を数える', () => {
-  // 100→130(補充, 3フレーム持続)→100(出庫)。補充エッジ方式は立ち上がりのみ=1回(下降は数えない)。
+test('recentActualCount: 直近窓のfrontDensity変化から前進回数を数える', () => {
+  // 100→130(上,t=120s)→…→100(下,t=300s) の2遷移。debounce120s未満を避ける間隔
   const rows = mkRows('stall1', [100, 100, 130, 130, 130, 100, 100], '2026-06-03T13:00:00Z');
   const now = Math.floor(new Date('2026-06-03T13:07:00Z').getTime() / 1000);
   const n = recentActualCount(rows, 'stall1', now, { windowMin: 15, absThreshold: 10, debounceSec: 120 });
-  assert.equal(n, 1);
+  assert.equal(n, 2);
 });
 
 test('lastCompletedBinRow: 直前の完成15分ビンの行を返す/重複は返さない', () => {
@@ -228,12 +213,12 @@ test('lastCompletedBinRow: 直前の完成15分ビンの行を返す/重複は�
   const binStart = Math.floor(new Date('2026-06-03T13:00:00+09:00').getTime() / 1000);
   const isoZ = (ep) => new Date(ep * 1000).toISOString();
   const ms = [];
-  const vals = [100, 100, 130, 130, 130, 100, 100]; // 13:00..13:06, 補充1回(下降は数えない)
+  const vals = [100, 100, 130, 130, 130, 100, 100]; // 13:00..13:06, 2遷移
   vals.forEach((v, i) => ms.push({ ts: isoZ(binStart + i * 60), stalls: { stall1: { frontDensity: v } } }));
   const now = binStart + 16 * 60; // 13:16 → 現在ビン13:15、完成ビン=13:00
   const row = lastCompletedBinRow([], ms, now, { stalls: ['stall1'], absThreshold: 10, debounceSec: 120 });
   assert.ok(row, '行が返る');
-  assert.equal(row.stalls.stall1, 1);
+  assert.equal(row.stalls.stall1, 2);
   assert.equal(bucketOfDay(row.ts), 52); // 13:00 = 13*4 = 52
 
   // 既に履歴にそのビンがあれば null
@@ -274,25 +259,4 @@ test('predictAdvance: 学習データの無い時間帯は0', () => {
   const m = buildAdvanceModel([{ ts: '2026-05-20T12:00:00+09:00', stalls: { stall1: 3 } }]);
   assert.equal(predictAdvance(m, '2026-06-01T03:00:00+09:00', 'stall1'), 0);
   assert.equal(predictAdvance(m, '2026-06-01T12:00:00+09:00', 'stall9'), 0);
-});
-
-test('commonModeResiduals: leave-one-out — 中央レーン(2号)が自己相殺で消えない', () => {
-  const base = Math.floor(new Date('2026-06-19T12:00:00+09:00').getTime() / 1000);
-  const mk = (sec, a, b, c) => ({ ts: new Date(sec * 1000).toISOString(), stalls: { stall1: { frontDensity: a }, stall2: { frontDensity: b }, stall3: { frontDensity: c } } });
-  // baseline は各stall 0 になる(値 [0,*,0] の median は 0)。
-  const rows = [mk(base, 0, 0, 0), mk(base + 60, 0, 20, 50), mk(base + 120, 0, 0, 0)];
-  const res = commonModeResiduals(rows, ['stall1', 'stall2', 'stall3', 'stall4']);
-  // tick2 stall2: 他レーン[s1=0, s3=50] の median=25 → 残差 20-25 = -5(旧方式は自分含むmedian=20で 20-20=0 と消えていた)。
-  assert.equal(res.stall2[1].v, -5);
-  // tick2 stall1: 他レーン[s2=20, s3=50] の median=35 → 残差 0-35 = -35。
-  assert.equal(res.stall1[1].v, -35);
-});
-
-test('commonModeResiduals: 全レーン同時移動(照明)は leave-one-out でも相殺(残差一定)', () => {
-  const base = Math.floor(new Date('2026-06-19T12:00:00+09:00').getTime() / 1000);
-  const sw = [0, 40, 0, 40]; // 全レーン同じ±40スイング
-  const rows = sw.map((c, i) => ({ ts: new Date((base + i * 60) * 1000).toISOString(), stalls: { stall1: { frontDensity: 150 + c }, stall2: { frontDensity: 145 + c }, stall3: { frontDensity: 140 + c } } }));
-  const res = commonModeResiduals(rows, ['stall1', 'stall2', 'stall3', 'stall4']);
-  const v2 = res.stall2.map((x) => x.v);
-  assert.ok(Math.max(...v2) - Math.min(...v2) < 1e-9, 'stall2残差はスイングが消えて一定');
 });
