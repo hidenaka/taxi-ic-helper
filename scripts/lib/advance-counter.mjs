@@ -230,6 +230,24 @@ export function detectReplenishments(values, times, opts) {
 }
 
 /**
+ * 先頭面密度の持続的な上昇/下降を方向つきイベントとして返す。
+ * `rise` は先頭エリアが高密度側へ移った変化、`fall` は低密度側へ戻った変化。
+ * 実際の補充/出庫の意味づけは、後段で占有数の前後差を使って補正する。
+ * @param {number[]} values フレームごとの先頭面密度
+ * @param {number[]} times 対応する epoch 秒(昇順)
+ * @param {{absThreshold:number, holdThreshold?:number, persistSec?:number, debounceSec?:number, smoothK?:number}} opts
+ * @returns {{events:Array<{time:number,direction:'rise'|'fall'}>}}
+ */
+export function detectDirectionalTransitions(values, times, opts) {
+  if (!values || values.length < 2) return { events: [] };
+  const rise = detectReplenishments(values, times, opts).eventTimes
+    .map((time) => ({ time, direction: 'rise' }));
+  const fall = detectReplenishments(values.map((v) => -v), times, opts).eventTimes
+    .map((time) => ({ time, direction: 'fall' }));
+  return { events: [...rise, ...fall].sort((a, b) => a.time - b.time) };
+}
+
+/**
  * イベント時刻(epoch秒)の配列を、windowSec ごとの窓に丸めて回数を集計する。
  * @param {number[]} eventTimes 昇順でなくても可
  * @param {number} windowSec 窓幅(秒) 例 900=15分

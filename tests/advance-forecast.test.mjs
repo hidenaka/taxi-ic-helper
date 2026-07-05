@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, medianOccForBin, commonModeResiduals } from '../scripts/lib/advance-forecast.mjs';
+import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, recentActualBreakdown, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, binMovementCounts, medianOccForBin, commonModeResiduals } from '../scripts/lib/advance-forecast.mjs';
 
 test('binAdvanceCounts: 占有0(空レーン)はゲートして数えない/占有ありは数える', () => {
   const base = Math.floor(new Date('2026-06-05T05:45:00+09:00').getTime() / 1000);
@@ -21,6 +21,40 @@ test('binAdvanceCounts: 占有0(空レーン)はゲートして数えない/占�
   const occByNull = medianOccForBin([], ['stall1'], base, base + 900);
   const noGate = binAdvanceCounts(rows, ['stall1'], { absThreshold: 10, debounceSec: 120, occByStall: occByNull, minOcc: 1 });
   assert.ok((noGate.stall1 || 0) >= 1, 'occ不明はゲートせず従来通り');
+});
+
+test('binMovementCounts: frontDensity上昇でも占有が減ったらdepartureとして扱いactualから除外する', () => {
+  const base = Math.floor(new Date('2026-07-05T15:20:00+09:00').getTime() / 1000);
+  const density = [100, 100, 130, 130, 130, 130];
+  const occ = [16, 16, 6, 6, 6, 6];
+  const rows = density.map((frontDensity, i) => ({
+    ts: new Date((base + i * 60) * 1000).toISOString(),
+    stalls: { stall3: { frontDensity } },
+  }));
+  const occRows = occ.map((count, i) => ({
+    ts: new Date((base + i * 60) * 1000).toISOString(),
+    stalls: { stall3: { occ: count } },
+  }));
+
+  const movement = binMovementCounts(rows, ['stall3'], { absThreshold: 10, debounceSec: 120, occRows });
+  assert.equal(movement.replenish.stall3 || 0, 0, '占有減少は補充ではない');
+  assert.equal(movement.departure.stall3 || 0, 1, '占有減少はdepartureとして残す');
+
+  const actuals = binAdvanceCounts(rows, ['stall3'], { absThreshold: 10, debounceSec: 120, occRows });
+  assert.equal(actuals.stall3 || 0, 0, '既存actualはreplenishのみ');
+});
+
+test('recentActualBreakdown: departureを返しrecentActualCountはreplenishだけ返す', () => {
+  const rows = mkRows('stall3', [100, 100, 130, 130, 130, 130], '2026-07-05T06:20:00Z');
+  const start = Math.floor(new Date('2026-07-05T06:20:00Z').getTime() / 1000);
+  const occRows = [16, 16, 6, 6, 6, 6].map((occ, i) => ({
+    ts: new Date((start + i * 60) * 1000).toISOString(),
+    stalls: { stall3: { occ } },
+  }));
+  const now = Math.floor(new Date('2026-07-05T06:26:00Z').getTime() / 1000);
+  const breakdown = recentActualBreakdown(rows, 'stall3', now, { windowMin: 15, absThreshold: 10, debounceSec: 120, occRows });
+  assert.deepEqual(breakdown, { replenish: 0, departure: 1 });
+  assert.equal(recentActualCount(rows, 'stall3', now, { windowMin: 15, absThreshold: 10, debounceSec: 120, occRows }), 0);
 });
 
 test('binAdvanceCounts: real01の照明変化(コモンモード)は数えない/4号は奥列(stall4_back)で固有の動きを残す', () => {

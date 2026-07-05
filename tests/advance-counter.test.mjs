@@ -4,7 +4,7 @@ import { Jimp } from 'jimp';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { frontBox, meanGrayInBox, detectAdvances, binCountsByWindow, medianSmooth, detectReplenishments, frontBoxBothLines, brightPixelRatio, pickFrontSignal, frontSignal } from '../scripts/lib/advance-counter.mjs';
+import { frontBox, meanGrayInBox, detectAdvances, binCountsByWindow, medianSmooth, detectReplenishments, detectDirectionalTransitions, frontBoxBothLines, brightPixelRatio, pickFrontSignal, frontSignal } from '../scripts/lib/advance-counter.mjs';
 
 test('pickFrontSignal: 昼(明るい)は平均輝度そのまま', () => {
   assert.equal(pickFrontSignal(115, 5), 115); // mean>=60 → 昼
@@ -153,4 +153,19 @@ test('detectReplenishments: 連続して高くなり続けても1回(同じ補�
   const v = [100, 130, 160, 160, 160, 160];
   const r = detectReplenishments(v, TR(v.length), { absThreshold: 10, debounceSec: 120, persistSec: 120 });
   assert.equal(r.count, 1);
+});
+
+test('detectDirectionalTransitions: 持続する上昇と下降を方向つきで返す', () => {
+  const v = [100, 100, 130, 130, 130, 100, 100, 100];
+  const r = detectDirectionalTransitions(v, TR(v.length), { absThreshold: 10, debounceSec: 120, persistSec: 120 });
+  assert.deepEqual(r.events, [
+    { time: 120, direction: 'rise' },
+    { time: 300, direction: 'fall' },
+  ]);
+});
+
+test('detectDirectionalTransitions: 一過性ブリップは方向イベントにしない', () => {
+  const v = [100, 100, 140, 100, 100];
+  const r = detectDirectionalTransitions(v, TR(v.length), { absThreshold: 10, debounceSec: 120, persistSec: 120 });
+  assert.deepEqual(r.events, []);
 });

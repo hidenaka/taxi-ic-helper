@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { buildAdvanceModel, predictAdvance, predictAdvanceWithFlights, flightFactorByStall, arrivalDemandByStall, recentActualCount, lastCompletedBinRow } from './lib/advance-forecast.mjs';
+import { buildAdvanceModel, predictAdvance, predictAdvanceWithFlights, flightFactorByStall, arrivalDemandByStall, recentActualBreakdown, lastCompletedBinRow } from './lib/advance-forecast.mjs';
 
 const THR = 8; // 列移動検出の絶対しきい値。コモンモード除去で照明/夜明け/行灯フリッカを
                // 別途相殺するため、しきい値は感度重視で8に下げる(15は過小検出=予測が低すぎた)。
@@ -48,10 +48,14 @@ function currentActuals(model, nowIso, msRows, factorByStall, occRows) {
   const out = {};
   const nowEpoch = Math.floor(Date.now() / 1000);
   for (const s of STALLS) {
-    const actual = msRows.length
-      ? recentActualCount(msRows, s, nowEpoch, { windowMin: 15, absThreshold: THR, debounceSec: 120, occRows })
+    const movement = msRows.length
+      ? recentActualBreakdown(msRows, s, nowEpoch, { windowMin: 15, absThreshold: THR, debounceSec: 120, occRows })
       : null;
-    out[s] = { actual, forecast: Number(predictAdvanceWithFlights(model, nowIso, s, factorByStall).toFixed(1)) };
+    out[s] = {
+      actual: movement ? movement.replenish : null,
+      departure: movement ? movement.departure : null,
+      forecast: Number(predictAdvanceWithFlights(model, nowIso, s, factorByStall).toFixed(1)),
+    };
   }
   return out;
 }

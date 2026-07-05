@@ -3,7 +3,7 @@
 // 履歴が少ない(数週間)ので過学習を避けた素直なベースライン。
 // 注: bin行に乗り場キーが無い=その時間帯0回として平均に算入する。
 
-import { detectReplenishments } from './advance-counter.mjs';
+import { detectDirectionalTransitions } from './advance-counter.mjs';
 
 const DEFAULT_STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
 
@@ -70,6 +70,42 @@ export function commonModeResiduals(rows, stalls, opts = {}) {
  * @returns {Record<string, number>} count>0 の乗り場のみ
  */
 export function binAdvanceCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
+  return binMovementCounts(rows, stalls, opts).replenish;
+}
+
+function medianOccNearEvent(occRows, stall, eventTime, opts = {}) {
+  const src = opts.densitySource || DENSITY_SOURCE;
+  const key = src[stall] || stall;
+  const beforeSec = opts.occBeforeSec ?? 120;
+  const afterSec = opts.occAfterSec ?? 150;
+  const before = [];
+  const after = [];
+  for (const r of occRows || []) {
+    const t = Math.floor(new Date(r.ts).getTime() / 1000);
+    if (!Number.isFinite(t)) continue;
+    const occ = r?.stalls?.[key]?.occ;
+    if (typeof occ !== 'number') continue;
+    if (t >= eventTime - beforeSec && t < eventTime) before.push(occ);
+    if (t >= eventTime && t <= eventTime + afterSec) after.push(occ);
+  }
+  if (before.length === 0 || after.length === 0) return null;
+  return median(after) - median(before);
+}
+
+function movementKind(event, occDelta) {
+  if (typeof occDelta === 'number') {
+    if (occDelta <= -1) return 'departure';
+    if (occDelta >= 1) return 'replenish';
+  }
+  return event.direction === 'rise' ? 'replenish' : 'departure';
+}
+
+/**
+ * 窓内の行から、コモンモード除去後に乗り場別の動きを方向別に数える。
+ * `replenish` は従来の actual として使う。`departure` は車が抜けて空いた動きとして別に残す。
+ * @returns {{replenish: Record<string, number>, departure: Record<string, number>}}
+ */
+export function binMovementCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
   const absThreshold = opts.absThreshold ?? 15;
   const debounceSec = opts.debounceSec ?? 120;
   const persistSec = opts.persistSec ?? 120;     // 補充後この秒数 高を保って初めて1回(一過性ブリップ除外)
@@ -78,16 +114,23 @@ export function binAdvanceCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
   const occByStall = opts.occByStall || null; // {stall: median occ} があれば空レーンをゲート
   const minOcc = opts.minOcc ?? 1;
   const res = commonModeResiduals(rows, stalls);
-  const out = {};
+  const out = { replenish: {}, departure: {} };
   for (const s of stalls) {
     // 占有ゲート: その乗り場の在台が(観測できていて)ほぼ0なら列移動は起き得ない→0。
     // occ が未知(null)の場合はゲートしない(誤抑制を避ける)。
     if (occByStall && typeof occByStall[s] === 'number' && occByStall[s] < minOcc) continue;
     const arr = res[s] || [];
     if (arr.length < 2) continue;
-    // 補充エッジ方式: 手薄→補充の立ち上がりだけを持続条件つきで数える(下降=出庫は数えない)。
-    const c = detectReplenishments(arr.map((p) => p.v), arr.map((p) => p.t), { absThreshold, debounceSec, persistSec, holdThreshold, smoothK }).count;
-    if (c > 0) out[s] = c;
+    const detected = detectDirectionalTransitions(
+      arr.map((p) => p.v),
+      arr.map((p) => p.t),
+      { absThreshold, debounceSec, persistSec, holdThreshold, smoothK },
+    );
+    for (const event of detected.events) {
+      const occDelta = medianOccNearEvent(opts.occRows, s, event.time, opts);
+      const kind = movementKind(event, occDelta);
+      out[kind][s] = (out[kind][s] || 0) + 1;
+    }
   }
   return out;
 }
@@ -120,6 +163,14 @@ export function medianOccForBin(occRows, stalls, startEpoch, endEpoch, opts = {}
  * @returns {number}
  */
 export function recentActualCount(rows, stall, nowEpoch, opts = {}) {
+  return recentActualBreakdown(rows, stall, nowEpoch, opts).replenish;
+}
+
+/**
+ * 直近 windowMin 分の frontDensity 変化で乗り場の実測動きを方向別に返す。
+ * @returns {{replenish:number, departure:number}}
+ */
+export function recentActualBreakdown(rows, stall, nowEpoch, opts = {}) {
   const windowMin = opts.windowMin ?? 15;
   const cutoff = nowEpoch - windowMin * 60;
   const stalls = opts.stalls ?? DEFAULT_STALLS;
@@ -128,8 +179,17 @@ export function recentActualCount(rows, stall, nowEpoch, opts = {}) {
     return t >= cutoff && t <= nowEpoch;
   });
   const occByStall = opts.occRows ? medianOccForBin(opts.occRows, stalls, cutoff, nowEpoch + 1) : null;
-  const counts = binAdvanceCounts(inWin, stalls, { absThreshold: opts.absThreshold ?? 8, debounceSec: opts.debounceSec ?? 120, occByStall, minOcc: opts.minOcc ?? 1 });
-  return counts[stall] || 0;
+  const counts = binMovementCounts(inWin, stalls, {
+    absThreshold: opts.absThreshold ?? 8,
+    debounceSec: opts.debounceSec ?? 120,
+    occByStall,
+    minOcc: opts.minOcc ?? 1,
+    occRows: opts.occRows,
+  });
+  return {
+    replenish: counts.replenish[stall] || 0,
+    departure: counts.departure[stall] || 0,
+  };
 }
 
 function epochToJstIso(ep) {
@@ -167,7 +227,13 @@ export function lastCompletedBinRow(historyRows, msRows, nowEpoch, opts = {}) {
   if (!observed) return null;
   // コモンモード除去＋占有ゲート込みで乗り場別カウント。
   const occByStall = opts.occRows ? medianOccForBin(opts.occRows, stalls, lastStart, winEnd) : null;
-  const stallsOut = binAdvanceCounts(binRows, stalls, { absThreshold: opts.absThreshold ?? 15, debounceSec: opts.debounceSec ?? 120, occByStall, minOcc: opts.minOcc ?? 1 });
+  const stallsOut = binAdvanceCounts(binRows, stalls, {
+    absThreshold: opts.absThreshold ?? 15,
+    debounceSec: opts.debounceSec ?? 120,
+    occByStall,
+    minOcc: opts.minOcc ?? 1,
+    occRows: opts.occRows,
+  });
   return { ts: epochToJstIso(lastStart), stalls: stallsOut };
 }
 
