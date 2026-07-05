@@ -92,10 +92,35 @@ function medianOccNearEvent(occRows, stall, eventTime, opts = {}) {
   return median(after) - median(before);
 }
 
-function movementKind(event, occDelta) {
+function frontDensityDeltaNearEvent(rows, stall, eventTime, opts = {}) {
+  const src = opts.densitySource || DENSITY_SOURCE;
+  const key = src[stall] || stall;
+  const beforeSec = opts.rawBeforeSec ?? opts.occBeforeSec ?? 120;
+  const afterSec = opts.rawAfterSec ?? opts.occAfterSec ?? 150;
+  const before = [];
+  const after = [];
+  for (const r of rows || []) {
+    const t = Math.floor(new Date(r.ts).getTime() / 1000);
+    if (!Number.isFinite(t)) continue;
+    const fd = r?.stalls?.[key]?.frontDensity;
+    if (typeof fd !== 'number') continue;
+    if (t >= eventTime - beforeSec && t < eventTime) before.push(fd);
+    if (t >= eventTime && t <= eventTime + afterSec) after.push(fd);
+  }
+  if (before.length === 0 || after.length === 0) return null;
+  return median(after) - median(before);
+}
+
+function movementKind(event, occDelta, rawDelta, opts = {}) {
   if (typeof occDelta === 'number') {
     if (occDelta <= -1) return 'departure';
     if (occDelta >= 1) return 'replenish';
+  }
+  // Residual direction can flip when adjacent lanes move strongly. If total occupancy is flat,
+  // use the local raw frontDensity direction to label the event.
+  const minRawDelta = opts.minRawDelta ?? Math.max(3, (opts.absThreshold ?? 15) * 0.5);
+  if (typeof rawDelta === 'number' && Math.abs(rawDelta) >= minRawDelta) {
+    return rawDelta > 0 ? 'replenish' : 'departure';
   }
   return event.direction === 'rise' ? 'replenish' : 'departure';
 }
@@ -128,7 +153,8 @@ export function binMovementCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
     );
     for (const event of detected.events) {
       const occDelta = medianOccNearEvent(opts.occRows, s, event.time, opts);
-      const kind = movementKind(event, occDelta);
+      const rawDelta = frontDensityDeltaNearEvent(rows, s, event.time, opts);
+      const kind = movementKind(event, occDelta, rawDelta, { ...opts, absThreshold });
       out[kind][s] = (out[kind][s] || 0) + 1;
     }
   }

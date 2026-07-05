@@ -44,6 +44,28 @@ test('binMovementCounts: frontDensity上昇でも占有が減ったらdeparture�
   assert.equal(actuals.stall3 || 0, 0, '既存actualはreplenishのみ');
 });
 
+test('binMovementCounts: 占有差0なら生frontDensityの局所方向で種別を補正する', () => {
+  const base = Math.floor(new Date('2026-07-05T20:06:00+09:00').getTime() / 1000);
+  const common = [100, 100, 150, 150, 150, 150];
+  const target = [20, 20, 35, 35, 35, 35]; // 生信号は増加=補充方向
+  const rows = target.map((frontDensity, i) => ({
+    ts: new Date((base + i * 60) * 1000).toISOString(),
+    stalls: {
+      stall1: { frontDensity: common[i] },
+      stall2: { frontDensity: common[i] },
+      stall3: { frontDensity },
+    },
+  }));
+  const occRows = target.map((_, i) => ({
+    ts: new Date((base + i * 60) * 1000).toISOString(),
+    stalls: { stall3: { occ: 5 } },
+  }));
+
+  const movement = binMovementCounts(rows, ['stall1', 'stall2', 'stall3'], { absThreshold: 10, debounceSec: 120, occRows });
+  assert.equal(movement.replenish.stall3 || 0, 1, '生信号が増えていれば補充として扱う');
+  assert.equal(movement.departure.stall3 || 0, 0, '残差方向だけでdepartureにしない');
+});
+
 test('recentActualBreakdown: departureを返しrecentActualCountはreplenishだけ返す', () => {
   const rows = mkRows('stall3', [100, 100, 130, 130, 130, 130], '2026-07-05T06:20:00Z');
   const start = Math.floor(new Date('2026-07-05T06:20:00Z').getTime() / 1000);
