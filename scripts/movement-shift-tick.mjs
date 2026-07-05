@@ -17,6 +17,7 @@ import { dirname, join } from 'node:path';
 import { profileForSlots, bestShift } from './lib/movement-shift.mjs';
 import { frontBox, frontBoxBothLines, meanGrayInBox, frontSignal } from './lib/advance-counter.mjs';
 import { archivePath, defaultArchiveDir } from './lib/slot-archive.mjs';
+import { movementShiftHistoryRow } from './lib/movement-shift-history-row.mjs';
 
 const N_FRONT = 6; // 先頭エリアとみなすスロット数(乗車ポール側)
 // 2列(左列+右列)で並ぶ乗り場。列移動は両列の先頭をまたいで測る。
@@ -64,6 +65,7 @@ async function main() {
 
   const ts = jstTimestamp();
   const outStalls = {};
+  const sourceImages = {};
   const newState = { ts, stalls: {} };
 
   for (const [name, def] of Object.entries(cfg.stalls)) {
@@ -71,7 +73,10 @@ async function main() {
     let profile;
     let frontDensity = null;
     try {
-      const img = await loadImage(imagePathForSource(def.source));
+      const source = def.source || name;
+      const imagePath = imagePathForSource(source);
+      sourceImages[source] = imagePath;
+      const img = await loadImage(imagePath);
       profile = profileForSlots(img, def.slots, { oversample: OVERSAMPLE, radius: RADIUS });
       // b5: 先頭エリア(面)の平均輝度。後段で列移動カウントへ。
       // 1〜3号は「2列(左列+右列)」で並ぶので、両列の先頭をまたいで測る(片側だけだと
@@ -96,7 +101,7 @@ async function main() {
   }
 
   writeFileSync(STATE_PATH, JSON.stringify(newState));
-  appendFileSync(HISTORY_PATH, JSON.stringify({ schema_version: 2, ts, stalls: outStalls }) + '\n');
+  appendFileSync(HISTORY_PATH, JSON.stringify(movementShiftHistoryRow({ ts, sourceImages, stalls: outStalls })) + '\n');
 
   const summary = Object.entries(outStalls)
     .map(([k, v]) => `${k}=${v.frontDensity ?? '-'}`)
