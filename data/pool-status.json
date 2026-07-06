@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-07-07T06:18:36+09:00",
+  "generatedAt": "2026-07-07T06:24:24+09:00",
   "cameras": {
     "real01": {
-      "occ": 6,
+      "occ": 7,
       "fullRef": 43,
       "level": "empty"
     },
@@ -13,19 +13,19 @@
     }
   },
   "total": {
-    "occ": 7,
+    "occ": 8,
     "level": "empty"
   },
   "activity": {
-    "recent1hDepartures": 9,
-    "typical1h": 15,
-    "ratio": 0.6,
-    "level": "low",
-    "arrow": "down",
+    "recent1hDepartures": 11,
+    "typical1h": 14,
+    "ratio": 0.79,
+    "level": "normal",
+    "arrow": "flat",
     "sameConditionCompare": {
-      "peers_typical": 12,
-      "percent": -25,
-      "label": "いつもより少なめ",
+      "peers_typical": 11,
+      "percent": 0,
+      "label": "いつも通り",
       "dayLabel": "火曜平日"
     }
   },
@@ -49,7 +49,23 @@
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 2,
+      "occ": 1,
+      "recent1hDep": 1,
+      "waitMin": 60,
+      "trend": "flat",
+      "sameConditionCompare": {
+        "peers_typical": 1,
+        "percent": 0,
+        "label": "いつも通り",
+        "dayLabel": "火曜平日"
+      },
+      "fillRate": 0,
+      "rankHint": null
+    },
+    "stall3": {
+      "label": "第3乗り場",
+      "terminal": "T2",
+      "occ": 3,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
@@ -62,36 +78,20 @@
       "fillRate": 0,
       "rankHint": "most-low"
     },
-    "stall3": {
-      "label": "第3乗り場",
-      "terminal": "T2",
-      "occ": 1,
-      "recent1hDep": 0,
-      "waitMin": null,
-      "trend": "flat",
-      "sameConditionCompare": {
-        "peers_typical": 0,
-        "percent": null,
-        "label": null,
-        "dayLabel": "火曜平日"
-      },
-      "fillRate": 0,
-      "rankHint": "most-low"
-    },
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
       "occ": 4,
-      "recent1hDep": 9,
-      "waitMin": 27,
+      "recent1hDep": 10,
+      "waitMin": 24,
       "trend": "flat",
       "sameConditionCompare": {
-        "peers_typical": 11,
-        "percent": -18,
-        "label": "いつもより少なめ",
+        "peers_typical": 10,
+        "percent": 0,
+        "label": "いつも通り",
         "dayLabel": "火曜平日"
       },
-      "fillRate": 0.25,
+      "fillRate": 0.2188,
       "rankHint": "most-active"
     }
   },
@@ -101,7 +101,7 @@
       "next60": 0
     },
     "T2": {
-      "next30": 8,
+      "next30": 13,
       "next60": 14
     }
   },
@@ -113,7 +113,7 @@
         "airline": "ANA",
         "fromName": "シドニー",
         "seatCount": 215,
-        "lobbyExitMinutes": 16,
+        "lobbyExitMinutes": 11,
         "lobbyExitTime": "06:35"
       },
       {
@@ -121,7 +121,7 @@
         "airline": "ANA",
         "fromName": "デリー",
         "seatCount": 215,
-        "lobbyExitMinutes": 26,
+        "lobbyExitMinutes": 21,
         "lobbyExitTime": "06:45"
       },
       {
@@ -129,7 +129,7 @@
         "airline": "ANA",
         "fromName": "バンコク",
         "seatCount": 294,
-        "lobbyExitMinutes": 31,
+        "lobbyExitMinutes": 26,
         "lobbyExitTime": "06:50"
       },
       {
@@ -137,7 +137,7 @@
         "airline": "ANA",
         "fromName": "シンガポール",
         "seatCount": 215,
-        "lobbyExitMinutes": 41,
+        "lobbyExitMinutes": 36,
         "lobbyExitTime": "07:00"
       }
     ]
@@ -152,7 +152,7 @@
         "airline": "JAL",
         "fromName": "シンガポール",
         "seatCount": 246,
-        "lobbyExitMinutes": 16,
+        "lobbyExitMinutes": 11,
         "lobbyExitTime": "06:35"
       },
       {
@@ -160,7 +160,7 @@
         "airline": "ANA",
         "fromName": "シドニー",
         "seatCount": 215,
-        "lobbyExitMinutes": 16,
+        "lobbyExitMinutes": 11,
         "lobbyExitTime": "06:35"
       },
       {
@@ -168,7 +168,7 @@
         "airline": "ANA",
         "fromName": "上海",
         "seatCount": 184,
-        "lobbyExitMinutes": 16,
+        "lobbyExitMinutes": 11,
         "lobbyExitTime": "06:35"
       },
       {
@@ -176,7 +176,7 @@
         "airline": "JAL",
         "fromName": "バンコク",
         "seatCount": 244,
-        "lobbyExitMinutes": 26,
+        "lobbyExitMinutes": 21,
         "lobbyExitTime": "06:45"
       },
       {
@@ -184,11 +184,11 @@
         "airline": "ANA",
         "fromName": "デリー",
         "seatCount": 215,
-        "lobbyExitMinutes": 26,
+        "lobbyExitMinutes": 21,
         "lobbyExitTime": "06:45"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-07-07T06:18:25+09:00"
+  "sourceStaleSince": "2026-07-07T06:24:13+09:00"
 }
