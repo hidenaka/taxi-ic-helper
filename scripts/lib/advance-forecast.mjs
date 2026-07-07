@@ -3,107 +3,23 @@
 // 履歴が少ない(数週間)ので過学習を避けた素直なベースライン。
 // 注: bin行に乗り場キーが無い=その時間帯0回として平均に算入する。
 
-import { detectAdvances } from './advance-counter.mjs';
+import { detectDirectionalTransitions } from './advance-counter.mjs';
 
 const DEFAULT_STALLS = ['stall1', 'stall2', 'stall3', 'stall4'];
+
+// 列移動の信号源(frontDensity/occ)の読み出しキー。表示は乗り場号(stall1-4)だが、
+// 4号の列が実際に動くのは奥の待機列(real02 カメラ=stall4_back)なので、4号はそこを見る。
+// stall1-3 は手前カメラ(real01)の自分自身。
+const DENSITY_SOURCE = { stall1: 'stall1', stall2: 'stall2', stall3: 'stall3', stall4: 'stall4_back' };
+// コモンモード(照明相殺)は同一カメラのレーン同士でのみ意味がある。stall4 は real02 に相方が
+// いない(単独)ので相殺対象から外す(代わりに平滑化+持続+占有ゲートでノイズを抑える)。
+const NO_COMMON_STALLS = new Set(['stall4']);
 
 function median(a) {
   if (!a.length) return 0;
   const s = [...a].sort((x, y) => x - y);
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-}
-
-function rowEpoch(row) {
-  const t = Math.floor(new Date(row?.ts).getTime() / 1000);
-  return Number.isFinite(t) ? t : null;
-}
-
-function signOf(v) {
-  return v > 0 ? 1 : v < 0 ? -1 : 0;
-}
-
-function medianDeltaAround(rows, stall, eventEpoch, field, windowSec = 120) {
-  const before = [];
-  const after = [];
-  for (const r of rows || []) {
-    const t = rowEpoch(r);
-    if (t === null) continue;
-    const v = r?.stalls?.[stall]?.[field];
-    if (typeof v !== 'number') continue;
-    if (t >= eventEpoch - windowSec && t < eventEpoch) before.push(v);
-    if (t >= eventEpoch && t <= eventEpoch + windowSec) after.push(v);
-  }
-  if (!before.length || !after.length) return null;
-  return median(after) - median(before);
-}
-
-function nearestMode(rows, eventEpoch, maxDistanceSec = 180) {
-  let best = null;
-  let bestDist = Infinity;
-  for (const r of rows || []) {
-    if (r?.mode !== 'day' && r?.mode !== 'night') continue;
-    const t = rowEpoch(r);
-    if (t === null) continue;
-    const d = Math.abs(t - eventEpoch);
-    if (d < bestDist && d <= maxDistanceSec) {
-      best = r.mode;
-      bestDist = d;
-    }
-  }
-  return best;
-}
-
-function shouldCountCandidate(evidence, opts = {}) {
-  const weakRawDelta = opts.weakRawDelta ?? opts.absThreshold ?? 8;
-  const dayStrongOccDelta = opts.dayStrongOccDelta ?? 2;
-  const nightStrongOccDelta = opts.nightStrongOccDelta ?? 2;
-  const nightOccOnlyDelta = opts.nightOccOnlyDelta ?? (String(evidence.stall).includes('stall4') ? 4 : 3);
-  const nightRawAgreeDelta = opts.nightRawAgreeDelta ?? Math.max(6, weakRawDelta * 0.75);
-
-  const rawDelta = evidence.rawDelta;
-  const occDelta = evidence.occDelta;
-  const rawKnown = typeof rawDelta === 'number';
-  const occKnown = typeof occDelta === 'number';
-  const rawAbs = rawKnown ? Math.abs(rawDelta) : Infinity;
-  const occAbs = occKnown ? Math.abs(occDelta) : Infinity;
-
-  if (rawKnown && rawAbs < weakRawDelta && (!occKnown || occAbs < 1)) return false;
-  if (!rawKnown || !occKnown) return true; // 証拠が欠ける古い履歴は従来通り候補を残す。
-
-  if (evidence.mode === 'night') {
-    const rawSign = signOf(rawDelta);
-    const occSign = signOf(occDelta);
-    const signsAgree = rawSign !== 0 && occSign !== 0 && rawSign === occSign;
-    const signsConflict = rawSign !== 0 && occSign !== 0 && rawSign !== occSign;
-
-    if (occAbs >= nightStrongOccDelta && rawAbs >= nightRawAgreeDelta && signsAgree) return true;
-    if (occAbs >= nightOccOnlyDelta && rawAbs < nightRawAgreeDelta) return true;
-    if (occAbs < nightStrongOccDelta && rawAbs >= weakRawDelta) return false;
-    if (occAbs >= nightStrongOccDelta && rawAbs >= nightRawAgreeDelta && signsConflict) return false;
-    return false;
-  }
-
-  if (occAbs >= dayStrongOccDelta) return true;
-  if (occAbs >= 1 && rawAbs >= weakRawDelta) return true;
-  if (rawAbs >= weakRawDelta) return true;
-  return false;
-}
-
-function filteredAdvanceCount(rows, stall, detected, opts = {}) {
-  if (!opts.occRows) return detected.count;
-  const evidenceWindowSec = opts.evidenceWindowSec ?? 120;
-  let count = 0;
-  for (const t of detected.eventTimes || []) {
-    const evidence = {
-      stall,
-      mode: nearestMode(opts.occRows, t) || 'day',
-      rawDelta: medianDeltaAround(rows, stall, t, 'frontDensity', evidenceWindowSec),
-      occDelta: medianDeltaAround(opts.occRows, stall, t, 'occ', evidenceWindowSec),
-    };
-    if (shouldCountCandidate(evidence, opts)) count++;
-  }
-  return count;
 }
 
 /**
@@ -115,14 +31,16 @@ function filteredAdvanceCount(rows, stall, detected, opts = {}) {
  * @param {string[]} stalls
  * @returns {Record<string, {t:number, v:number}[]>}
  */
-export function commonModeResiduals(rows, stalls) {
+export function commonModeResiduals(rows, stalls, opts = {}) {
+  const src = opts.densitySource || DENSITY_SOURCE;       // 乗り場号→frontDensity読み出しキー(4号=stall4_back)
+  const noCommon = opts.noCommonStalls || NO_COMMON_STALLS; // 照明相殺しない乗り場(別カメラ単独)
   const ticks = [];
   for (const r of rows) {
     const t = Math.floor(new Date(r.ts).getTime() / 1000);
     if (!Number.isFinite(t)) continue;
     const vals = {};
     for (const s of stalls) {
-      const fd = r?.stalls?.[s]?.frontDensity;
+      const fd = r?.stalls?.[src[s] || s]?.frontDensity;
       if (typeof fd === 'number') vals[s] = fd;
     }
     if (Object.keys(vals).length) ticks.push({ t, vals });
@@ -134,10 +52,15 @@ export function commonModeResiduals(rows, stalls) {
   const out = {};
   for (const s of stalls) out[s] = [];
   for (const { t, vals } of ticks) {
-    const centered = [];
-    for (const s of stalls) if (typeof vals[s] === 'number') centered.push(vals[s] - baseline[s]);
-    const common = centered.length >= 3 ? median(centered) : 0;
-    for (const s of stalls) if (typeof vals[s] === 'number') out[s].push({ t, v: vals[s] - common });
+    for (const s of stalls) if (typeof vals[s] === 'number') {
+      if (noCommon.has(s)) { out[s].push({ t, v: vals[s] }); continue; } // 別カメラ単独(stall4)は相殺しない
+      // コモンモードは「対象s を除いた」同一カメラの他レーンで推定する(leave-one-out)。
+      // s自身を含めると、中央レーン(2号)が自分でmedianを定義し、実際の補充移動が自己相殺で消える。
+      const others = [];
+      for (const o of stalls) if (o !== s && !noCommon.has(o) && typeof vals[o] === 'number') others.push(vals[o] - baseline[o]);
+      const common = others.length >= 2 ? median(others) : 0;
+      out[s].push({ t, v: vals[s] - common });
+    }
   }
   return out;
 }
@@ -147,21 +70,147 @@ export function commonModeResiduals(rows, stalls) {
  * @returns {Record<string, number>} count>0 の乗り場のみ
  */
 export function binAdvanceCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
+  return binMovementCounts(rows, stalls, opts).replenish;
+}
+
+function medianOccNearEvent(occRows, stall, eventTime, opts = {}) {
+  const src = opts.densitySource || DENSITY_SOURCE;
+  const key = src[stall] || stall;
+  const beforeSec = opts.occBeforeSec ?? 120;
+  const afterSec = opts.occAfterSec ?? 150;
+  const before = [];
+  const after = [];
+  for (const r of occRows || []) {
+    const t = Math.floor(new Date(r.ts).getTime() / 1000);
+    if (!Number.isFinite(t)) continue;
+    const occ = r?.stalls?.[key]?.occ;
+    if (typeof occ !== 'number') continue;
+    if (t >= eventTime - beforeSec && t < eventTime) before.push(occ);
+    if (t >= eventTime && t <= eventTime + afterSec) after.push(occ);
+  }
+  if (before.length === 0 || after.length === 0) return null;
+  return median(after) - median(before);
+}
+
+function frontDensityDeltaNearEvent(rows, stall, eventTime, opts = {}) {
+  const src = opts.densitySource || DENSITY_SOURCE;
+  const key = src[stall] || stall;
+  const beforeSec = opts.rawBeforeSec ?? opts.occBeforeSec ?? 120;
+  const afterSec = opts.rawAfterSec ?? opts.occAfterSec ?? 150;
+  const before = [];
+  const after = [];
+  for (const r of rows || []) {
+    const t = Math.floor(new Date(r.ts).getTime() / 1000);
+    if (!Number.isFinite(t)) continue;
+    const fd = r?.stalls?.[key]?.frontDensity;
+    if (typeof fd !== 'number') continue;
+    if (t >= eventTime - beforeSec && t < eventTime) before.push(fd);
+    if (t >= eventTime && t <= eventTime + afterSec) after.push(fd);
+  }
+  if (before.length === 0 || after.length === 0) return null;
+  return median(after) - median(before);
+}
+
+function modeNearEvent(occRows, eventTime, maxDistanceSec = 180) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const r of occRows || []) {
+    if (r?.mode !== 'day' && r?.mode !== 'night') continue;
+    const t = Math.floor(new Date(r.ts).getTime() / 1000);
+    if (!Number.isFinite(t)) continue;
+    const d = Math.abs(t - eventTime);
+    if (d < bestDist && d <= maxDistanceSec) {
+      best = r.mode;
+      bestDist = d;
+    }
+  }
+  return best;
+}
+
+function movementKind(event, occDelta, rawDelta, opts = {}) {
+  const weakRawDelta = opts.weakRawDelta ?? opts.absThreshold ?? 8;
+  const nightStrongOccDelta = opts.nightStrongOccDelta ?? 2;
+  const nightOccOnlyDelta = opts.nightOccOnlyDelta ?? (String(opts.stall).includes('stall4') ? 4 : 3);
+  const nightRawAgreeDelta = opts.nightRawAgreeDelta ?? Math.max(6, weakRawDelta * 0.75);
+  const hasOccRows = Boolean(opts.hasOccRows);
+  const mode = opts.mode || 'day';
+  const rawKnown = typeof rawDelta === 'number';
+  const occKnown = typeof occDelta === 'number';
+  const rawAbs = rawKnown ? Math.abs(rawDelta) : Infinity;
+  const occAbs = occKnown ? Math.abs(occDelta) : Infinity;
+
+  if (hasOccRows && rawKnown && rawAbs < weakRawDelta && (!occKnown || occAbs < 1)) return null;
+
+  if (hasOccRows && mode === 'night' && rawKnown && occKnown) {
+    const rawSign = Math.sign(rawDelta);
+    const occSign = Math.sign(occDelta);
+    const signsAgree = rawSign !== 0 && occSign !== 0 && rawSign === occSign;
+    const signsConflict = rawSign !== 0 && occSign !== 0 && rawSign !== occSign;
+
+    if (occAbs >= nightStrongOccDelta && rawAbs >= nightRawAgreeDelta && signsAgree) {
+      return occDelta > 0 ? 'replenish' : 'departure';
+    }
+    if (occAbs >= nightOccOnlyDelta && rawAbs < nightRawAgreeDelta) {
+      return occDelta > 0 ? 'replenish' : 'departure';
+    }
+    if (occAbs < nightStrongOccDelta && rawAbs >= weakRawDelta) return null;
+    if (occAbs >= nightStrongOccDelta && rawAbs >= nightRawAgreeDelta && signsConflict) return null;
+    return null;
+  }
+
+  if (typeof occDelta === 'number') {
+    if (occDelta <= -1) return 'departure';
+    if (occDelta >= 1) return 'replenish';
+  }
+  // Residual direction can flip when adjacent lanes move strongly. If total occupancy is flat,
+  // use the local raw frontDensity direction to label the event.
+  const minRawDelta = opts.minRawDelta ?? Math.max(3, (opts.absThreshold ?? 15) * 0.5);
+  if (typeof rawDelta === 'number' && Math.abs(rawDelta) >= minRawDelta) {
+    return rawDelta > 0 ? 'replenish' : 'departure';
+  }
+  return event.direction === 'rise' ? 'replenish' : 'departure';
+}
+
+/**
+ * 窓内の行から、コモンモード除去後に乗り場別の動きを方向別に数える。
+ * `replenish` は従来の actual として使う。`departure` は車が抜けて空いた動きとして別に残す。
+ * @returns {{replenish: Record<string, number>, departure: Record<string, number>}}
+ */
+export function binMovementCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
   const absThreshold = opts.absThreshold ?? 15;
   const debounceSec = opts.debounceSec ?? 120;
+  const persistSec = opts.persistSec ?? 120;     // 補充後この秒数 高を保って初めて1回(一過性ブリップ除外)
+  const holdThreshold = opts.holdThreshold;       // 未指定なら detectReplenishments 側で rise*0.5
+  const smoothK = opts.smoothK ?? 3;              // メディアン平滑化で1フレームのスパイク除去
   const occByStall = opts.occByStall || null; // {stall: median occ} があれば空レーンをゲート
   const minOcc = opts.minOcc ?? 1;
   const res = commonModeResiduals(rows, stalls);
-  const out = {};
+  const out = { replenish: {}, departure: {} };
   for (const s of stalls) {
     // 占有ゲート: その乗り場の在台が(観測できていて)ほぼ0なら列移動は起き得ない→0。
     // occ が未知(null)の場合はゲートしない(誤抑制を避ける)。
     if (occByStall && typeof occByStall[s] === 'number' && occByStall[s] < minOcc) continue;
     const arr = res[s] || [];
     if (arr.length < 2) continue;
-    const detected = detectAdvances(arr.map((p) => p.v), arr.map((p) => p.t), { absThreshold, debounceSec });
-    const c = filteredAdvanceCount(rows, s, detected, opts);
-    if (c > 0) out[s] = c;
+    const detected = detectDirectionalTransitions(
+      arr.map((p) => p.v),
+      arr.map((p) => p.t),
+      { absThreshold, debounceSec, persistSec, holdThreshold, smoothK },
+    );
+    for (const event of detected.events) {
+      const occDelta = medianOccNearEvent(opts.occRows, s, event.time, opts);
+      const rawDelta = frontDensityDeltaNearEvent(rows, s, event.time, opts);
+      const mode = modeNearEvent(opts.occRows, event.time) || 'day';
+      const kind = movementKind(event, occDelta, rawDelta, {
+        ...opts,
+        absThreshold,
+        mode,
+        stall: s,
+        hasOccRows: Boolean(opts.occRows),
+      });
+      if (!kind) continue;
+      out[kind][s] = (out[kind][s] || 0) + 1;
+    }
   }
   return out;
 }
@@ -171,14 +220,15 @@ export function binAdvanceCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
  * occ 観測の無い乗り場は null(=ゲートしない)。
  * @param {{ts:string, stalls:Record<string,{occ?:number}>}[]} occRows
  */
-export function medianOccForBin(occRows, stalls, startEpoch, endEpoch) {
+export function medianOccForBin(occRows, stalls, startEpoch, endEpoch, opts = {}) {
+  const src = opts.densitySource || DENSITY_SOURCE; // 4号の占有も奥列(stall4_back)を見る
   const per = {};
   for (const s of stalls) per[s] = [];
   for (const r of occRows || []) {
     const t = Math.floor(new Date(r.ts).getTime() / 1000);
     if (!Number.isFinite(t) || t < startEpoch || t >= endEpoch) continue;
     for (const s of stalls) {
-      const v = r?.stalls?.[s]?.occ;
+      const v = r?.stalls?.[src[s] || s]?.occ;
       if (typeof v === 'number') per[s].push(v);
     }
   }
@@ -193,6 +243,14 @@ export function medianOccForBin(occRows, stalls, startEpoch, endEpoch) {
  * @returns {number}
  */
 export function recentActualCount(rows, stall, nowEpoch, opts = {}) {
+  return recentActualBreakdown(rows, stall, nowEpoch, opts).replenish;
+}
+
+/**
+ * 直近 windowMin 分の frontDensity 変化で乗り場の実測動きを方向別に返す。
+ * @returns {{replenish:number, departure:number}}
+ */
+export function recentActualBreakdown(rows, stall, nowEpoch, opts = {}) {
   const windowMin = opts.windowMin ?? 15;
   const cutoff = nowEpoch - windowMin * 60;
   const stalls = opts.stalls ?? DEFAULT_STALLS;
@@ -201,15 +259,17 @@ export function recentActualCount(rows, stall, nowEpoch, opts = {}) {
     return t >= cutoff && t <= nowEpoch;
   });
   const occByStall = opts.occRows ? medianOccForBin(opts.occRows, stalls, cutoff, nowEpoch + 1) : null;
-  const counts = binAdvanceCounts(inWin, stalls, {
+  const counts = binMovementCounts(inWin, stalls, {
     absThreshold: opts.absThreshold ?? 8,
     debounceSec: opts.debounceSec ?? 120,
     occByStall,
-    occRows: opts.occRows,
     minOcc: opts.minOcc ?? 1,
-    weakRawDelta: opts.weakRawDelta,
+    occRows: opts.occRows,
   });
-  return counts[stall] || 0;
+  return {
+    replenish: counts.replenish[stall] || 0,
+    departure: counts.departure[stall] || 0,
+  };
 }
 
 function epochToJstIso(ep) {
@@ -251,9 +311,8 @@ export function lastCompletedBinRow(historyRows, msRows, nowEpoch, opts = {}) {
     absThreshold: opts.absThreshold ?? 15,
     debounceSec: opts.debounceSec ?? 120,
     occByStall,
-    occRows: opts.occRows,
     minOcc: opts.minOcc ?? 1,
-    weakRawDelta: opts.weakRawDelta,
+    occRows: opts.occRows,
   });
   return { ts: epochToJstIso(lastStart), stalls: stallsOut };
 }
