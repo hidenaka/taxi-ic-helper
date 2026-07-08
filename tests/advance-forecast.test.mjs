@@ -290,6 +290,20 @@ test('lastCompletedBinRow: 直前の完成15分ビンの行を返す/重複は�
   assert.equal(dup, null);
 });
 
+test('lastCompletedBinRow: 4号は観測判定も stall4_back を見る', () => {
+  const binStart = Math.floor(new Date('2026-06-03T13:00:00+09:00').getTime() / 1000);
+  const isoZ = (ep) => new Date(ep * 1000).toISOString();
+  const vals = [100, 100, 130, 130, 130, 100, 100];
+  const ms = vals.map((v, i) => ({
+    ts: isoZ(binStart + i * 60),
+    stalls: { stall4_back: { frontDensity: v } },
+  }));
+  const now = binStart + 16 * 60;
+  const row = lastCompletedBinRow([], ms, now, { stalls: ['stall4'], absThreshold: 10, debounceSec: 120, minOcc: 0 });
+  assert.ok(row, 'stall4_backだけでも4号のビン行が返る');
+  assert.equal(row.stalls.stall4, 1);
+});
+
 test('recentActualCount: 平坦/窓外は0', () => {
   const flat = mkRows('stall1', [100, 101, 99, 100, 100], '2026-06-03T13:00:00Z');
   const now = Math.floor(new Date('2026-06-03T13:06:00Z').getTime() / 1000);

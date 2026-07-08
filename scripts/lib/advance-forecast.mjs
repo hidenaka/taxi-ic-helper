@@ -286,6 +286,7 @@ function epochToJstIso(ep) {
 export function lastCompletedBinRow(historyRows, msRows, nowEpoch, opts = {}) {
   const BIN = 900;
   const stalls = opts.stalls ?? DEFAULT_STALLS;
+  const src = opts.densitySource || DENSITY_SOURCE;
   const lastStart = Math.floor(nowEpoch / BIN) * BIN - BIN; // 直前の完成ビン開始
   let lastHistEpoch = -Infinity;
   for (const r of historyRows) {
@@ -301,7 +302,8 @@ export function lastCompletedBinRow(historyRows, msRows, nowEpoch, opts = {}) {
   // 観測判定: いずれかの乗り場で2点以上あればそのビンは観測ありとみなす。
   let observed = false;
   for (const s of stalls) {
-    const n = binRows.filter((r) => typeof r?.stalls?.[s]?.frontDensity === 'number').length;
+    const key = src[s] || s;
+    const n = binRows.filter((r) => typeof r?.stalls?.[key]?.frontDensity === 'number').length;
     if (n >= 2) { observed = true; break; }
   }
   if (!observed) return null;
