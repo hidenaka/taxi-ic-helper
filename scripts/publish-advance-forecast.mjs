@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { buildAdvanceModel, predictAdvance, predictAdvanceWithFlights, flightFactorByStall, arrivalDemandByStall, recentActualBreakdown, lastCompletedBinRow } from './lib/advance-forecast.mjs';
+import { buildAdvanceModel, predictAdvance, predictAdvanceWithFlights, flightFactorByStall, arrivalDemandByStall, recentActualBreakdown, lastCompletedBinRow, buildQualityByBucket, bucketOfDay } from './lib/advance-forecast.mjs';
 
 const THR = 8; // 列移動検出の絶対しきい値。コモンモード除去で照明/夜明け/行灯フリッカを
                // 別途相殺するため、しきい値は感度重視で8に下げる(15は過小検出=予測が低すぎた)。
@@ -15,6 +15,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HIST = join(ROOT, 'data/advance-count-history.jsonl');
 const MS_HIST = join(ROOT, 'data/movement-shift-history.jsonl');
 const OCC_HIST = join(ROOT, 'data/slot-occupancy-history.jsonl'); // 空レーンのゲート用
+const POOL_HIST = join(ROOT, 'data/taxi-pool-history.jsonl'); // 天候/画像QCメタ用
 const OUT = join(ROOT, 'data/advance-forecast.json');
 const ARRIVALS = join(ROOT, 'data/arrivals.json');
 const COEFFS = join(ROOT, 'data/arrival-advance-coeffs.json');     // 段階B学習結果(任意)
@@ -41,6 +42,15 @@ function jstNowIso() {
   const z = (n) => String(n).padStart(2, '0');
   const j = new Date(Date.now() + 9 * 3600 * 1000);
   return `${j.getUTCFullYear()}-${z(j.getUTCMonth() + 1)}-${z(j.getUTCDate())}T${z(j.getUTCHours())}:${z(j.getUTCMinutes())}:00+09:00`;
+}
+
+function readJsonl(path) {
+  if (!existsSync(path)) return [];
+  const text = readFileSync(path, 'utf8').trim();
+  if (!text) return [];
+  return text.split('\n')
+    .map((l) => { try { return JSON.parse(l); } catch { return null; } })
+    .filter(Boolean);
 }
 
 // 直近15分の実測前進回数(ライブfrontDensityから)。履歴が無ければ全て null。
@@ -73,10 +83,14 @@ if (existsSync(MS_HIST)) {
 
 // 占有履歴(空レーンのゲート用)。直近ぶんだけ読む。
 let occRows = [];
+let occRowsAll = [];
 if (existsSync(OCC_HIST)) {
-  const all = readFileSync(OCC_HIST, 'utf8').trim().split('\n');
-  occRows = all.slice(-90).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  occRowsAll = readJsonl(OCC_HIST);
+  occRows = occRowsAll.slice(-90);
 }
+
+const poolRows = readJsonl(POOL_HIST);
+const qualityByBucket = buildQualityByBucket({ poolRows, occRows: occRowsAll });
 
 // ① 履歴を育てる: 直前に完成した15分ビンを学習データへ追記(重複なし)。次回以降の予測精度が上がる。
 const grown = msRows.length
@@ -131,7 +145,7 @@ for (let b = 0; b < 96; b++) {
   const ts = `2026-01-01T${hh}:${mm}:00+09:00`;
   const stalls = {};
   for (const s of STALLS) stalls[s] = Number(predictAdvanceWithFlights(model, ts, s, factorByStall).toFixed(1));
-  slots.push({ time: `${hh}:${mm}`, stalls });
+  slots.push({ time: `${hh}:${mm}`, stalls, quality: qualityByBucket[b] });
 }
 
 const nowIso = jstNowIso();
@@ -142,11 +156,12 @@ const actualsToday = rows
   .map((r) => ({
     time: r.ts.slice(11, 16),
     stalls: Object.fromEntries(STALLS.map((s) => [s, r.stalls?.[s] || 0])),
+    quality: qualityByBucket[bucketOfDay(r.ts)],
   }));
 
 const rowWidth = loadRowWidth(); // 号別 横台数。表示側で 回数×横台数=出庫台数 に切替できる。
 const out = {
-  schema_version: 3,
+  schema_version: 4,
   generatedAt: nowIso,
   note: '15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。',
   trainedRows: rows.length,

@@ -326,6 +326,121 @@ export function bucketOfDay(ts) {
   return Math.floor((hh * 60 + mm) / 15);
 }
 
+export function isRainWeatherCode(code) {
+  return typeof code === 'number' && (
+    (code >= 51 && code <= 67) ||
+    (code >= 80 && code <= 82) ||
+    (code >= 95 && code <= 99)
+  );
+}
+
+function bucketStartMinutes(bucket) {
+  return bucket * 15;
+}
+
+function isEarlyBucket(bucket) {
+  return bucketStartMinutes(bucket) < 5 * 60 + 30;
+}
+
+function isNightBucket(bucket) {
+  const minutes = bucketStartMinutes(bucket);
+  return minutes >= 21 * 60 || minutes < 5 * 60;
+}
+
+function imageMetricLow(row) {
+  const rois = [row?.img1?.roi, row?.img2?.roi].filter(Boolean);
+  if (rois.length === 0) return false;
+  return rois.some((roi) => {
+    const lum = roi.luminance_mean;
+    const black = roi.roi_black_ratio ?? roi.black_ratio;
+    const diff = roi.diff_edge_from_prev ?? roi.diff_from_prev;
+    return (typeof lum === 'number' && lum < 35) ||
+      (typeof black === 'number' && black > 0.9) ||
+      (typeof diff === 'number' && diff > 0.35);
+  });
+}
+
+function emptyQuality(bucket) {
+  const early = isEarlyBucket(bucket);
+  const night = isNightBucket(bucket);
+  const condition = early ? 'early' : night ? 'night' : 'day';
+  return {
+    confidence: early || night ? 'reference' : 'normal',
+    condition,
+    reasons: early ? ['early'] : night ? ['night'] : [],
+    sampleRows: 0,
+    rainRate: 0,
+    nightRate: night ? 1 : 0,
+    imageQcLowRate: 0,
+  };
+}
+
+export function buildQualityByBucket({ poolRows = [], occRows = [] } = {}) {
+  const buckets = Array.from({ length: 96 }, () => ({
+    poolRows: 0,
+    rainRows: 0,
+    imageRows: 0,
+    imageQcLowRows: 0,
+    modeRows: 0,
+    nightRows: 0,
+  }));
+
+  for (const row of poolRows || []) {
+    if (!row?.ts) continue;
+    const bucket = bucketOfDay(row.ts);
+    if (!Number.isInteger(bucket) || bucket < 0 || bucket >= 96) continue;
+    const q = buckets[bucket];
+    q.poolRows += 1;
+    if (isRainWeatherCode(row?.weather?.code ?? row?.weather?.weatherCode)) q.rainRows += 1;
+    if (row.img1?.roi || row.img2?.roi) {
+      q.imageRows += 1;
+      if (imageMetricLow(row)) q.imageQcLowRows += 1;
+    }
+  }
+
+  for (const row of occRows || []) {
+    if (!row?.ts || (row.mode !== 'day' && row.mode !== 'night')) continue;
+    const bucket = bucketOfDay(row.ts);
+    if (!Number.isInteger(bucket) || bucket < 0 || bucket >= 96) continue;
+    const q = buckets[bucket];
+    q.modeRows += 1;
+    if (row.mode === 'night') q.nightRows += 1;
+  }
+
+  return buckets.map((q, bucket) => {
+    const rainRate = q.poolRows ? q.rainRows / q.poolRows : 0;
+    const nightRate = q.modeRows ? q.nightRows / q.modeRows : (isNightBucket(bucket) ? 1 : 0);
+    const imageQcLowRate = q.imageRows ? q.imageQcLowRows / q.imageRows : 0;
+    const early = isEarlyBucket(bucket);
+    const night = nightRate >= 0.5 || isNightBucket(bucket);
+    const rain = rainRate >= 0.2;
+    const imageQcLow = imageQcLowRate >= 0.3;
+    const reasons = [];
+    if (early) reasons.push('early');
+    else if (night) reasons.push('night');
+    if (rain) reasons.push('rain');
+    if (imageQcLow) reasons.push('image_qc');
+
+    let condition = 'day';
+    if (early) condition = 'early';
+    else if (night && rain) condition = 'rain_night';
+    else if (night) condition = 'night';
+    else if (rain) condition = 'rain_day';
+
+    return {
+      confidence: early || night || imageQcLow ? 'reference' : 'normal',
+      condition,
+      reasons,
+      sampleRows: q.poolRows + q.modeRows,
+      rainRate: Number(rainRate.toFixed(3)),
+      nightRate: Number(nightRate.toFixed(3)),
+      imageQcLowRate: Number(imageQcLowRate.toFixed(3)),
+    };
+  }).map((quality, bucket) => (
+    quality.sampleRows > 0 ? quality : emptyQuality(bucket)
+  ));
+}
+
 /**
  * 履歴行から時間帯×乗り場のモデルを作る。
  * @param {{ts:string, stalls:Record<string,number>}[]} rows

@@ -1,6 +1,54 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, recentActualBreakdown, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, binMovementCounts, medianOccForBin, commonModeResiduals } from '../scripts/lib/advance-forecast.mjs';
+import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, recentActualBreakdown, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, binMovementCounts, medianOccForBin, commonModeResiduals, isRainWeatherCode, buildQualityByBucket } from '../scripts/lib/advance-forecast.mjs';
+
+test('isRainWeatherCode: 雨・にわか雨・雷雨を雨扱いにする', () => {
+  assert.equal(isRainWeatherCode(61), true);
+  assert.equal(isRainWeatherCode(80), true);
+  assert.equal(isRainWeatherCode(95), true);
+  assert.equal(isRainWeatherCode(2), false);
+  assert.equal(isRainWeatherCode(null), false);
+});
+
+test('buildQualityByBucket: weather/mode/imageQCから15分枠の品質を自動判定する', () => {
+  const poolRows = [
+    {
+      ts: '2026-07-01T12:02:00+09:00',
+      weather: { code: 61 },
+      img1: { roi: { luminance_mean: 80, roi_black_ratio: 0.2, diff_edge_from_prev: 0.01 } },
+      img2: { roi: { luminance_mean: 78, roi_black_ratio: 0.2, diff_edge_from_prev: 0.01 } },
+    },
+    {
+      ts: '2026-07-01T21:02:00+09:00',
+      weather: { code: 61 },
+      img1: { roi: { luminance_mean: 24, roi_black_ratio: 0.92, diff_edge_from_prev: 0.38 } },
+      img2: { roi: { luminance_mean: 25, roi_black_ratio: 0.91, diff_edge_from_prev: 0.2 } },
+    },
+    {
+      ts: '2026-07-01T05:15:00+09:00',
+      weather: { code: 1 },
+      img1: { roi: { luminance_mean: 120, roi_black_ratio: 0.1, diff_edge_from_prev: 0.02 } },
+    },
+  ];
+  const occRows = [
+    { ts: '2026-07-01T12:03:00+09:00', mode: 'day', stalls: {} },
+    { ts: '2026-07-01T21:03:00+09:00', mode: 'night', stalls: {} },
+    { ts: '2026-07-01T05:16:00+09:00', mode: 'day', stalls: {} },
+  ];
+
+  const quality = buildQualityByBucket({ poolRows, occRows });
+
+  assert.equal(quality[48].condition, 'rain_day');
+  assert.equal(quality[48].confidence, 'normal');
+  assert.deepEqual(quality[48].reasons, ['rain']);
+  assert.equal(quality[84].condition, 'rain_night');
+  assert.equal(quality[84].confidence, 'reference');
+  assert.ok(quality[84].reasons.includes('night'));
+  assert.ok(quality[84].reasons.includes('rain'));
+  assert.ok(quality[84].reasons.includes('image_qc'));
+  assert.equal(quality[21].condition, 'early');
+  assert.equal(quality[21].confidence, 'reference');
+});
 
 test('binAdvanceCounts: 占有0(空レーン)はゲートして数えない/占有ありは数える', () => {
   const base = Math.floor(new Date('2026-06-05T05:45:00+09:00').getTime() / 1000);
