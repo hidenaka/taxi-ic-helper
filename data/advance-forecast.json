@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-07-10T04:10:00+09:00",
+  "generatedAt": "2026-07-10T04:15:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 3354,
+  "trainedRows": 3355,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,27 +37,27 @@
     "stall4": 8
   },
   "current": {
-    "time": "04:10",
+    "time": "04:15",
     "stalls": {
       "stall1": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0
+        "forecast": 0.1
       },
       "stall2": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0.1
       },
       "stall3": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0
       },
       "stall4": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.7
+        "forecast": 1
       }
     }
   },
@@ -402,6 +402,28 @@
         "rainRate": 0.216,
         "nightRate": 1,
         "imageQcLowRate": 1
+      }
+    },
+    {
+      "time": "04:00",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "early",
+        "reasons": [
+          "early",
+          "rain",
+          "image_qc"
+        ],
+        "sampleRows": 1645,
+        "rainRate": 0.206,
+        "nightRate": 0.91,
+        "imageQcLowRate": 0.893
       }
     }
   ],
@@ -764,7 +786,7 @@
           "rain",
           "image_qc"
         ],
-        "sampleRows": 1636,
+        "sampleRows": 1645,
         "rainRate": 0.206,
         "nightRate": 0.91,
         "imageQcLowRate": 0.893
@@ -785,10 +807,10 @@
           "early",
           "rain"
         ],
-        "sampleRows": 1596,
-        "rainRate": 0.259,
+        "sampleRows": 1599,
+        "rainRate": 0.258,
         "nightRate": 0.358,
-        "imageQcLowRate": 0.299
+        "imageQcLowRate": 0.297
       }
     },
     {
