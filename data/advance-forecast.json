@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-07-09T23:41:00+09:00",
+  "generatedAt": "2026-07-09T23:47:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 3336,
+  "trainedRows": 3337,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,27 +37,27 @@
     "stall4": 8
   },
   "current": {
-    "time": "23:41",
+    "time": "23:47",
     "stalls": {
       "stall1": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.4
+        "forecast": 0.6
       },
       "stall2": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.3
+        "forecast": 0.5
       },
       "stall3": {
-        "actual": 1,
+        "actual": 0,
         "departure": 0,
-        "forecast": 1.5
+        "forecast": 0.3
       },
       "stall4": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.1
+        "forecast": 0.2
       }
     }
   },
@@ -1887,6 +1887,27 @@
         ],
         "sampleRows": 1666,
         "rainRate": 0.149,
+        "nightRate": 1,
+        "imageQcLowRate": 1
+      }
+    },
+    {
+      "time": "23:30",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "night",
+        "reasons": [
+          "night",
+          "image_qc"
+        ],
+        "sampleRows": 1662,
+        "rainRate": 0.144,
         "nightRate": 1,
         "imageQcLowRate": 1
       }
@@ -3727,7 +3748,7 @@
       "stalls": {
         "stall1": 0.4,
         "stall2": 0.3,
-        "stall3": 1.5,
+        "stall3": 0.7,
         "stall4": 0.1
       },
       "quality": {
@@ -3737,7 +3758,7 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 1655,
+        "sampleRows": 1662,
         "rainRate": 0.144,
         "nightRate": 1,
         "imageQcLowRate": 1
@@ -3748,7 +3769,7 @@
       "stalls": {
         "stall1": 0.6,
         "stall2": 0.5,
-        "stall3": 0.6,
+        "stall3": 0.3,
         "stall4": 0.2
       },
       "quality": {
@@ -3758,8 +3779,8 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 1610,
-        "rainRate": 0.154,
+        "sampleRows": 1616,
+        "rainRate": 0.153,
         "nightRate": 1,
         "imageQcLowRate": 1
       }
