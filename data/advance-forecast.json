@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-07-10T23:24:00+09:00",
+  "generatedAt": "2026-07-10T23:30:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 3431,
+  "trainedRows": 3432,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,25 +37,25 @@
     "stall4": 8
   },
   "current": {
-    "time": "23:24",
+    "time": "23:30",
     "stalls": {
       "stall1": {
-        "actual": 0,
-        "departure": 1,
-        "forecast": 0.6
+        "actual": 1,
+        "departure": 0,
+        "forecast": 0.4
       },
       "stall2": {
         "actual": 0,
-        "departure": 1,
-        "forecast": 0.7
+        "departure": 0,
+        "forecast": 0.3
       },
       "stall3": {
         "actual": 0,
         "departure": 0,
-        "forecast": 1.3
+        "forecast": 0.5
       },
       "stall4": {
-        "actual": 0,
+        "actual": 1,
         "departure": 1,
         "forecast": 0.1
       }
@@ -1865,6 +1865,27 @@
         ],
         "sampleRows": 1676,
         "rainRate": 0.132,
+        "nightRate": 1,
+        "imageQcLowRate": 1
+      }
+    },
+    {
+      "time": "23:15",
+      "stalls": {
+        "stall1": 1,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 1
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "night",
+        "reasons": [
+          "night",
+          "image_qc"
+        ],
+        "sampleRows": 1698,
+        "rainRate": 0.146,
         "nightRate": 1,
         "imageQcLowRate": 1
       }
@@ -3693,8 +3714,8 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 1687,
-        "rainRate": 0.147,
+        "sampleRows": 1698,
+        "rainRate": 0.146,
         "nightRate": 1,
         "imageQcLowRate": 1
       }
@@ -3714,7 +3735,7 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 1662,
+        "sampleRows": 1663,
         "rainRate": 0.144,
         "nightRate": 1,
         "imageQcLowRate": 1
