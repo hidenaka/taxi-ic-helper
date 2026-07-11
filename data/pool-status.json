@@ -1,30 +1,30 @@
 {
-  "generatedAt": "2026-07-12T04:30:34+09:00",
+  "generatedAt": "2026-07-12T04:36:28+09:00",
   "cameras": {
     "real01": {
-      "occ": 4,
+      "occ": 1,
       "fullRef": 45,
       "level": "empty"
     },
     "real02": {
-      "occ": 8,
+      "occ": 7,
       "fullRef": 8,
-      "level": "full"
+      "level": "crowded"
     }
   },
   "total": {
-    "occ": 12,
+    "occ": 8,
     "level": "empty"
   },
   "activity": {
-    "recent1hDepartures": 4,
+    "recent1hDepartures": 7,
     "typical1h": 12,
-    "ratio": 0.33,
+    "ratio": 0.58,
     "level": "low",
     "arrow": "down",
     "sameConditionCompare": {
       "peers_typical": 12,
-      "percent": -67,
+      "percent": -42,
       "label": "いつもより少なめ",
       "dayLabel": "日曜・週末"
     }
@@ -33,18 +33,18 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 2,
-      "recent1hDep": 1,
-      "waitMin": 120,
+      "occ": 0,
+      "recent1hDep": 3,
+      "waitMin": 0,
       "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": 3,
-        "percent": -67,
-        "label": "いつもより少なめ",
+        "percent": 0,
+        "label": "いつも通り",
         "dayLabel": "日曜・週末"
       },
       "fillRate": 0,
-      "rankHint": null
+      "rankHint": "most-active"
     },
     "stall2": {
       "label": "第2乗り場",
@@ -59,14 +59,14 @@
         "label": "いつもより少なめ",
         "dayLabel": "日曜・週末"
       },
-      "fillRate": 0,
+      "fillRate": 0.0645,
       "rankHint": "most-low"
     },
     "stall3": {
       "label": "第3乗り場",
       "terminal": "T2",
       "occ": 0,
-      "recent1hDep": 2,
+      "recent1hDep": 1,
       "waitMin": 0,
       "trend": "down",
       "sameConditionCompare": {
@@ -76,23 +76,23 @@
         "dayLabel": "日曜・週末"
       },
       "fillRate": 0,
-      "rankHint": "most-active"
+      "rankHint": null
     },
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 10,
-      "recent1hDep": 1,
-      "waitMin": 600,
-      "trend": "down",
+      "occ": 8,
+      "recent1hDep": 3,
+      "waitMin": 160,
+      "trend": "up",
       "sameConditionCompare": {
-        "peers_typical": 5,
-        "percent": -80,
+        "peers_typical": 6,
+        "percent": -50,
         "label": "いつもより少なめ",
         "dayLabel": "日曜・週末"
       },
-      "fillRate": 0.4091,
-      "rankHint": null
+      "fillRate": 0.8636,
+      "rankHint": "most-active"
     }
   },
   "terminalArrivals": {
@@ -119,7 +119,7 @@
         "airline": "ANA",
         "fromName": "サンフランシスコ",
         "seatCount": 264,
-        "lobbyExitMinutes": 29,
+        "lobbyExitMinutes": 24,
         "lobbyExitTime": "05:00"
       },
       {
@@ -127,11 +127,19 @@
         "airline": "JAL",
         "fromName": "ニューヨーク",
         "seatCount": 339,
-        "lobbyExitMinutes": 54,
+        "lobbyExitMinutes": 49,
         "lobbyExitTime": "05:25"
+      },
+      {
+        "flightNumber": "JL078",
+        "airline": "JAL",
+        "fromName": "マニラ",
+        "seatCount": 200,
+        "lobbyExitMinutes": 59,
+        "lobbyExitTime": "05:35"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-07-12T04:30:21+09:00"
+  "sourceStaleSince": "2026-07-12T04:36:17+09:00"
 }
