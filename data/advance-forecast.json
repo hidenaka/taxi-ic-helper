@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-07-16T03:14:00+09:00",
+  "generatedAt": "2026-07-16T03:20:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 3926,
+  "trainedRows": 3927,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,7 +37,7 @@
     "stall4": 8
   },
   "current": {
-    "time": "03:14",
+    "time": "03:20",
     "stalls": {
       "stall1": {
         "actual": 0,
@@ -313,6 +313,28 @@
         ],
         "sampleRows": 1840,
         "rainRate": 0.211,
+        "nightRate": 1,
+        "imageQcLowRate": 1
+      }
+    },
+    {
+      "time": "03:00",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "early",
+        "reasons": [
+          "early",
+          "rain",
+          "image_qc"
+        ],
+        "sampleRows": 1831,
+        "rainRate": 0.226,
         "nightRate": 1,
         "imageQcLowRate": 1
       }
@@ -611,8 +633,8 @@
           "early",
           "image_qc"
         ],
-        "sampleRows": 1816,
-        "rainRate": 0.186,
+        "sampleRows": 1829,
+        "rainRate": 0.185,
         "nightRate": 1,
         "imageQcLowRate": 1
       }
