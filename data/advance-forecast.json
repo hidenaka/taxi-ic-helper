@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-07-16T04:55:00+09:00",
+  "generatedAt": "2026-07-16T05:01:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 3933,
+  "trainedRows": 3934,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,7 +37,7 @@
     "stall4": 8
   },
   "current": {
-    "time": "04:55",
+    "time": "05:01",
     "stalls": {
       "stall1": {
         "actual": 0,
@@ -52,12 +52,12 @@
       "stall3": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.1
+        "forecast": 0
       },
       "stall4": {
         "actual": 0,
-        "departure": 2,
-        "forecast": 0.3
+        "departure": 1,
+        "forecast": 0.6
       }
     }
   },
@@ -466,6 +466,27 @@
         "rainRate": 0.225,
         "nightRate": 0.077,
         "imageQcLowRate": 0.051
+      }
+    },
+    {
+      "time": "04:45",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "early",
+        "reasons": [
+          "early",
+          "rain"
+        ],
+        "sampleRows": 1807,
+        "rainRate": 0.249,
+        "nightRate": 0.032,
+        "imageQcLowRate": 0.028
       }
     }
   ],
@@ -881,8 +902,8 @@
       "stalls": {
         "stall1": 0.1,
         "stall2": 0.1,
-        "stall3": 0.1,
-        "stall4": 0.3
+        "stall3": 0,
+        "stall4": 0.2
       },
       "quality": {
         "confidence": "reference",
@@ -891,7 +912,7 @@
           "early",
           "rain"
         ],
-        "sampleRows": 1799,
+        "sampleRows": 1807,
         "rainRate": 0.249,
         "nightRate": 0.032,
         "imageQcLowRate": 0.028
@@ -912,8 +933,8 @@
           "early",
           "rain"
         ],
-        "sampleRows": 1769,
-        "rainRate": 0.246,
+        "sampleRows": 1773,
+        "rainRate": 0.244,
         "nightRate": 0.018,
         "imageQcLowRate": 0.017
       }
