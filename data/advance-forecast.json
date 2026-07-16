@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-07-17T05:29:00+09:00",
+  "generatedAt": "2026-07-17T05:35:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 4031,
+  "trainedRows": 4032,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,7 +37,7 @@
     "stall4": 8
   },
   "current": {
-    "time": "05:29",
+    "time": "05:35",
     "stalls": {
       "stall1": {
         "actual": 0,
@@ -56,8 +56,8 @@
       },
       "stall4": {
         "actual": 0,
-        "departure": 1,
-        "forecast": 0.7
+        "departure": 0,
+        "forecast": 0.3
       }
     }
   },
@@ -508,6 +508,27 @@
         "rainRate": 0.239,
         "nightRate": 0.018,
         "imageQcLowRate": 0.016
+      }
+    },
+    {
+      "time": "05:15",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "early",
+        "reasons": [
+          "early",
+          "rain"
+        ],
+        "sampleRows": 1815,
+        "rainRate": 0.21,
+        "nightRate": 0.018,
+        "imageQcLowRate": 0.017
       }
     }
   ],
@@ -966,7 +987,7 @@
         "stall1": 0,
         "stall2": 0,
         "stall3": 0,
-        "stall4": 0.7
+        "stall4": 0.6
       },
       "quality": {
         "confidence": "reference",
@@ -993,8 +1014,8 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 1772,
-        "rainRate": 0.179,
+        "sampleRows": 1784,
+        "rainRate": 0.184,
         "nightRate": 0.018,
         "imageQcLowRate": 0.012
       }
@@ -1605,7 +1626,7 @@
         "stall1": 0.3,
         "stall2": 0.7,
         "stall3": 0.4,
-        "stall4": 0.5
+        "stall4": 0.4
       },
       "quality": {
         "confidence": "normal",
@@ -1623,7 +1644,7 @@
         "stall1": 0.3,
         "stall2": 0.3,
         "stall3": 1.2,
-        "stall4": 0.2
+        "stall4": 0.3
       },
       "quality": {
         "confidence": "normal",
