@@ -27,12 +27,30 @@ function isoLocalToHHMM(s) {
   return m ? `${m[1]}:${m[2]}` : null;
 }
 
-const res = await fetch(ENDPOINT, { signal: AbortSignal.timeout(15000) });
-if (!res.ok) {
-  console.error(`ERROR: Open-Meteo HTTP ${res.status}`);
-  process.exit(1);
+// Open-Meteo は単発の 503/429/接続タイムアウトを返すことがあり、1回失敗しただけで
+// workflow を fail させると失敗メールが頻発する。リトライで単発エラーを吸収する。
+const MAX_ATTEMPTS = 3;
+const RETRY_WAIT_MS = 10_000;
+
+async function fetchWeatherWithRetry() {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(ENDPOINT, { signal: AbortSignal.timeout(15000) });
+      if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      const msg = err?.cause?.message ?? err?.message ?? String(err);
+      if (attempt === MAX_ATTEMPTS) {
+        console.error(`ERROR: ${msg} (${MAX_ATTEMPTS} attempts)`);
+        process.exit(1);
+      }
+      console.warn(`WARN: ${msg} (attempt ${attempt}/${MAX_ATTEMPTS}), retrying in ${(RETRY_WAIT_MS * attempt) / 1000}s`);
+      await new Promise(r => setTimeout(r, RETRY_WAIT_MS * attempt));
+    }
+  }
 }
-const data = await res.json();
+
+const data = await fetchWeatherWithRetry();
 const detected = parseOpenMeteoResponse(data);
 const lightningRecoveryStartHHMM = isoLocalToHHMM(detected.lastLightningEndedAt);
 
