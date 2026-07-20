@@ -1,30 +1,30 @@
 {
-  "generatedAt": "2026-07-21T04:24:45+09:00",
+  "generatedAt": "2026-07-21T04:30:47+09:00",
   "cameras": {
     "real01": {
-      "occ": 4,
+      "occ": 2,
       "fullRef": 46,
       "level": "empty"
     },
     "real02": {
-      "occ": 0,
+      "occ": 6,
       "fullRef": 8,
-      "level": "empty"
+      "level": "crowded"
     }
   },
   "total": {
-    "occ": 4,
+    "occ": 8,
     "level": "empty"
   },
   "activity": {
-    "recent1hDepartures": 0,
-    "typical1h": 1,
-    "ratio": 0,
-    "level": "low",
-    "arrow": "down",
+    "recent1hDepartures": 7,
+    "typical1h": 9,
+    "ratio": 0.78,
+    "level": "normal",
+    "arrow": "flat",
     "sameConditionCompare": {
-      "peers_typical": 6,
-      "percent": -100,
+      "peers_typical": 9,
+      "percent": -22,
       "label": "いつもより少なめ",
       "dayLabel": "火曜平日"
     }
@@ -34,17 +34,17 @@
       "label": "第1乗り場",
       "terminal": "T1",
       "occ": 0,
-      "recent1hDep": 0,
-      "waitMin": null,
+      "recent1hDep": 5,
+      "waitMin": 0,
       "trend": "flat",
       "sameConditionCompare": {
-        "peers_typical": 3,
-        "percent": -100,
-        "label": "いつもより少なめ",
+        "peers_typical": 4,
+        "percent": 25,
+        "label": "いつもより活発",
         "dayLabel": "火曜平日"
       },
       "fillRate": 0,
-      "rankHint": null
+      "rankHint": "most-active"
     },
     "stall2": {
       "label": "第2乗り場",
@@ -60,7 +60,7 @@
         "dayLabel": "火曜平日"
       },
       "fillRate": 0,
-      "rankHint": null
+      "rankHint": "most-low"
     },
     "stall3": {
       "label": "第3乗り場",
@@ -76,22 +76,22 @@
         "dayLabel": "火曜平日"
       },
       "fillRate": 0.0312,
-      "rankHint": null
+      "rankHint": "most-low"
     },
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 3,
-      "recent1hDep": 0,
-      "waitMin": null,
+      "occ": 8,
+      "recent1hDep": 2,
+      "waitMin": 240,
       "trend": "flat",
       "sameConditionCompare": {
-        "peers_typical": 2,
-        "percent": -100,
+        "peers_typical": 3,
+        "percent": -33,
         "label": "いつもより少なめ",
         "dayLabel": "火曜平日"
       },
-      "fillRate": 0.3182,
+      "fillRate": 0.3636,
       "rankHint": null
     }
   },
@@ -102,7 +102,7 @@
     },
     "T2": {
       "next30": 0,
-      "next60": 4
+      "next60": 9
     }
   },
   "terminalArrivalsList": {
@@ -113,8 +113,16 @@
         "airline": "ANA",
         "fromName": "ロサンゼルス",
         "seatCount": 215,
-        "lobbyExitMinutes": 55,
+        "lobbyExitMinutes": 49,
         "lobbyExitTime": "05:20"
+      },
+      {
+        "flightNumber": "NH159",
+        "airline": "ANA",
+        "fromName": "ニューヨーク",
+        "seatCount": 264,
+        "lobbyExitMinutes": 54,
+        "lobbyExitTime": "05:25"
       }
     ]
   },
@@ -128,7 +136,7 @@
         "airline": "ANA",
         "fromName": "サンフランシスコ",
         "seatCount": 264,
-        "lobbyExitMinutes": 17,
+        "lobbyExitMinutes": 11,
         "lobbyExitTime": "04:42"
       },
       {
@@ -136,11 +144,27 @@
         "airline": "ANA",
         "fromName": "ロサンゼルス",
         "seatCount": 215,
-        "lobbyExitMinutes": 55,
+        "lobbyExitMinutes": 49,
         "lobbyExitTime": "05:20"
+      },
+      {
+        "flightNumber": "JL003",
+        "airline": "JAL",
+        "fromName": "ニューヨーク",
+        "seatCount": 339,
+        "lobbyExitMinutes": 54,
+        "lobbyExitTime": "05:25"
+      },
+      {
+        "flightNumber": "NH159",
+        "airline": "ANA",
+        "fromName": "ニューヨーク",
+        "seatCount": 264,
+        "lobbyExitMinutes": 54,
+        "lobbyExitTime": "05:25"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-07-21T04:24:31+09:00"
+  "sourceStaleSince": "2026-07-21T04:30:33+09:00"
 }
