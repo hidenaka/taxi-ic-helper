@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-07-21T05:13:00+09:00",
+  "generatedAt": "2026-07-21T05:19:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 4414,
+  "trainedRows": 4415,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,17 +37,17 @@
     "stall4": 8
   },
   "current": {
-    "time": "05:13",
+    "time": "05:19",
     "stalls": {
       "stall1": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.1
+        "forecast": 0
       },
       "stall2": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.1
+        "forecast": 0
       },
       "stall3": {
         "actual": 0,
@@ -56,8 +56,8 @@
       },
       "stall4": {
         "actual": 0,
-        "departure": 0,
-        "forecast": 0.7
+        "departure": 1,
+        "forecast": 0.6
       }
     }
   },
@@ -486,6 +486,27 @@
         "rainRate": 0.23,
         "nightRate": 0.029,
         "imageQcLowRate": 0.026
+      }
+    },
+    {
+      "time": "05:00",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "early",
+        "reasons": [
+          "early",
+          "rain"
+        ],
+        "sampleRows": 1955,
+        "rainRate": 0.228,
+        "nightRate": 0.016,
+        "imageQcLowRate": 0.016
       }
     }
   ],
@@ -931,7 +952,7 @@
           "early",
           "rain"
         ],
-        "sampleRows": 1952,
+        "sampleRows": 1955,
         "rainRate": 0.228,
         "nightRate": 0.016,
         "imageQcLowRate": 0.016
@@ -949,11 +970,10 @@
         "confidence": "reference",
         "condition": "early",
         "reasons": [
-          "early",
-          "rain"
+          "early"
         ],
-        "sampleRows": 1908,
-        "rainRate": 0.2,
+        "sampleRows": 1917,
+        "rainRate": 0.199,
         "nightRate": 0.017,
         "imageQcLowRate": 0.016
       }
@@ -1126,7 +1146,7 @@
         "stall1": 0.5,
         "stall2": 0.4,
         "stall3": 0.4,
-        "stall4": 0.2
+        "stall4": 0.4
       },
       "quality": {
         "confidence": "normal",
