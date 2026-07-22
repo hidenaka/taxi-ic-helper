@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-23T06:30:46+09:00",
+  "updatedAt": "2026-07-23T06:49:15+09:00",
   "source": "ODPT (api.odpt.org)",
   "flights": [
     {
@@ -126,7 +126,7 @@
       "terminal": "T3",
       "isInternational": true,
       "scheduledTime": "15:20",
-      "estimatedTime": "14:32",
+      "estimatedTime": "14:33",
       "actualTime": null,
       "status": "不明",
       "aircraftCode": "351",
@@ -134,7 +134,7 @@
       "loadFactor": 0.7,
       "loadFactorSource": "default",
       "estimatedPax": 237,
-      "lobbyExitTime": "15:22",
+      "lobbyExitTime": "15:23",
       "reachRate": 1,
       "reachTier": "high",
       "estimatedTaxiPax": 13,
@@ -358,15 +358,15 @@
       "terminal": "T3",
       "isInternational": true,
       "scheduledTime": "06:55",
-      "estimatedTime": "06:35",
-      "actualTime": null,
-      "status": "不明",
+      "estimatedTime": "06:55",
+      "actualTime": "06:42",
+      "status": "到着",
       "aircraftCode": "788",
       "seatCount": 200,
       "loadFactor": 0.7,
       "loadFactorSource": "default",
       "estimatedPax": 140,
-      "lobbyExitTime": "07:25",
+      "lobbyExitTime": "07:45",
       "reachRate": 1,
       "reachTier": "high",
       "estimatedTaxiPax": 4,
@@ -9464,7 +9464,7 @@
       "terminal": "T2",
       "isInternational": false,
       "scheduledTime": "08:20",
-      "estimatedTime": "08:20",
+      "estimatedTime": "08:12",
       "actualTime": null,
       "status": "不明",
       "aircraftCode": "321",
@@ -9472,7 +9472,7 @@
       "loadFactor": 0.7,
       "loadFactorSource": "default",
       "estimatedPax": 136,
-      "lobbyExitTime": "08:35",
+      "lobbyExitTime": "08:27",
       "reachRate": 1,
       "reachTier": "high",
       "estimatedTaxiPax": 1,
@@ -14590,6 +14590,35 @@
       "poolLane": 3
     },
     {
+      "flightNumber": "NH115",
+      "airline": "ANA",
+      "from": "YVR",
+      "fromName": "バンクーバー",
+      "terminal": "T3",
+      "isInternational": true,
+      "scheduledTime": "19:00",
+      "estimatedTime": "19:00",
+      "actualTime": null,
+      "status": "不明",
+      "aircraftCode": null,
+      "seatCount": 215,
+      "loadFactor": 0.7,
+      "loadFactorSource": "default",
+      "estimatedPax": 151,
+      "lobbyExitTime": "19:50",
+      "reachRate": 1,
+      "reachTier": "high",
+      "estimatedTaxiPax": 5,
+      "taxiBucket": "evening",
+      "taxiBaseRate": 0.036,
+      "taxiBoost": 1,
+      "taxiDelayBoost": 1,
+      "taxiLightningBoost": 1,
+      "taxiClamped": false,
+      "wing": null,
+      "poolLane": 4
+    },
+    {
       "flightNumber": "NH538",
       "airline": "ANA",
       "from": "TAK",
@@ -15108,8 +15137,8 @@
       "taxiDelayBoost": 1,
       "taxiLightningBoost": 1,
       "taxiClamped": false,
-      "wing": null,
-      "poolLane": null
+      "wing": "北",
+      "poolLane": 3
     },
     {
       "flightNumber": "NH296",
@@ -15661,44 +15690,15 @@
       "taxiClamped": false,
       "wing": "北",
       "poolLane": 3
-    },
-    {
-      "flightNumber": "NH115",
-      "airline": "ANA",
-      "from": "YVR",
-      "fromName": "バンクーバー",
-      "terminal": "T3",
-      "isInternational": true,
-      "scheduledTime": "19:00",
-      "estimatedTime": "19:00",
-      "actualTime": null,
-      "status": "不明",
-      "aircraftCode": null,
-      "seatCount": 215,
-      "loadFactor": 0.7,
-      "loadFactorSource": "default",
-      "estimatedPax": 151,
-      "lobbyExitTime": "19:50",
-      "reachRate": 1,
-      "reachTier": "high",
-      "estimatedTaxiPax": 5,
-      "taxiBucket": "evening",
-      "taxiBaseRate": 0.036,
-      "taxiBoost": 1,
-      "taxiDelayBoost": 1,
-      "taxiLightningBoost": 1,
-      "taxiClamped": false,
-      "wing": null,
-      "poolLane": 4
     }
   ],
   "weather": {
     "lightningActive": false,
     "lightningRecoveryStartHHMM": null,
     "weatherCode": 0,
-    "temperature": 27.3,
+    "temperature": 27.6,
     "precipitation": 0,
-    "cloudCover": 10
+    "cloudCover": 9
   },
   "stats": {
     "totalFlights": 541,
@@ -15710,6 +15710,6 @@
       "T2": 274
     },
     "totalEstimatedTaxiPax": 1404,
-    "wingMatched": 419
+    "wingMatched": 420
   }
 }
