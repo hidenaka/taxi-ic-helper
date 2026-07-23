@@ -1,33 +1,24 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-24T08:06:35+09:00",
+  "generatedAt": "2026-07-24T08:12:38+09:00",
   "weights": {
     "lead30": {
-      "w_fc": 0.4607,
-      "w_pm": 0.5393,
+      "w_fc": 0.4625,
+      "w_pm": 0.5375,
       "source": "mae"
     },
     "lead60": {
-      "w_fc": 0.4646,
-      "w_pm": 0.5354,
+      "w_fc": 0.4663,
+      "w_pm": 0.5337,
       "source": "mae"
     },
     "lead120": {
-      "w_fc": 0.4517,
-      "w_pm": 0.5483,
+      "w_fc": 0.4529,
+      "w_pm": 0.5471,
       "source": "mae"
     }
   },
   "slots": [
-    {
-      "slotStart": "08:10",
-      "leadBucket": "lead30",
-      "stall1": 1,
-      "stall2": 2,
-      "stall3": 2,
-      "stall4": 3,
-      "total": 8
-    },
     {
       "slotStart": "08:15",
       "leadBucket": "lead30",
@@ -102,12 +93,12 @@
     },
     {
       "slotStart": "08:55",
-      "leadBucket": "lead60",
+      "leadBucket": "lead30",
       "stall1": 3,
       "stall2": 4,
-      "stall3": 8,
+      "stall3": 9,
       "stall4": 0,
-      "total": 15
+      "total": 16
     },
     {
       "slotStart": "09:00",
@@ -160,8 +151,8 @@
       "stall1": 0,
       "stall2": 0,
       "stall3": 13,
-      "stall4": 2,
-      "total": 15
+      "stall4": 1,
+      "total": 14
     },
     {
       "slotStart": "09:30",
@@ -202,15 +193,15 @@
     {
       "slotStart": "09:50",
       "leadBucket": "lead60",
-      "stall1": 14,
+      "stall1": 13,
       "stall2": 4,
-      "stall3": 10,
+      "stall3": 9,
       "stall4": 3,
-      "total": 31
+      "total": 29
     },
     {
       "slotStart": "09:55",
-      "leadBucket": "lead120",
+      "leadBucket": "lead60",
       "stall1": 1,
       "stall2": 2,
       "stall3": 2,
@@ -234,6 +225,15 @@
       "stall3": 5,
       "stall4": 5,
       "total": 12
+    },
+    {
+      "slotStart": "10:10",
+      "leadBucket": "lead120",
+      "stall1": 1,
+      "stall2": 4,
+      "stall3": 7,
+      "stall4": 3,
+      "total": 15
     }
   ],
   "throughputScaleK": 1
