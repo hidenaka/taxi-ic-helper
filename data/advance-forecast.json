@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-07-25T04:11:00+09:00",
+  "generatedAt": "2026-07-25T04:17:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 4794,
+  "trainedRows": 4795,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,27 +37,27 @@
     "stall4": 8
   },
   "current": {
-    "time": "04:11",
+    "time": "04:17",
     "stalls": {
       "stall1": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0
+        "forecast": 0.1
       },
       "stall2": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0.1
       },
       "stall3": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0
       },
       "stall4": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.5
+        "forecast": 0.6
       }
     }
   },
@@ -397,6 +397,27 @@
         "rainRate": 0.191,
         "nightRate": 1,
         "imageQcLowRate": 1
+      }
+    },
+    {
+      "time": "04:00",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "early",
+        "reasons": [
+          "early",
+          "image_qc"
+        ],
+        "sampleRows": 2125,
+        "rainRate": 0.177,
+        "nightRate": 0.931,
+        "imageQcLowRate": 0.914
       }
     }
   ],
@@ -753,7 +774,7 @@
           "early",
           "image_qc"
         ],
-        "sampleRows": 2118,
+        "sampleRows": 2125,
         "rainRate": 0.177,
         "nightRate": 0.931,
         "imageQcLowRate": 0.914
@@ -775,10 +796,10 @@
           "rain",
           "image_qc"
         ],
-        "sampleRows": 2068,
-        "rainRate": 0.224,
-        "nightRate": 0.417,
-        "imageQcLowRate": 0.338
+        "sampleRows": 2074,
+        "rainRate": 0.223,
+        "nightRate": 0.418,
+        "imageQcLowRate": 0.342
       }
     },
     {
