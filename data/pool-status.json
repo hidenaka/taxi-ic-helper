@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-27T06:42:13+09:00",
+  "generatedAt": "2026-07-27T06:48:10+09:00",
   "cameras": {
     "real01": {
       "occ": 8,
@@ -17,14 +17,14 @@
     "level": "empty"
   },
   "activity": {
-    "recent1hDepartures": 15,
+    "recent1hDepartures": 17,
     "typical1h": 15,
-    "ratio": 1,
+    "ratio": 1.13,
     "level": "normal",
     "arrow": "flat",
     "sameConditionCompare": {
-      "peers_typical": 11,
-      "percent": 36,
+      "peers_typical": 12,
+      "percent": 42,
       "label": "いつもより活発",
       "dayLabel": "月曜平日"
     }
@@ -49,10 +49,10 @@
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 1,
+      "occ": 2,
       "recent1hDep": 3,
-      "waitMin": 20,
-      "trend": "flat",
+      "waitMin": 40,
+      "trend": "up",
       "sameConditionCompare": {
         "peers_typical": 0,
         "percent": null,
@@ -65,9 +65,9 @@
     "stall3": {
       "label": "第3乗り場",
       "terminal": "T2",
-      "occ": 4,
-      "recent1hDep": 0,
-      "waitMin": null,
+      "occ": 3,
+      "recent1hDep": 1,
+      "waitMin": 180,
       "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": 0,
@@ -76,19 +76,19 @@
         "dayLabel": "月曜平日"
       },
       "fillRate": 0.04,
-      "rankHint": "most-low"
+      "rankHint": null
     },
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
       "occ": 5,
-      "recent1hDep": 12,
-      "waitMin": 25,
+      "recent1hDep": 13,
+      "waitMin": 23,
       "trend": "down",
       "sameConditionCompare": {
         "peers_typical": 11,
-        "percent": 9,
-        "label": "いつも通り",
+        "percent": 18,
+        "label": "いつもより活発",
         "dayLabel": "月曜平日"
       },
       "fillRate": 0.0625,
@@ -101,27 +101,19 @@
       "next60": 0
     },
     "T2": {
-      "next30": 10,
-      "next60": 11
+      "next30": 6,
+      "next60": 8
     }
   },
   "terminalArrivalsList": {
     "T1": [],
     "T2": [
       {
-        "flightNumber": "NH838",
-        "airline": "ANA",
-        "fromName": "デリー",
-        "seatCount": 215,
-        "lobbyExitMinutes": 3,
-        "lobbyExitTime": "06:45"
-      },
-      {
         "flightNumber": "NH850",
         "airline": "ANA",
         "fromName": "バンコク",
         "seatCount": 294,
-        "lobbyExitMinutes": 8,
+        "lobbyExitMinutes": 2,
         "lobbyExitTime": "06:50"
       },
       {
@@ -129,7 +121,7 @@
         "airline": "ANA",
         "fromName": "シンガポール",
         "seatCount": 215,
-        "lobbyExitMinutes": 18,
+        "lobbyExitMinutes": 12,
         "lobbyExitTime": "07:00"
       },
       {
@@ -137,8 +129,16 @@
         "airline": "ANA",
         "fromName": "ジャカルタ",
         "seatCount": 184,
-        "lobbyExitMinutes": 58,
+        "lobbyExitMinutes": 52,
         "lobbyExitTime": "07:40"
+      },
+      {
+        "flightNumber": "NH218",
+        "airline": "ANA",
+        "fromName": "ミュンヘン",
+        "seatCount": 215,
+        "lobbyExitMinutes": 57,
+        "lobbyExitTime": "07:45"
       }
     ]
   },
@@ -148,27 +148,11 @@
     "3": [],
     "4": [
       {
-        "flightNumber": "JL034",
-        "airline": "JAL",
-        "fromName": "バンコク",
-        "seatCount": 244,
-        "lobbyExitMinutes": 3,
-        "lobbyExitTime": "06:45"
-      },
-      {
-        "flightNumber": "NH838",
-        "airline": "ANA",
-        "fromName": "デリー",
-        "seatCount": 215,
-        "lobbyExitMinutes": 3,
-        "lobbyExitTime": "06:45"
-      },
-      {
         "flightNumber": "NH850",
         "airline": "ANA",
         "fromName": "バンコク",
         "seatCount": 294,
-        "lobbyExitMinutes": 8,
+        "lobbyExitMinutes": 2,
         "lobbyExitTime": "06:50"
       },
       {
@@ -176,7 +160,7 @@
         "airline": "ANA",
         "fromName": "シンガポール",
         "seatCount": 215,
-        "lobbyExitMinutes": 18,
+        "lobbyExitMinutes": 12,
         "lobbyExitTime": "07:00"
       },
       {
@@ -184,11 +168,27 @@
         "airline": "JAL",
         "fromName": "SGN",
         "seatCount": 200,
-        "lobbyExitMinutes": 48,
+        "lobbyExitMinutes": 42,
         "lobbyExitTime": "07:30"
+      },
+      {
+        "flightNumber": "JL030",
+        "airline": "JAL",
+        "fromName": "デリー",
+        "seatCount": 246,
+        "lobbyExitMinutes": 47,
+        "lobbyExitTime": "07:35"
+      },
+      {
+        "flightNumber": "JL042",
+        "airline": "JAL",
+        "fromName": "ロンドン",
+        "seatCount": 200,
+        "lobbyExitMinutes": 47,
+        "lobbyExitTime": "07:35"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-07-27T06:42:00+09:00"
+  "sourceStaleSince": "2026-07-27T06:47:57+09:00"
 }
