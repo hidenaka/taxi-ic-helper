@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-07-27T08:24:00+09:00",
+  "generatedAt": "2026-07-27T08:30:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 5003,
+  "trainedRows": 5004,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,27 +37,27 @@
     "stall4": 8
   },
   "current": {
-    "time": "08:24",
+    "time": "08:30",
     "stalls": {
       "stall1": {
         "actual": 1,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0.4
       },
       "stall2": {
         "actual": 1,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0.5
       },
       "stall3": {
-        "actual": 1,
+        "actual": 0,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0.5
       },
       "stall4": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0.5
       }
     }
   },
@@ -721,6 +721,24 @@
         "rainRate": 0.178,
         "nightRate": 0.015,
         "imageQcLowRate": 0.01
+      }
+    },
+    {
+      "time": "08:15",
+      "stalls": {
+        "stall1": 1,
+        "stall2": 1,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "normal",
+        "condition": "day",
+        "reasons": [],
+        "sampleRows": 2082,
+        "rainRate": 0.144,
+        "nightRate": 0.015,
+        "imageQcLowRate": 0.016
       }
     }
   ],
@@ -1398,8 +1416,8 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 2070,
-        "rainRate": 0.145,
+        "sampleRows": 2082,
+        "rainRate": 0.144,
         "nightRate": 0.015,
         "imageQcLowRate": 0.016
       }
@@ -1416,7 +1434,7 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 2068,
+        "sampleRows": 2069,
         "rainRate": 0.148,
         "nightRate": 0.016,
         "imageQcLowRate": 0.015
