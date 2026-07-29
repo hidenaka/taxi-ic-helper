@@ -1,33 +1,24 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-30T07:57:16+09:00",
+  "generatedAt": "2026-07-30T08:03:23+09:00",
   "weights": {
     "lead30": {
-      "w_fc": 0.4508,
-      "w_pm": 0.5492,
+      "w_fc": 0.4542,
+      "w_pm": 0.5458,
       "source": "mae"
     },
     "lead60": {
-      "w_fc": 0.4595,
-      "w_pm": 0.5405,
+      "w_fc": 0.4621,
+      "w_pm": 0.5379,
       "source": "mae"
     },
     "lead120": {
-      "w_fc": 0.454,
-      "w_pm": 0.546,
+      "w_fc": 0.4576,
+      "w_pm": 0.5424,
       "source": "mae"
     }
   },
   "slots": [
-    {
-      "slotStart": "08:00",
-      "leadBucket": "lead30",
-      "stall1": 0,
-      "stall2": 4,
-      "stall3": 24,
-      "stall4": 1,
-      "total": 29
-    },
     {
       "slotStart": "08:05",
       "leadBucket": "lead30",
@@ -52,8 +43,8 @@
       "stall1": 0,
       "stall2": 0,
       "stall3": 0,
-      "stall4": 1,
-      "total": 1
+      "stall4": 2,
+      "total": 2
     },
     {
       "slotStart": "08:20",
@@ -102,12 +93,12 @@
     },
     {
       "slotStart": "08:45",
-      "leadBucket": "lead60",
-      "stall1": 6,
+      "leadBucket": "lead30",
+      "stall1": 7,
       "stall2": 1,
       "stall3": 4,
       "stall4": 3,
-      "total": 14
+      "total": 15
     },
     {
       "slotStart": "08:50",
@@ -159,9 +150,9 @@
       "leadBucket": "lead60",
       "stall1": 3,
       "stall2": 1,
-      "stall3": 3,
+      "stall3": 4,
       "stall4": 3,
-      "total": 10
+      "total": 11
     },
     {
       "slotStart": "09:20",
@@ -210,7 +201,7 @@
     },
     {
       "slotStart": "09:45",
-      "leadBucket": "lead120",
+      "leadBucket": "lead60",
       "stall1": 1,
       "stall2": 1,
       "stall3": 5,
@@ -234,6 +225,15 @@
       "stall3": 11,
       "stall4": 2,
       "total": 29
+    },
+    {
+      "slotStart": "10:00",
+      "leadBucket": "lead120",
+      "stall1": 3,
+      "stall2": 3,
+      "stall3": 3,
+      "stall4": 2,
+      "total": 11
     }
   ],
   "throughputScaleK": 1
