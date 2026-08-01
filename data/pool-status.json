@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-08-02T02:12:01+09:00",
+  "generatedAt": "2026-08-02T02:18:11+09:00",
   "cameras": {
     "real01": {
-      "occ": 14,
+      "occ": 13,
       "fullRef": 44,
-      "level": "normal"
+      "level": "empty"
     },
     "real02": {
       "occ": 0,
@@ -13,18 +13,18 @@
     }
   },
   "total": {
-    "occ": 14,
+    "occ": 13,
     "level": "empty"
   },
   "activity": {
-    "recent1hDepartures": 10,
+    "recent1hDepartures": 9,
     "typical1h": 1,
-    "ratio": 10,
+    "ratio": 9,
     "level": "active",
     "arrow": "up",
     "sameConditionCompare": {
-      "peers_typical": 7,
-      "percent": 43,
+      "peers_typical": 5,
+      "percent": 80,
       "label": "いつもより活発",
       "dayLabel": "日曜・週末"
     }
@@ -34,21 +34,53 @@
       "label": "第1乗り場",
       "terminal": "T1",
       "occ": 13,
-      "recent1hDep": 3,
-      "waitMin": 260,
+      "recent1hDep": 1,
+      "waitMin": 780,
       "trend": "down",
       "sameConditionCompare": {
         "peers_typical": 2,
-        "percent": 50,
-        "label": "いつもより活発",
+        "percent": -50,
+        "label": "いつもより少なめ",
         "dayLabel": "日曜・週末"
       },
       "fillRate": 0.9167,
-      "rankHint": null
+      "rankHint": "most-low"
     },
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
+      "occ": 0,
+      "recent1hDep": 2,
+      "waitMin": 0,
+      "trend": "flat",
+      "sameConditionCompare": {
+        "peers_typical": 0,
+        "percent": null,
+        "label": null,
+        "dayLabel": "日曜・週末"
+      },
+      "fillRate": 0.4516,
+      "rankHint": null
+    },
+    "stall3": {
+      "label": "第3乗り場",
+      "terminal": "T2",
+      "occ": 0,
+      "recent1hDep": 4,
+      "waitMin": 0,
+      "trend": "up",
+      "sameConditionCompare": {
+        "peers_typical": 1,
+        "percent": 300,
+        "label": "いつもより活発",
+        "dayLabel": "日曜・週末"
+      },
+      "fillRate": 0.5312,
+      "rankHint": "most-active"
+    },
+    "stall4": {
+      "label": "第4乗り場",
+      "terminal": "T2",
       "occ": 0,
       "recent1hDep": 2,
       "waitMin": 0,
@@ -59,40 +91,8 @@
         "label": "いつもより活発",
         "dayLabel": "日曜・週末"
       },
-      "fillRate": 0.5161,
-      "rankHint": null
-    },
-    "stall3": {
-      "label": "第3乗り場",
-      "terminal": "T2",
-      "occ": 1,
-      "recent1hDep": 4,
-      "waitMin": 15,
-      "trend": "up",
-      "sameConditionCompare": {
-        "peers_typical": 1,
-        "percent": 300,
-        "label": "いつもより活発",
-        "dayLabel": "日曜・週末"
-      },
-      "fillRate": 0.5938,
-      "rankHint": "most-active"
-    },
-    "stall4": {
-      "label": "第4乗り場",
-      "terminal": "T2",
-      "occ": 0,
-      "recent1hDep": 1,
-      "waitMin": 0,
-      "trend": "down",
-      "sameConditionCompare": {
-        "peers_typical": 1,
-        "percent": 0,
-        "label": "いつも通り",
-        "dayLabel": "日曜・週末"
-      },
       "fillRate": 0.0455,
-      "rankHint": "most-low"
+      "rankHint": null
     }
   },
   "terminalArrivals": {
@@ -116,5 +116,5 @@
     "4": []
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-08-02T02:11:47+09:00"
+  "sourceStaleSince": "2026-08-02T02:17:56+09:00"
 }
