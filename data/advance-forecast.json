@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-08-02T07:53:00+09:00",
+  "generatedAt": "2026-08-02T08:00:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 5577,
+  "trainedRows": 5578,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,27 +37,27 @@
     "stall4": 8
   },
   "current": {
-    "time": "07:53",
+    "time": "08:00",
     "stalls": {
       "stall1": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0.4
       },
       "stall2": {
-        "actual": 0,
+        "actual": 1,
         "departure": 0,
         "forecast": 0.4
       },
       "stall3": {
-        "actual": 0,
+        "actual": 1,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0.3
       },
       "stall4": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.3
+        "forecast": 0.2
       }
     }
   },
@@ -679,6 +679,24 @@
         "reasons": [],
         "sampleRows": 2282,
         "rainRate": 0.162,
+        "nightRate": 0.014,
+        "imageQcLowRate": 0.014
+      }
+    },
+    {
+      "time": "07:45",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 1,
+        "stall3": 1,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "normal",
+        "condition": "day",
+        "reasons": [],
+        "sampleRows": 2255,
+        "rainRate": 0.164,
         "nightRate": 0.014,
         "imageQcLowRate": 0.014
       }
@@ -1318,7 +1336,7 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 2241,
+        "sampleRows": 2255,
         "rainRate": 0.164,
         "nightRate": 0.014,
         "imageQcLowRate": 0.014
@@ -1336,7 +1354,7 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 2239,
+        "sampleRows": 2240,
         "rainRate": 0.168,
         "nightRate": 0.014,
         "imageQcLowRate": 0.009
