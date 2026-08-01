@@ -1,31 +1,31 @@
 {
-  "generatedAt": "2026-08-02T05:32:59+09:00",
+  "generatedAt": "2026-08-02T05:40:21+09:00",
   "cameras": {
     "real01": {
-      "occ": 2,
+      "occ": 1,
       "fullRef": 44,
       "level": "empty"
     },
     "real02": {
-      "occ": 6,
+      "occ": 5,
       "fullRef": 8,
-      "level": "crowded"
+      "level": "normal"
     }
   },
   "total": {
-    "occ": 8,
+    "occ": 6,
     "level": "empty"
   },
   "activity": {
-    "recent1hDepartures": 14,
-    "typical1h": 16,
-    "ratio": 0.88,
+    "recent1hDepartures": 13,
+    "typical1h": 13,
+    "ratio": 1,
     "level": "normal",
     "arrow": "flat",
     "sameConditionCompare": {
-      "peers_typical": 13,
-      "percent": 8,
-      "label": "いつも通り",
+      "peers_typical": 10,
+      "percent": 30,
+      "label": "いつもより活発",
       "dayLabel": "日曜・週末"
     }
   },
@@ -34,13 +34,13 @@
       "label": "第1乗り場",
       "terminal": "T1",
       "occ": 0,
-      "recent1hDep": 4,
+      "recent1hDep": 1,
       "waitMin": 0,
       "trend": "down",
       "sameConditionCompare": {
-        "peers_typical": 2,
-        "percent": 100,
-        "label": "いつもより活発",
+        "peers_typical": 0,
+        "percent": null,
+        "label": null,
         "dayLabel": "日曜・週末"
       },
       "fillRate": 0,
@@ -81,14 +81,14 @@
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 8,
-      "recent1hDep": 10,
-      "waitMin": 48,
+      "occ": 6,
+      "recent1hDep": 12,
+      "waitMin": 30,
       "trend": "up",
       "sameConditionCompare": {
-        "peers_typical": 10,
-        "percent": 0,
-        "label": "いつも通り",
+        "peers_typical": 9,
+        "percent": 33,
+        "label": "いつもより活発",
         "dayLabel": "日曜・週末"
       },
       "fillRate": 0.7188,
@@ -102,7 +102,7 @@
     },
     "T2": {
       "next30": 12,
-      "next60": 12
+      "next60": 16
     }
   },
   "terminalArrivalsList": {
@@ -113,7 +113,7 @@
         "airline": "ANA",
         "fromName": "香港",
         "seatCount": 184,
-        "lobbyExitMinutes": 12,
+        "lobbyExitMinutes": 5,
         "lobbyExitTime": "05:45"
       },
       {
@@ -121,7 +121,7 @@
         "airline": "ANA",
         "fromName": "ロサンゼルス",
         "seatCount": 215,
-        "lobbyExitMinutes": 17,
+        "lobbyExitMinutes": 10,
         "lobbyExitTime": "05:50"
       },
       {
@@ -129,8 +129,16 @@
         "airline": "ANA",
         "fromName": "ニューヨーク",
         "seatCount": 264,
-        "lobbyExitMinutes": 17,
+        "lobbyExitMinutes": 10,
         "lobbyExitTime": "05:50"
+      },
+      {
+        "flightNumber": "NH880",
+        "airline": "ANA",
+        "fromName": "シドニー",
+        "seatCount": 215,
+        "lobbyExitMinutes": 55,
+        "lobbyExitTime": "06:35"
       }
     ]
   },
@@ -140,19 +148,11 @@
     "3": [],
     "4": [
       {
-        "flightNumber": "JL078",
-        "airline": "JAL",
-        "fromName": "マニラ",
-        "seatCount": 200,
-        "lobbyExitMinutes": 2,
-        "lobbyExitTime": "05:35"
-      },
-      {
         "flightNumber": "NH814",
         "airline": "ANA",
         "fromName": "香港",
         "seatCount": 184,
-        "lobbyExitMinutes": 12,
+        "lobbyExitMinutes": 5,
         "lobbyExitTime": "05:45"
       },
       {
@@ -160,7 +160,7 @@
         "airline": "ANA",
         "fromName": "ロサンゼルス",
         "seatCount": 215,
-        "lobbyExitMinutes": 17,
+        "lobbyExitMinutes": 10,
         "lobbyExitTime": "05:50"
       },
       {
@@ -168,7 +168,7 @@
         "airline": "ANA",
         "fromName": "ニューヨーク",
         "seatCount": 264,
-        "lobbyExitMinutes": 17,
+        "lobbyExitMinutes": 10,
         "lobbyExitTime": "05:50"
       },
       {
@@ -176,11 +176,19 @@
         "airline": "JAL",
         "fromName": "バンコク",
         "seatCount": 244,
-        "lobbyExitMinutes": 34,
+        "lobbyExitMinutes": 27,
         "lobbyExitTime": "06:07"
+      },
+      {
+        "flightNumber": "JL036",
+        "airline": "JAL",
+        "fromName": "シンガポール",
+        "seatCount": 246,
+        "lobbyExitMinutes": 31,
+        "lobbyExitTime": "06:11"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-08-02T05:32:45+09:00"
+  "sourceStaleSince": "2026-08-02T05:40:07+09:00"
 }
