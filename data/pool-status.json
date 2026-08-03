@@ -1,31 +1,31 @@
 {
-  "generatedAt": "2026-08-03T23:24:02+09:00",
+  "generatedAt": "2026-08-03T23:30:06+09:00",
   "cameras": {
     "real01": {
-      "occ": 9,
+      "occ": 22,
       "fullRef": 44,
-      "level": "empty"
+      "level": "normal"
     },
     "real02": {
-      "occ": 3,
+      "occ": 1,
       "fullRef": 8,
-      "level": "normal"
+      "level": "empty"
     }
   },
   "total": {
-    "occ": 12,
-    "level": "empty"
+    "occ": 23,
+    "level": "normal"
   },
   "activity": {
-    "recent1hDepartures": 53,
-    "typical1h": 43,
-    "ratio": 1.23,
+    "recent1hDepartures": 44,
+    "typical1h": 44,
+    "ratio": 1,
     "level": "normal",
     "arrow": "flat",
     "sameConditionCompare": {
-      "peers_typical": 40,
-      "percent": 32,
-      "label": "いつもより活発",
+      "peers_typical": 43,
+      "percent": 2,
+      "label": "いつも通り",
       "dayLabel": "月曜平日"
     }
   },
@@ -33,49 +33,49 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 1,
-      "recent1hDep": 17,
-      "waitMin": 4,
-      "trend": "down",
+      "occ": 7,
+      "recent1hDep": 14,
+      "waitMin": 30,
+      "trend": "flat",
       "sameConditionCompare": {
-        "peers_typical": 11,
-        "percent": 55,
+        "peers_typical": 10,
+        "percent": 40,
         "label": "いつもより活発",
         "dayLabel": "月曜平日"
       },
-      "fillRate": 0.5,
-      "rankHint": "most-active"
+      "fillRate": 0.3056,
+      "rankHint": null
     },
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 6,
-      "recent1hDep": 10,
-      "waitMin": 36,
+      "occ": 7,
+      "recent1hDep": 6,
+      "waitMin": 70,
       "trend": "flat",
       "sameConditionCompare": {
         "peers_typical": 9,
-        "percent": 11,
-        "label": "いつも通り",
+        "percent": -33,
+        "label": "いつもより少なめ",
         "dayLabel": "月曜平日"
       },
       "fillRate": 0.5806,
-      "rankHint": null
+      "rankHint": "most-low"
     },
     "stall3": {
       "label": "第3乗り場",
       "terminal": "T2",
-      "occ": 2,
-      "recent1hDep": 17,
-      "waitMin": 7,
+      "occ": 5,
+      "recent1hDep": 15,
+      "waitMin": 20,
       "trend": "up",
       "sameConditionCompare": {
         "peers_typical": 13,
-        "percent": 31,
+        "percent": 15,
         "label": "いつもより活発",
         "dayLabel": "月曜平日"
       },
-      "fillRate": 0.75,
+      "fillRate": 0.7188,
       "rankHint": "most-active"
     },
     "stall4": {
@@ -84,15 +84,15 @@
       "occ": 3,
       "recent1hDep": 9,
       "waitMin": 20,
-      "trend": "flat",
+      "trend": "up",
       "sameConditionCompare": {
         "peers_typical": 8,
         "percent": 13,
         "label": "いつも通り",
         "dayLabel": "月曜平日"
       },
-      "fillRate": 0.5455,
-      "rankHint": "most-low"
+      "fillRate": 0.5,
+      "rankHint": null
     }
   },
   "terminalArrivals": {
@@ -101,27 +101,19 @@
       "next60": 0
     },
     "T2": {
-      "next30": 7,
-      "next60": 20
+      "next30": 4,
+      "next60": 17
     }
   },
   "terminalArrivalsList": {
     "T1": [],
     "T2": [
       {
-        "flightNumber": "NH478",
-        "airline": "ANA",
-        "fromName": "那覇",
-        "seatCount": 166,
-        "lobbyExitMinutes": 2,
-        "lobbyExitTime": "23:26"
-      },
-      {
         "flightNumber": "NH1134",
         "airline": "ANA",
         "fromName": "那覇",
         "seatCount": 166,
-        "lobbyExitMinutes": 11,
+        "lobbyExitMinutes": 5,
         "lobbyExitTime": "23:35"
       },
       {
@@ -129,7 +121,7 @@
         "airline": "ANA",
         "fromName": "SZX",
         "seatCount": 184,
-        "lobbyExitMinutes": 42,
+        "lobbyExitMinutes": 36,
         "lobbyExitTime": "24:06"
       }
     ]
@@ -137,23 +129,14 @@
   "noribaArrivalsList": {
     "1": [],
     "2": [],
-    "3": [
-      {
-        "flightNumber": "NH478",
-        "airline": "ANA",
-        "fromName": "那覇",
-        "seatCount": 166,
-        "lobbyExitMinutes": 2,
-        "lobbyExitTime": "23:26"
-      }
-    ],
+    "3": [],
     "4": [
       {
         "flightNumber": "NH1134",
         "airline": "ANA",
         "fromName": "那覇",
         "seatCount": 166,
-        "lobbyExitMinutes": 11,
+        "lobbyExitMinutes": 5,
         "lobbyExitTime": "23:35"
       },
       {
@@ -161,11 +144,11 @@
         "airline": "ANA",
         "fromName": "SZX",
         "seatCount": 184,
-        "lobbyExitMinutes": 42,
+        "lobbyExitMinutes": 36,
         "lobbyExitTime": "24:06"
       }
     ]
   },
   "sourceStale": false,
-  "sourceStaleSince": "2026-08-03T23:23:47+09:00"
+  "sourceStaleSince": "2026-08-03T23:29:51+09:00"
 }
