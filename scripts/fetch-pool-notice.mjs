@@ -3,6 +3,7 @@
 import { writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { extractTdText, buildPoolNotice } from './lib/pool-notice.mjs';
+import { parseFlightNotice, summarizeFlightNotice } from './lib/notice-flights.mjs';
 
 const ROOT = process.cwd();
 const OUT = join(ROOT, 'data/pool-notice.json');
@@ -37,6 +38,16 @@ const notice = buildPoolNotice({
 });
 notice.sources = { no1: { ok: ok1 }, no34: { ok: ok34 } };
 
-writeFileSync(OUT, JSON.stringify(notice, null, 2) + '\n', 'utf8');
+// 履歴には生テキストだけ残す(lateFlights はパーサ改良時に再生成できる派生データ)。
 appendFileSync(HIST, JSON.stringify({ ts: updatedAt, ...notice }) + '\n', 'utf8');
-console.log(`[pool-notice] wrote pool-notice.json (tail=${notice.tailRegulation} flightNotice=${notice.hasFlightNotice})`);
+
+// Phase2: 遅延便テキストを構造化して配信JSONに載せる(号別の未着便・人数・客列)。
+if (notice.hasFlightNotice) {
+  const parsed = parseFlightNotice(notice.flightNoticeText);
+  notice.lateFlights = { ...parsed, summary: summarizeFlightNotice(parsed) };
+} else {
+  notice.lateFlights = null;
+}
+
+writeFileSync(OUT, JSON.stringify(notice, null, 2) + '\n', 'utf8');
+console.log(`[pool-notice] wrote pool-notice.json (tail=${notice.tailRegulation} flightNotice=${notice.hasFlightNotice} lateFlights=${notice.lateFlights ? notice.lateFlights.flights.length + '便' : 'なし'})`);
