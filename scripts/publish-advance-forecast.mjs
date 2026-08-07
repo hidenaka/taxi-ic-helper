@@ -102,7 +102,14 @@ if (grown) {
   console.log(`[advance-forecast] grew history: ${grown.ts}`);
 }
 
-const model = buildAdvanceModel(rows);
+// 曜日タイプ(平日/土日祝)別+直近重み付け(半減期14日)。祝日表が無ければ土日だけで判定。
+let holidays = [];
+try {
+  if (existsSync(join(ROOT, 'data/jp-holidays.json'))) {
+    holidays = JSON.parse(readFileSync(join(ROOT, 'data/jp-holidays.json'), 'utf8'));
+  }
+} catch { /* 祝日表なしでも土日判定で動く */ }
+const model = buildAdvanceModel(rows, { dayTypeRecency: true, halfLifeDays: 14, holidays });
 
 // --- 段階A: 到着便(乗り場号)を予測に効かせる(best-effort, 失敗時は係数なし=従来動作) ---
 let factorByStall = null;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, recentActualBreakdown, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, binMovementCounts, medianOccForBin, commonModeResiduals, isRainWeatherCode, buildQualityByBucket } from '../scripts/lib/advance-forecast.mjs';
+import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, recentActualBreakdown, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, binMovementCounts, medianOccForBin, commonModeResiduals, isRainWeatherCode, buildQualityByBucket, dayTypeOfTs } from '../scripts/lib/advance-forecast.mjs';
 
 test('isRainWeatherCode: 雨・にわか雨・雷雨を雨扱いにする', () => {
   assert.equal(isRainWeatherCode(61), true);
@@ -406,4 +406,65 @@ test('commonModeResiduals: 全レーン同時移動(照明)は leave-one-out で
   const res = commonModeResiduals(rows, ['stall1', 'stall2', 'stall3', 'stall4']);
   const v2 = res.stall2.map((x) => x.v);
   assert.ok(Math.max(...v2) - Math.min(...v2) < 1e-9, 'stall2残差はスイングが消えて一定');
+});
+
+// ---- 曜日タイプ別 + 直近重み付けモデル (2026-08-07 追加) ----
+
+test('dayTypeOfTs: 平日/土日/祝日の判定', () => {
+  assert.equal(dayTypeOfTs('2026-08-07T12:00:00+09:00'), 'wk');  // 金
+  assert.equal(dayTypeOfTs('2026-08-08T12:00:00+09:00'), 'off'); // 土
+  assert.equal(dayTypeOfTs('2026-08-09T12:00:00+09:00'), 'off'); // 日
+  assert.equal(dayTypeOfTs('2026-07-20T12:00:00+09:00', [{ date: '2026-07-20' }]), 'off'); // 海の日
+  assert.equal(dayTypeOfTs('2026-07-20T12:00:00+09:00'), 'wk');  // 祝日表なしなら平日扱い
+});
+
+test('buildAdvanceModel(dayTypeRecency): 日タイプ別に平均が分かれる', () => {
+  // 平日(金)は毎回4回、土日は毎回1回、同じ12:00帯
+  const rows = [];
+  for (const d of ['03', '10', '17', '24']) rows.push({ ts: `2026-07-${d}T12:00:00+09:00`, stalls: { stall1: 4 } }); // 金
+  for (const d of ['04', '05', '11', '12']) rows.push({ ts: `2026-07-${d}T12:00:00+09:00`, stalls: { stall1: 1 } }); // 土日
+  const m = buildAdvanceModel(rows, { dayTypeRecency: true, halfLifeDays: 14 });
+  assert.ok(Math.abs(predictAdvance(m, '2026-07-31T12:00:00+09:00', 'stall1') - 4) < 1e-9, '平日は平日の平均');
+  assert.ok(Math.abs(predictAdvance(m, '2026-08-01T12:00:00+09:00', 'stall1') - 1) < 1e-9, '土曜は土日祝の平均');
+});
+
+test('buildAdvanceModel(dayTypeRecency): 直近が重い(半減期減衰)', () => {
+  // 同じ平日の同じ時間帯で、古い日=0回 × 4日、直近=6回 × 1日。
+  // 素の平均なら 6/5=1.2 だが、直近重みでは 6 に寄る。
+  const rows = [
+    { ts: '2026-05-04T12:00:00+09:00', stalls: { stall1: 0 } },
+    { ts: '2026-05-05T12:00:00+09:00', stalls: { stall1: 0 } },
+    { ts: '2026-05-06T12:00:00+09:00', stalls: { stall1: 0 } },
+    { ts: '2026-05-07T12:00:00+09:00', stalls: { stall1: 0 } },
+    { ts: '2026-08-06T12:00:00+09:00', stalls: { stall1: 6 } },
+  ];
+  const m = buildAdvanceModel(rows, { dayTypeRecency: true, halfLifeDays: 14, holidays: [{ date: '2026-05-04' }, { date: '2026-05-05' }, { date: '2026-05-06' }] });
+  // 5月の祝日3日は off、5/7(木)と8/6(木)が wk。wk側: 0(91日前,重み~0.011)と6(基準日,重み1)
+  const p = predictAdvance(m, '2026-08-07T12:00:00+09:00', 'stall1');
+  assert.ok(p > 5.5, `直近の6回に寄る: ${p}`);
+});
+
+test('buildAdvanceModel(dayTypeRecency): 日タイプのサンプルが薄い時間帯は全体の直近平均へ', () => {
+  // 土日側は12:00帯に2行しかない(minTypeRows=4未満) → 全日タイプ平均で予測
+  const rows = [
+    { ts: '2026-08-03T12:00:00+09:00', stalls: { stall1: 3 } }, // 月
+    { ts: '2026-08-04T12:00:00+09:00', stalls: { stall1: 3 } }, // 火
+    { ts: '2026-08-05T12:00:00+09:00', stalls: { stall1: 3 } }, // 水
+    { ts: '2026-08-06T12:00:00+09:00', stalls: { stall1: 3 } }, // 木
+    { ts: '2026-08-01T12:00:00+09:00', stalls: { stall1: 0 } }, // 土
+    { ts: '2026-08-02T12:00:00+09:00', stalls: { stall1: 0 } }, // 日
+  ];
+  const m = buildAdvanceModel(rows, { dayTypeRecency: true, halfLifeDays: 14 });
+  const p = predictAdvance(m, '2026-08-08T12:00:00+09:00', 'stall1'); // 土
+  assert.ok(p > 0 && p < 3, `全体平均への退避: ${p}`);
+});
+
+test('buildAdvanceModel: 既定(optsなし)は従来の全期間一律平均のまま', () => {
+  const rows = [
+    { ts: '2026-06-01T12:00:00+09:00', stalls: { stall1: 4 } },
+    { ts: '2026-06-02T12:00:00+09:00', stalls: { stall1: 2 } },
+  ];
+  const m = buildAdvanceModel(rows);
+  assert.equal(m.dayTypeRecency, undefined);
+  assert.equal(predictAdvance(m, '2026-06-08T12:00:00+09:00', 'stall1'), 3);
 });

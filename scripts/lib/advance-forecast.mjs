@@ -441,12 +441,30 @@ export function buildQualityByBucket({ poolRows = [], occRows = [] } = {}) {
   ));
 }
 
+/** ts("YYYY-MM-DD…") の日タイプ。平日='wk' / 土日祝='off'。 */
+export function dayTypeOfTs(ts, holidays) {
+  const dateStr = String(ts).slice(0, 10);
+  const y = parseInt(dateStr.slice(0, 4), 10);
+  const m = parseInt(dateStr.slice(5, 7), 10);
+  const d = parseInt(dateStr.slice(8, 10), 10);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return 'wk';
+  const w = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  if (w === 0 || w === 6) return 'off';
+  if (Array.isArray(holidays) && holidays.some((h) => h?.date === dateStr)) return 'off';
+  return 'wk';
+}
+
 /**
  * 履歴行から時間帯×乗り場のモデルを作る。
+ * 既定は従来どおり全期間一律の平均。opts.dayTypeRecency を立てると
+ * 「平日/土日祝の別 × 直近重み付け(半減期 halfLifeDays)」で平均する
+ * (バックテスト 2026-07-11〜08-06 の27日ウォークフォワードで MAE 0.418→0.400、
+ *  昼帯 0.515→0.504。日タイプのサンプルが薄い時間帯は全日タイプの直近平均に落とす)。
  * @param {{ts:string, stalls:Record<string,number>}[]} rows
+ * @param {{dayTypeRecency?:boolean, halfLifeDays?:number, holidays?:{date:string}[], minTypeRows?:number}} [opts]
  * @returns {{buckets:Record<number,{rows:number, sums:Record<string,number>}>, stalls:string[]}}
  */
-export function buildAdvanceModel(rows) {
+export function buildAdvanceModel(rows, opts = {}) {
   const buckets = {};
   const stallSet = new Set();
   for (const r of rows) {
@@ -461,15 +479,61 @@ export function buildAdvanceModel(rows) {
       bucket.sums[s] = (bucket.sums[s] || 0) + (r.stalls?.[s] || 0); // 欠損=0回
     }
   }
-  return { buckets, stalls };
+  const model = { buckets, stalls };
+  if (!opts.dayTypeRecency) return model;
+
+  // 曜日タイプ別 + 直近重み付け(指数減衰)。重みの基準日は履歴の最終日。
+  const halfLife = opts.halfLifeDays ?? 14;
+  const holidays = opts.holidays ?? [];
+  let lastEpochDay = -Infinity;
+  const epochDayOf = (ts) => Math.floor(new Date(ts).getTime() / 86400000);
+  for (const r of rows) {
+    const e = epochDayOf(r.ts);
+    if (Number.isFinite(e) && e > lastEpochDay) lastEpochDay = e;
+  }
+  const typed = { wk: {}, off: {} };     // [type][bucket] = {rows, w:{stall:{sum,n}}}
+  const rec = {};                        // [bucket] = {stall:{sum,n}} (全日タイプ・直近重み)
+  for (const r of rows) {
+    const b = bucketOfDay(r.ts);
+    const t = dayTypeOfTs(r.ts, holidays);
+    const age = lastEpochDay - epochDayOf(r.ts);
+    const w = Number.isFinite(age) ? 0.5 ** (age / halfLife) : 1;
+    const tb = (typed[t][b] = typed[t][b] || { rows: 0, w: {} });
+    tb.rows += 1;
+    const rb = (rec[b] = rec[b] || {});
+    for (const s of stalls) {
+      const v = r.stalls?.[s] || 0;
+      const tw = (tb.w[s] = tb.w[s] || { sum: 0, n: 0 });
+      tw.sum += v * w; tw.n += w;
+      const rw = (rb[s] = rb[s] || { sum: 0, n: 0 });
+      rw.sum += v * w; rw.n += w;
+    }
+  }
+  model.dayTypeRecency = { typed, rec, holidays, minTypeRows: opts.minTypeRows ?? 4 };
+  return model;
 }
 
 /**
  * 予測: 対象 ts の時間帯バケットにおける乗り場の平均前進回数。
  * 学習データの無い時間帯/乗り場は 0。
+ * dayTypeRecency モデルでは、対象日の日タイプ(平日/土日祝)にサンプルが
+ * 十分ある時間帯はそのタイプの直近重み平均、薄ければ全日タイプの直近平均。
  * @returns {number}
  */
 export function predictAdvance(model, ts, stall) {
+  const dtr = model.dayTypeRecency;
+  if (dtr) {
+    const b = bucketOfDay(ts);
+    const t = dayTypeOfTs(ts, dtr.holidays);
+    const tb = dtr.typed?.[t]?.[b];
+    if (tb && tb.rows >= dtr.minTypeRows) {
+      const w = tb.w?.[stall];
+      if (w && w.n > 0) return w.sum / w.n;
+    }
+    const rw = dtr.rec?.[b]?.[stall];
+    if (rw && rw.n > 0) return rw.sum / rw.n;
+    return 0;
+  }
   const b = bucketOfDay(ts);
   const bucket = model.buckets?.[b];
   if (!bucket || bucket.rows === 0) return 0;
