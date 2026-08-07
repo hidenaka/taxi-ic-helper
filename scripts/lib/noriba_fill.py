@@ -37,7 +37,7 @@ def _load():
     return _lanes, _model, _counter
 
 
-def _day_occ(arr, points, sub):
+def _day_occ(arr, points, sub, br01=None):
     W = arr.shape[1]
     H = arr.shape[0]
     occ = 0
@@ -46,6 +46,10 @@ def _day_occ(arr, points, sub):
         fv = om._feats(om._patch_at(arr, cx * W, cy * H, W, H))
         if fv is None:
             continue
+        # 号別再学習モデル(dim=20)はフレーム平均輝度(real01基準, 0-1)を20次元目に取る。
+        # 夜明け/夕暮れの薄明かりで空アスファルトを車と誤認する問題の条件分離用。
+        if len(sub["mu"]) == 20 and br01 is not None:
+            fv = np.append(fv, br01)
         z = ((fv - sub["mu"]) / sub["sd"]) @ sub["w"] + sub["b"]
         occ += int(1.0 / (1.0 + np.exp(-z)) > sub["thr"])
         tot += 1
@@ -73,7 +77,7 @@ def compute(real01_path, real02_path):
                     continue
                 # 号別サブモデル(YOLOラベル再学習)があれば優先。無ければ従来のカメラ別モデル。
                 sub = (model.get("stalls") or {}).get(st) or model[STALL_CAM[st]]
-                so, stt = _day_occ(arr, lanes[st], sub)
+                so, stt = _day_occ(arr, lanes[st], sub, br / 255.0)
                 o += so
                 t += stt
             out["fill"][go] = round(o / t, 4) if t else None
