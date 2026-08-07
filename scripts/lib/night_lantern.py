@@ -18,12 +18,24 @@ ARCHIVE_ROOT = Path("/Users/nakanohideaki/taxi-image-archive")
 REAL01_ARCHIVE = ARCHIVE_ROOT / "real01_line"
 REAL02_ARCHIVE = ARCHIVE_ROOT / "real02"
 
-REAL01_FULL = REAL01_ARCHIVE / "2026-06-19" / "200030.jpg"
-REAL01_EMPTY = REAL01_ARCHIVE / "2026-06-19" / "000018.jpg"
-REAL02_FULL = REAL02_ARCHIVE / "2026-06-19" / "200030.jpg"
-REAL02_EMPTY = REAL02_ARCHIVE / "2026-06-19" / "000018.jpg"
-
 _REPO = Path(__file__).resolve().parents[1]
+
+# 基準フレームは repo 内 data/calibration/night-bg を第一候補にする。
+# ローカルアーカイブ(~/taxi-image-archive)は7日retentionで消える
+# (2026-08-07 に retention が基準フレームを削除し夜計測が止まった事故の再発防止)。
+# 旧環境向けにアーカイブパスへのフォールバックは残す。
+_NIGHT_BG = _REPO.parent / "data/calibration/night-bg"
+
+
+def _bg(cam_dir: str, archive_dir: Path, name: str) -> Path:
+    repo_path = _NIGHT_BG / cam_dir / "2026-06-19" / name
+    return repo_path if repo_path.exists() else archive_dir / "2026-06-19" / name
+
+
+REAL01_FULL = _bg("real01_line", REAL01_ARCHIVE, "200030.jpg")
+REAL01_EMPTY = _bg("real01_line", REAL01_ARCHIVE, "000018.jpg")
+REAL02_FULL = _bg("real02", REAL02_ARCHIVE, "200030.jpg")
+REAL02_EMPTY = _bg("real02", REAL02_ARCHIVE, "000018.jpg")
 LANE_JSON = _REPO.parent / "data/noriba-lanes.json"
 CAPACITY_JSON = _REPO.parent / "data/noriba-night-capacity.json"
 REPORT_JSON = Path("/tmp/night_lantern_report.json")
@@ -74,16 +86,16 @@ REJECT_COLOR = {
 
 BACKGROUND_FRAMES = {
     "real01": [
-        REAL01_ARCHIVE / "2026-06-19" / "000048.jpg",
-        REAL01_ARCHIVE / "2026-06-19" / "000119.jpg",
-        REAL01_ARCHIVE / "2026-06-19" / "000150.jpg",
-        REAL01_ARCHIVE / "2026-06-19" / "000221.jpg",
+        _bg("real01_line", REAL01_ARCHIVE, "000048.jpg"),
+        _bg("real01_line", REAL01_ARCHIVE, "000119.jpg"),
+        _bg("real01_line", REAL01_ARCHIVE, "000150.jpg"),
+        _bg("real01_line", REAL01_ARCHIVE, "000221.jpg"),
     ],
     "real02": [
-        REAL02_ARCHIVE / "2026-06-19" / "000048.jpg",
-        REAL02_ARCHIVE / "2026-06-19" / "000120.jpg",
-        REAL02_ARCHIVE / "2026-06-19" / "000150.jpg",
-        REAL02_ARCHIVE / "2026-06-19" / "000221.jpg",
+        _bg("real02", REAL02_ARCHIVE, "000048.jpg"),
+        _bg("real02", REAL02_ARCHIVE, "000120.jpg"),
+        _bg("real02", REAL02_ARCHIVE, "000150.jpg"),
+        _bg("real02", REAL02_ARCHIVE, "000221.jpg"),
     ],
 }
 
