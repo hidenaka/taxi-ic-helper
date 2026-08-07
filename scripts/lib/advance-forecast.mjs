@@ -171,9 +171,36 @@ function movementKind(event, occDelta, rawDelta, opts = {}) {
   return event.direction === 'rise' ? 'replenish' : 'departure';
 }
 
+// 乗り場の停止時間帯(JST時)。1〜3号は朝8時まで乗り場が開かず列移動が存在しない
+// (乗務員の運用知識・2026-08-08確認)。深夜0〜2時台は遅延便対応で2/3号が動く夜が
+// あるため対象外とし、便が無く確実に停止している 03:00〜07:59 だけを既定にする。
+// 4号は深夜〜早朝も稼働するため対象外。
+export const DEFAULT_QUIET_HOURS = {
+  stall1: [[3, 8]],
+  stall2: [[3, 8]],
+  stall3: [[3, 8]],
+};
+
+/** イベント時刻(epoch秒)が乗り場の停止時間帯に入っているか。 */
+export function isQuietHour(stall, epochSec, quietHours = DEFAULT_QUIET_HOURS) {
+  const ranges = quietHours?.[stall];
+  if (!Array.isArray(ranges)) return false;
+  const hour = new Date((epochSec + 9 * 3600) * 1000).getUTCHours();
+  return ranges.some(([from, to]) => hour >= from && hour < to);
+}
+
 /**
  * 窓内の行から、コモンモード除去後に乗り場別の動きを方向別に数える。
  * `replenish` は従来の actual として使う。`departure` は車が抜けて空いた動きとして別に残す。
+ *
+ * opts.pairWindowSec > 0 のとき「fall先行ペア条件」を課す:
+ *   本物の列移動は「前が捌ける(fall)→数分内に詰める(rise)」の順で起きる
+ *   (2026-08-08 朝の実測: 稼働中の4号は全riseが2〜4分前のfallとペア、
+ *    未稼働の1〜3号の入庫ノイズriseはfallから9分以上離れる/単独)。
+ *   pairWindowSec 秒以内に同じ乗り場で fall が無い rise は入庫(=プールが
+ *   埋まっていく動き)とみなし replenish に数えない。
+ * opts.countAfterEpoch を指定すると、それ以前のイベントは文脈(ペア判定用)
+ * としてだけ使い、集計には入れない(ビン先頭のriseが前ビンのfallとペアできる)。
  * @returns {{replenish: Record<string, number>, departure: Record<string, number>}}
  */
 export function binMovementCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
@@ -184,6 +211,8 @@ export function binMovementCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
   const smoothK = opts.smoothK ?? 3;              // メディアン平滑化で1フレームのスパイク除去
   const occByStall = opts.occByStall || null; // {stall: median occ} があれば空レーンをゲート
   const minOcc = opts.minOcc ?? 1;
+  const pairWindowSec = opts.pairWindowSec ?? 0; // 0=無効(後方互換)。本番経路は360を渡す
+  const countAfterEpoch = opts.countAfterEpoch ?? -Infinity;
   const res = commonModeResiduals(rows, stalls);
   const out = { replenish: {}, departure: {} };
   for (const s of stalls) {
@@ -197,7 +226,9 @@ export function binMovementCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
       arr.map((p) => p.t),
       { absThreshold, debounceSec, persistSec, holdThreshold, smoothK },
     );
+    const fallTimes = detected.events.filter((e) => e.direction === 'fall').map((e) => e.time);
     for (const event of detected.events) {
+      if (event.time < countAfterEpoch) continue; // 文脈専用(前ビンぶん)
       const occDelta = medianOccNearEvent(opts.occRows, s, event.time, opts);
       const rawDelta = frontDensityDeltaNearEvent(rows, s, event.time, opts);
       const mode = modeNearEvent(opts.occRows, event.time) || 'day';
@@ -209,6 +240,14 @@ export function binMovementCounts(rows, stalls = DEFAULT_STALLS, opts = {}) {
         hasOccRows: Boolean(opts.occRows),
       });
       if (!kind) continue;
+      // ペア条件は昼モードのみ。夜(行灯)は既存の occ 突合せチューニングを維持
+      // (夜の fall は検出が不安定で、一律に課すと本物の夜の列移動まで削るため)。
+      if (kind === 'replenish' && pairWindowSec > 0 && event.direction === 'rise' && mode === 'day') {
+        const paired = fallTimes.some((t) => t < event.time && event.time - t <= pairWindowSec);
+        if (!paired) continue; // fall先行なしのrise=入庫。列移動に数えない
+      }
+      // 運用時間ゲート: 停止中の乗り場に列移動は存在しない(乗務員の運用知識)。
+      if (kind === 'replenish' && isQuietHour(s, event.time, opts.quietHours)) continue;
       out[kind][s] = (out[kind][s] || 0) + 1;
     }
   }
@@ -254,9 +293,10 @@ export function recentActualBreakdown(rows, stall, nowEpoch, opts = {}) {
   const windowMin = opts.windowMin ?? 15;
   const cutoff = nowEpoch - windowMin * 60;
   const stalls = opts.stalls ?? DEFAULT_STALLS;
+  const pairWindowSec = opts.pairWindowSec ?? 360; // fall先行ペア条件(入庫を列移動に数えない)
   const inWin = rows.filter((r) => {
     const t = Math.floor(new Date(r.ts).getTime() / 1000);
-    return t >= cutoff && t <= nowEpoch;
+    return t >= cutoff - pairWindowSec && t <= nowEpoch; // ペア判定用に少し遡って渡す
   });
   const occByStall = opts.occRows ? medianOccForBin(opts.occRows, stalls, cutoff, nowEpoch + 1) : null;
   const counts = binMovementCounts(inWin, stalls, {
@@ -265,6 +305,8 @@ export function recentActualBreakdown(rows, stall, nowEpoch, opts = {}) {
     occByStall,
     minOcc: opts.minOcc ?? 1,
     occRows: opts.occRows,
+    pairWindowSec,
+    countAfterEpoch: cutoff,
   });
   return {
     replenish: counts.replenish[stall] || 0,
@@ -295,6 +337,7 @@ export function lastCompletedBinRow(historyRows, msRows, nowEpoch, opts = {}) {
   }
   if (lastHistEpoch >= lastStart) return null; // 既にこのビンを記録済み
   const winEnd = lastStart + BIN;
+  const pairWindowSec = opts.pairWindowSec ?? 360; // fall先行ペア条件(入庫を列移動に数えない)
   const binRows = msRows.filter((r) => {
     const t = Math.floor(new Date(r.ts).getTime() / 1000);
     return t >= lastStart && t < winEnd;
@@ -307,14 +350,21 @@ export function lastCompletedBinRow(historyRows, msRows, nowEpoch, opts = {}) {
     if (n >= 2) { observed = true; break; }
   }
   if (!observed) return null;
+  // ペア判定用にビン開始前 pairWindowSec ぶんの行も文脈として渡す(集計はビン内のみ)。
+  const ctxRows = msRows.filter((r) => {
+    const t = Math.floor(new Date(r.ts).getTime() / 1000);
+    return t >= lastStart - pairWindowSec && t < winEnd;
+  });
   // コモンモード除去＋占有ゲート込みで乗り場別カウント。
   const occByStall = opts.occRows ? medianOccForBin(opts.occRows, stalls, lastStart, winEnd) : null;
-  const stallsOut = binAdvanceCounts(binRows, stalls, {
+  const stallsOut = binAdvanceCounts(ctxRows, stalls, {
     absThreshold: opts.absThreshold ?? 15,
     debounceSec: opts.debounceSec ?? 120,
     occByStall,
     minOcc: opts.minOcc ?? 1,
     occRows: opts.occRows,
+    pairWindowSec,
+    countAfterEpoch: lastStart,
   });
   return { ts: epochToJstIso(lastStart), stalls: stallsOut };
 }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert/strict';
-import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, recentActualBreakdown, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, binMovementCounts, medianOccForBin, commonModeResiduals, isRainWeatherCode, buildQualityByBucket, dayTypeOfTs } from '../scripts/lib/advance-forecast.mjs';
+import { bucketOfDay, buildAdvanceModel, predictAdvance, recentActualCount, recentActualBreakdown, lastCompletedBinRow, arrivalDemandByStall, flightFactorByStall, predictAdvanceWithFlights, learnArrivalLag, binAdvanceCounts, binMovementCounts, medianOccForBin, commonModeResiduals, isRainWeatherCode, buildQualityByBucket, dayTypeOfTs, isQuietHour } from '../scripts/lib/advance-forecast.mjs';
 
 test('isRainWeatherCode: 雨・にわか雨・雷雨を雨扱いにする', () => {
   assert.equal(isRainWeatherCode(61), true);
@@ -51,7 +51,7 @@ test('buildQualityByBucket: weather/mode/imageQCから15分枠の品質を自動
 });
 
 test('binAdvanceCounts: 占有0(空レーン)はゲートして数えない/占有ありは数える', () => {
-  const base = Math.floor(new Date('2026-06-05T05:45:00+09:00').getTime() / 1000);
+  const base = Math.floor(new Date('2026-06-05T13:45:00+09:00').getTime() / 1000);
   // stall1 だけ大きく動くfrontDensity(本来なら検出される)
   const v = [120, 120, 150, 150, 150, 120, 120];
   const rows = v.map((x, i) => ({ ts: new Date((base + i * 60) * 1000).toISOString(), stalls: { stall1: { frontDensity: x } } }));
@@ -313,8 +313,9 @@ function mkRows(stall, vals, startIso) {
 }
 
 test('recentActualCount: 直近窓のfrontDensity変化から列移動(補充)回数を数える', () => {
-  // 100→130(補充, 3フレーム持続)→100(出庫)。補充エッジ方式は立ち上がりのみ=1回(下降は数えない)。
-  const rows = mkRows('stall1', [100, 100, 130, 130, 130, 100, 100], '2026-06-03T13:00:00Z');
+  // 130→100(前が捌ける)→130(詰めて3フレーム持続)。fall先行のriseだけを列移動=1回と数える
+  // (rise単独は入庫として除外する 2026-08-08 のペア条件を反映)。
+  const rows = mkRows('stall1', [130, 130, 100, 100, 100, 130, 130, 130], '2026-06-03T13:00:00Z');
   const now = Math.floor(new Date('2026-06-03T13:07:00Z').getTime() / 1000);
   const n = recentActualCount(rows, 'stall1', now, { windowMin: 15, absThreshold: 10, debounceSec: 120 });
   assert.equal(n, 1);
@@ -325,7 +326,7 @@ test('lastCompletedBinRow: 直前の完成15分ビンの行を返す/重複は�
   const binStart = Math.floor(new Date('2026-06-03T13:00:00+09:00').getTime() / 1000);
   const isoZ = (ep) => new Date(ep * 1000).toISOString();
   const ms = [];
-  const vals = [100, 100, 130, 130, 130, 100, 100]; // 13:00..13:06, 補充1回(下降は数えない)
+  const vals = [130, 130, 100, 100, 100, 130, 130, 130]; // 13:00..13:06, fall→rise の列移動1回
   vals.forEach((v, i) => ms.push({ ts: isoZ(binStart + i * 60), stalls: { stall1: { frontDensity: v } } }));
   const now = binStart + 16 * 60; // 13:16 → 現在ビン13:15、完成ビン=13:00
   const row = lastCompletedBinRow([], ms, now, { stalls: ['stall1'], absThreshold: 10, debounceSec: 120 });
@@ -341,7 +342,7 @@ test('lastCompletedBinRow: 直前の完成15分ビンの行を返す/重複は�
 test('lastCompletedBinRow: 4号は観測判定も stall4_back を見る', () => {
   const binStart = Math.floor(new Date('2026-06-03T13:00:00+09:00').getTime() / 1000);
   const isoZ = (ep) => new Date(ep * 1000).toISOString();
-  const vals = [100, 100, 130, 130, 130, 100, 100];
+  const vals = [130, 130, 100, 100, 100, 130, 130, 130];
   const ms = vals.map((v, i) => ({
     ts: isoZ(binStart + i * 60),
     stalls: { stall4_back: { frontDensity: v } },
@@ -467,4 +468,65 @@ test('buildAdvanceModel: 既定(optsなし)は従来の全期間一律平均の�
   const m = buildAdvanceModel(rows);
   assert.equal(m.dayTypeRecency, undefined);
   assert.equal(predictAdvance(m, '2026-06-08T12:00:00+09:00', 'stall1'), 3);
+});
+
+// ---- fall先行ペア条件 + 運用時間ゲート (2026-08-08 追加) ----
+// 背景: 朝の入庫(タクシーがプールへ入って埋まる動き)が「列移動」に誤計上され、
+// 停止中の1〜3号に朝7時台だけで週47回の偽カウントが出ていた。
+// 本物の列移動は「前が捌ける(fall)→数分内に詰める(rise)」の順で起きる
+// (2026-08-08朝の実測: 稼働中4号は全riseが2〜4分前のfallとペア)。
+
+test('isQuietHour: 1〜3号は3-8時JSTが停止時間帯・4号は対象外', () => {
+  const at = (h) => new Date(`2026-08-08T${String(h).padStart(2, '0')}:30:00+09:00`).getTime() / 1000;
+  assert.equal(isQuietHour('stall1', at(7)), true);
+  assert.equal(isQuietHour('stall3', at(3)), true);
+  assert.equal(isQuietHour('stall1', at(8)), false);
+  assert.equal(isQuietHour('stall2', at(1)), false, '深夜0-2時は遅延便対応がありうる');
+  assert.equal(isQuietHour('stall4', at(5)), false, '4号は早朝も稼働');
+  assert.equal(isQuietHour('stall1', at(7), {}), false, '空指定でゲート無効化できる');
+});
+
+// 昼のfrontDensity系列を作るヘルパ(全乗り場同値でcommon-mode相殺を回避するためstall単独)
+function densityRows(startIso, values, stepSec = 60, stall = 'stall1') {
+  const t0 = new Date(startIso).getTime();
+  return values.map((v, i) => ({
+    ts: new Date(t0 + i * stepSec * 1000).toISOString(),
+    stalls: { [stall]: { frontDensity: v } },
+  }));
+}
+
+test('binMovementCounts(pairWindowSec): fall先行の無い昼のriseは列移動に数えない', () => {
+  // 平坦 → 上昇して高止まり(入庫の形)。fallは無い。
+  const vals = [50, 50, 50, 50, 50, 50, 62, 62, 62, 62, 62, 62, 62, 62];
+  const rows = densityRows('2026-08-08T10:00:00+09:00', vals);
+  const base = binMovementCounts(rows, ['stall1'], { absThreshold: 8, debounceSec: 120 });
+  assert.equal(base.replenish.stall1 ?? 0, 1, 'ペア条件なしでは従来どおり1回拾う');
+  const gated = binMovementCounts(rows, ['stall1'], { absThreshold: 8, debounceSec: 120, pairWindowSec: 360 });
+  assert.equal(gated.replenish.stall1 ?? 0, 0, 'fall先行なし=入庫として除外');
+});
+
+test('binMovementCounts(pairWindowSec): fall→数分内のrise(本物の列移動)は数える', () => {
+  // 高止まり → 下がる(前が捌ける) → 数分内に戻る(詰める)
+  const vals = [62, 62, 62, 62, 50, 50, 50, 62, 62, 62, 62, 62, 62, 62];
+  const rows = densityRows('2026-08-08T10:00:00+09:00', vals);
+  const gated = binMovementCounts(rows, ['stall1'], { absThreshold: 8, debounceSec: 120, pairWindowSec: 360 });
+  assert.equal(gated.replenish.stall1 ?? 0, 1, 'fall先行ありは列移動として維持');
+});
+
+test('binMovementCounts(countAfterEpoch): 文脈行のイベントは集計に入れない', () => {
+  const vals = [62, 62, 62, 62, 50, 50, 50, 62, 62, 62, 62, 62, 62, 62];
+  const rows = densityRows('2026-08-08T10:00:00+09:00', vals);
+  // 集計開始をrise(7分目=10:07)より後の10:20に置くと、riseは文脈扱いで0
+  const after = new Date('2026-08-08T10:20:00+09:00').getTime() / 1000;
+  const gated = binMovementCounts(rows, ['stall1'], { absThreshold: 8, debounceSec: 120, pairWindowSec: 360, countAfterEpoch: after });
+  assert.equal(gated.replenish.stall1 ?? 0, 0);
+});
+
+test('binMovementCounts(quietHours): 停止時間帯の1〜3号は数えない(既定ON)', () => {
+  const vals = [62, 62, 62, 62, 50, 50, 50, 62, 62, 62, 62, 62, 62, 62];
+  const rows = densityRows('2026-08-08T07:00:00+09:00', vals); // 7時台=1号停止中
+  const c = binMovementCounts(rows, ['stall1'], { absThreshold: 8, debounceSec: 120, pairWindowSec: 360 });
+  assert.equal(c.replenish.stall1 ?? 0, 0, '停止中はペア条件を満たしても0');
+  const off = binMovementCounts(rows, ['stall1'], { absThreshold: 8, debounceSec: 120, pairWindowSec: 360, quietHours: {} });
+  assert.equal(off.replenish.stall1 ?? 0, 1, 'quietHours無効なら従来どおり');
 });
