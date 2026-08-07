@@ -508,3 +508,60 @@ test('buildStalls: noribaFill 指定で fillRate を号別付与。未指定/非
   assert.equal(withFill.stall3.fillRate, null); // 非数→null
   assert.equal(withFill.stall4.fillRate, 0.3);
 });
+
+// ---- 明け方グレア(全号一斉張り付き)フィルタ (2026-08-07 追加) ----
+// 実測: 夜明けの薄明かりで昼モデルが数フレーム全号0.95〜1.0を出す
+// (例 2026-06-22 04:13-04:30)。プールは5分で満車にならないので、
+// 直前行から3号以上が同時に+0.4超ジャンプした行は捨てる。
+
+test('filterFillGlareRows: 全号一斉ジャンプの誤爆行を落とし、回復後は通す', async () => {
+  const { filterFillGlareRows } = await import('../scripts/lib/pool-status.mjs');
+  const t0 = new Date('2026-06-22T04:07:00+09:00').getTime();
+  const mk = (min, f) => ({ tsMs: t0 + min * 60000, fill: { 1: f[0], 2: f[1], 3: f[2], 4: f[3] } });
+  const rows = [
+    mk(0, [0.0, 0.0, 0.03, 0.5]),    // 夜明け前(正常)
+    mk(6, [0.95, 1.0, 1.0, 0.97]),   // 誤爆1
+    mk(12, [0.96, 1.0, 1.0, 1.0]),   // 誤爆2(直前採用行=正常行と比較して落ちる)
+    mk(18, [0.0, 0.06, 0.02, 0.66]), // 回復(正常)
+    mk(24, [0.1, 0.1, 0.05, 0.7]),   // 正常な緩増
+  ];
+  const kept = filterFillGlareRows(rows);
+  assert.deepEqual(kept.map(r => (r.tsMs - t0) / 60000), [0, 18, 24]);
+});
+
+test('filterFillGlareRows: 1号だけの急増(実際の補充)は落とさない', async () => {
+  const { filterFillGlareRows } = await import('../scripts/lib/pool-status.mjs');
+  const t0 = Date.parse('2026-08-01T10:00:00+09:00');
+  const rows = [
+    { tsMs: t0, fill: { 1: 0.2, 2: 0.5, 3: 0.5, 4: 0.5 } },
+    { tsMs: t0 + 6 * 60000, fill: { 1: 0.7, 2: 0.55, 3: 0.5, 4: 0.5 } },
+  ];
+  assert.equal(filterFillGlareRows(rows).length, 2);
+});
+
+test('filterFillGlareRows: 12分超のギャップ後は比較しない(正当な変化を落とさない)', async () => {
+  const { filterFillGlareRows } = await import('../scripts/lib/pool-status.mjs');
+  const t0 = Date.parse('2026-08-01T10:00:00+09:00');
+  const rows = [
+    { tsMs: t0, fill: { 1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0 } },
+    { tsMs: t0 + 60 * 60000, fill: { 1: 0.8, 2: 0.8, 3: 0.8, 4: 0.8 } }, // 1時間後
+  ];
+  assert.equal(filterFillGlareRows(rows).length, 2);
+});
+
+test('noribaFillByStall: 明け方誤爆行がmedianを汚さない', async () => {
+  const { noribaFillByStall } = await import('../scripts/lib/pool-status.mjs');
+  const mk = (iso, f) => ({ ts: iso, fill: { 1: f[0], 2: f[1], 3: f[2], 4: f[3] } });
+  const rows = [
+    mk('2026-06-22T04:02:00+09:00', [0.0, 0.0, 0.03, 0.45]),
+    mk('2026-06-22T04:07:00+09:00', [0.0, 0.0, 0.03, 0.5]),
+    mk('2026-06-22T04:13:00+09:00', [0.95, 1.0, 1.0, 0.97]),
+    mk('2026-06-22T04:19:00+09:00', [0.96, 1.0, 1.0, 1.0]),
+    mk('2026-06-22T04:24:00+09:00', [0.99, 1.0, 1.0, 1.0]),
+    mk('2026-06-22T04:30:00+09:00', [0.94, 1.0, 1.0, 1.0]),
+  ];
+  const out = noribaFillByStall(rows, new Date('2026-06-22T04:31:00+09:00'));
+  // 誤爆4行が全部落ち、正常2行のmedianになる
+  assert.ok(out.stall1 <= 0.01, `1号はほぼ0: ${out.stall1}`);
+  assert.ok(out.stall4 <= 0.5, `4号は0.5以下: ${out.stall4}`);
+});

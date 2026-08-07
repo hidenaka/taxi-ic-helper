@@ -119,13 +119,37 @@ export function stallTrend(recent30, prior30) {
   return 'flat';
 }
 
+/** 夜明けの薄明かりで昼モデルが全号一斉に〜100%を出す誤爆(2026-06〜08で明け方に実測)を落とす。
+ * 直前の採用行から12分以内に、4号中3号以上が同時に +0.4 超ジャンプした行は物理的に
+ * 不可能(プールは5分で満車にならない)なので破棄する。号別の緩やかな増減はそのまま通す。 */
+export function filterFillGlareRows(rows, { jumpThreshold = 0.4, minStalls = 3, maxGapMs = 12 * 60 * 1000 } = {}) {
+  const out = [];
+  let prev = null;
+  for (const r of rows) {
+    if (prev && Number.isFinite(r.tsMs) && Number.isFinite(prev.tsMs) && r.tsMs - prev.tsMs <= maxGapMs) {
+      let jumps = 0;
+      for (const go of ['1', '2', '3', '4']) {
+        const a = prev.fill?.[go];
+        const b = r.fill?.[go];
+        if (typeof a === 'number' && typeof b === 'number' && b - a > jumpThreshold) jumps += 1;
+      }
+      if (jumps >= minStalls) continue; // 誤爆行は捨てる(prevは据え置き=次行も同じ基準で比較)
+    }
+    out.push(r);
+    prev = r;
+  }
+  return out;
+}
+
 /** 号別(1〜4)全レーン埋まり率(noriba-fill-history)の直近windowTicks件 median を
  * {stall1..stall4} の比率(0-1)で返す。データ無は null。昼=学習モデル/夜=行灯の統合値。 */
 export function noribaFillByStall(fillRows, now, windowTicks = 5) {
   if (!Array.isArray(fillRows) || fillRows.length === 0) return null;
-  const rs = fillRows.map(r => ({ ...r, tsMs: new Date(r.ts).getTime() }))
-    .filter(r => Number.isFinite(r.tsMs) && r.tsMs <= now.getTime())
-    .sort((a, b) => a.tsMs - b.tsMs).slice(-windowTicks);
+  const rs = filterFillGlareRows(
+    fillRows.map(r => ({ ...r, tsMs: new Date(r.ts).getTime() }))
+      .filter(r => Number.isFinite(r.tsMs) && r.tsMs <= now.getTime())
+      .sort((a, b) => a.tsMs - b.tsMs)
+  ).slice(-windowTicks);
   if (rs.length === 0) return null;
   const map = { stall1: '1', stall2: '2', stall3: '3', stall4: '4' };
   const out = {};
