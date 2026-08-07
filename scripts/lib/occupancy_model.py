@@ -67,8 +67,9 @@ def _arrify(sub):
 
 def load_model(path):
     """新スキーマ(カメラ別)も旧スキーマ(トップレベル単一)も読む。
-    返り値: {"real01": submodel, "real02": submodel?, "_legacy": bool}
-    旧スキーマは {"real01": <旧>, "_legacy": True} に正規化(stall1-4 全部 real01 重みを使う)。"""
+    返り値: {"real01": submodel, "real02": submodel?, "stalls": {stall名: submodel}?, "_legacy": bool}
+    旧スキーマは {"real01": <旧>, "_legacy": True} に正規化(stall1-4 全部 real01 重みを使う)。
+    "stalls" は号別再学習サブモデル(あれば noriba_fill が優先して使う)。"""
     M = json.load(open(path))
     if "w" in M:  # 旧スキーマ(単一モデル)
         return {"real01": _arrify(M), "_legacy": True}
@@ -76,6 +77,8 @@ def load_model(path):
     for cam in ("real01", "real02"):
         if cam in M:
             out[cam] = _arrify(M[cam])
+    if isinstance(M.get("stalls"), dict):
+        out["stalls"] = {st: _arrify(sub) for st, sub in M["stalls"].items() if isinstance(sub, dict) and "w" in sub}
     out["_meta"] = M.get("_meta", {})
     return out
 

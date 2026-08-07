@@ -71,7 +71,9 @@ def compute(real01_path, real02_path):
                 arr = a1 if STALL_CAM[st] == "real01" else a2
                 if arr is None:
                     continue
-                so, stt = _day_occ(arr, lanes[st], model[STALL_CAM[st]])
+                # 号別サブモデル(YOLOラベル再学習)があれば優先。無ければ従来のカメラ別モデル。
+                sub = (model.get("stalls") or {}).get(st) or model[STALL_CAM[st]]
+                so, stt = _day_occ(arr, lanes[st], sub)
                 o += so
                 t += stt
             out["fill"][go] = round(o / t, 4) if t else None
