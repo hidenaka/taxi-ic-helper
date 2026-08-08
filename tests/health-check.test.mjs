@@ -84,3 +84,21 @@ test('通知抑制: 同一keyはHEALTH_RENOTIFY_MIN内で1回だけstamp更新',
   run(dir, 'health_alert testkey "三回目"', { HEALTH_NOW_EPOCH: String(1000000000 + 121 * 60) });
   assert.match(readFileSync(join(dir, '.local/health-alert.flag'), 'utf8'), /三回目/);
 });
+
+test('回帰: 巨大ログ(20万行)でも即座に終わる (2026-08-09 配信全停止の再発防止)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hc-'));
+  mkdirSync(join(dir, '.local'), { recursive: true });
+  const log = join(dir, 'sync.log');
+  // 21:39のtickを3時間刺したのと同型: 大量のWARN行 + 末尾に正常なrun
+  const warn = '[2026-08-07T04:38:04+0900] WARN not on external: real108/x.jpg\n';
+  const d = jstNow();
+  const ts = `${d.toISOString().slice(0, 19)}+0900`.replace(/\.\d+/, '');
+  const body = warn.repeat(200000)
+    + `[${ts}] === sync start ===\n[${ts}] checked=10 deleted=10 size_mismatch=0 missing_on_ext=0\n[${ts}] === sync end ===\n`;
+  writeFileSync(log, body);
+  const t0 = Date.now();
+  run(dir, `health_check_backup "${log}"`);
+  const elapsed = Date.now() - t0;
+  assert.ok(elapsed < 5000, `巨大ログでも5秒以内に完了: ${elapsed}ms`);
+  assert.equal(existsSync(join(dir, '.local/health-alert.flag')), false, '正常runなのでアラートなし');
+});

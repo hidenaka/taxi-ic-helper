@@ -80,9 +80,12 @@ health_check_fill_freshness() {
 health_check_backup() {
   local log="${1:-$HOME/.local/log/taxi-image-archive-sync.log}"
   [ -s "$log" ] || { health_alert backup_missing "バックアップ同期ログが無い ($log)"; return 1; }
-  # 最終 run の抜き出し (最後の "=== sync start ===" 以降)
+  # 最終 run の抜き出し (最後の "=== sync start ===" 以降)。
+  # ★必ず tail で読む量を先に絞る: 全量を awk の buf 連結 (O(n^2)) に食わせると、
+  # 巨大ログ (2026-08-09 実害: キャッチアップ同期の WARN 1,558万行) で事実上終わらず、
+  # observe tick が刺さって配信全停止した。1 run は高々数百行なので末尾800行で十分。
   local last_run
-  last_run=$(awk '/=== sync start ===/{buf=""} {buf=buf ORS $0} END{print buf}' "$log")
+  last_run=$(tail -n 800 "$log" | awk '/=== sync start ===/{buf=""} {buf=buf ORS $0} END{print buf}')
   # 失敗痕跡
   if echo "$last_run" | grep -q "Operation not permitted"; then
     health_alert backup_tcc "バックアップが権限拒否で失敗している (TCC)"
