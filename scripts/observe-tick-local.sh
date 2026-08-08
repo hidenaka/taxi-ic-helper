@@ -89,6 +89,12 @@ node scripts/learn-arrival-advance.mjs || true
 # 羽田プール現地案内テキスト取得 (fail-safe・Phase1)
 node scripts/fetch-pool-notice.mjs || true
 
+# 健康チェック (計測停止/バックアップ不全の可視化 — 2026-08-08 追加)。
+# 「待機車両計測の7時間停止」「5月からのバックアップ失敗」に誰も気づけなかった再発防止。
+# read-only + フラグ/デスクトップ通知のベストエフォート。本流は止めない。
+# 早期 exit (no derived-data change) より前に置くこと。
+source "$SCRIPT_DIR/lib/health-check.sh" && health_check_all || true
+
 # movement-shift シャドウ観測は専用 launchd ジョブ(jp.taxi-ic-helper.movement-shift, 60秒)に
 # 移行したため、この5分ループからは呼ばない。data/movement-shift-history.jsonl の commit/push は
 # 下の git add に含めて従来どおりこのループが担う(slot-occupancy と同じ構造)。
