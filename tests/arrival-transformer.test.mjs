@@ -189,3 +189,20 @@ test('aircraftFallback: 引数なし時は既存動作 (機材不明便で seatC
   assert.equal(r.flights[0].seatCount, null);
   assert.equal(r.flights[0].estimatedPax, null);
 });
+
+test('AIRPORT_NAMES: 国際線コードの和名 (SZX=深圳ほか、生コード表示の修正 2026-08-09)', () => {
+  const odpt = [{
+    '@type': 'odpt:FlightInformationArrival',
+    'owl:sameAs': 'urn:uuid:test-szx',
+    'dc:date': '2026-08-09T08:00:00+09:00',
+    'odpt:operator': 'odpt.Operator:ANA',
+    'odpt:airline': 'odpt.Operator:ANA',
+    'odpt:flightNumber': ['NH966'],
+    'odpt:originAirport': 'odpt.Airport:SZX',
+    'odpt:arrivalAirport': 'odpt.Airport:HND',
+    'odpt:arrivalAirportTerminal': 'odpt.AirportTerminal:HND.Terminal3',
+    'odpt:scheduledArrivalTime': '22:20',
+  }];
+  const r = transformArrivals(odpt, seatsMaster, factorsMaster);
+  assert.equal(r.flights[0].fromName, '深圳');
+});
