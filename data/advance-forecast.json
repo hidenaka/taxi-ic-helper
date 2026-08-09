@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-08-09T13:09:00+09:00",
+  "generatedAt": "2026-08-09T13:16:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 6705,
+  "trainedRows": 6706,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,7 +37,7 @@
     "stall4": 8
   },
   "current": {
-    "time": "13:09",
+    "time": "13:16",
     "stalls": {
       "stall1": {
         "actual": 0,
@@ -47,17 +47,17 @@
       "stall2": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.4
+        "forecast": 0.1
       },
       "stall3": {
-        "actual": 1,
+        "actual": 0,
         "departure": 0,
-        "forecast": 0.6
+        "forecast": 0.2
       },
       "stall4": {
         "actual": 1,
         "departure": 0,
-        "forecast": 0.1
+        "forecast": 0.2
       }
     }
   },
@@ -1056,6 +1056,24 @@
         "reasons": [],
         "sampleRows": 2486,
         "rainRate": 0.088,
+        "nightRate": 0,
+        "imageQcLowRate": 0
+      }
+    },
+    {
+      "time": "13:00",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 1,
+        "stall4": 1
+      },
+      "quality": {
+        "confidence": "normal",
+        "condition": "day",
+        "reasons": [],
+        "sampleRows": 2490,
+        "rainRate": 0.074,
         "nightRate": 0,
         "imageQcLowRate": 0
       }
@@ -2064,15 +2082,15 @@
       "time": "13:00",
       "stalls": {
         "stall1": 0.2,
-        "stall2": 0.4,
-        "stall3": 0.6,
+        "stall2": 0.3,
+        "stall3": 0.7,
         "stall4": 0.1
       },
       "quality": {
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 2481,
+        "sampleRows": 2490,
         "rainRate": 0.074,
         "nightRate": 0,
         "imageQcLowRate": 0
@@ -2090,7 +2108,7 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 2467,
+        "sampleRows": 2470,
         "rainRate": 0.077,
         "nightRate": 0,
         "imageQcLowRate": 0
