@@ -565,3 +565,64 @@ test('noribaFillByStall: 明け方誤爆行がmedianを汚さない', async () =
   assert.ok(out.stall1 <= 0.01, `1号はほぼ0: ${out.stall1}`);
   assert.ok(out.stall4 <= 0.5, `4号は0.5以下: ${out.stall4}`);
 });
+
+// ---- 待機車両の「普段」目盛り (2026-08-09 ユーザー指摘対応) ----
+// 同じ4段でも 2号は普段(0.87)より少なめ・4号は普段(0.50)より多め、と意味が真逆になるため、
+// 号別×時間帯の中央値を配信して目盛りを出せるようにする。
+
+test('typicalFillByStall: 今の時間帯・同モードの中央値を号別に返す', async () => {
+  const { typicalFillByStall } = await import('../scripts/lib/pool-status.mjs');
+  const now = new Date('2026-08-09T13:00:00+09:00');
+  const rows = [];
+  // 12時台(=12-13の2時間枠)を28日ぶん: 1号0.6固定, 2号0.9固定
+  for (let d = 1; d <= 28; d++) {
+    const day = String(d).padStart(2, '0');
+    for (let k = 0; k < 2; k++) {
+      rows.push({ ts: `2026-07-${day}T12:${k ? '30' : '00'}:00+09:00`, mode: 'day', fill: { 1: 0.6, 2: 0.9, 3: 0.5, 4: 0.4 } });
+    }
+  }
+  // 別時間帯(20時台)は違う値 → 混ざってはいけない
+  for (let d = 1; d <= 28; d++) {
+    rows.push({ ts: `2026-07-${String(d).padStart(2, '0')}T20:00:00+09:00`, mode: 'day', fill: { 1: 0.1, 2: 0.1, 3: 0.1, 4: 0.1 } });
+  }
+  rows.push({ ts: '2026-08-09T12:50:00+09:00', mode: 'day', fill: { 1: 0.6, 2: 0.9, 3: 0.5, 4: 0.4 } });
+  const t = typicalFillByStall(rows, now, { days: 60 });
+  assert.equal(t.stall1, 0.6, '12時台の値だけを使う');
+  assert.equal(t.stall2, 0.9);
+});
+
+test('typicalFillByStall: サンプルが薄い枠は null (目盛りを出さない)', async () => {
+  const { typicalFillByStall } = await import('../scripts/lib/pool-status.mjs');
+  const now = new Date('2026-08-09T13:00:00+09:00');
+  const rows = [
+    { ts: '2026-08-09T12:00:00+09:00', mode: 'day', fill: { 1: 0.6, 2: 0.9, 3: 0.5, 4: 0.4 } },
+    { ts: '2026-08-09T12:30:00+09:00', mode: 'day', fill: { 1: 0.6, 2: 0.9, 3: 0.5, 4: 0.4 } },
+  ];
+  assert.equal(typicalFillByStall(rows, now), null, '2件では基準にしない');
+});
+
+test('typicalFillByStall: 夜モードの行は昼の基準に混ざらない', async () => {
+  const { typicalFillByStall } = await import('../scripts/lib/pool-status.mjs');
+  const now = new Date('2026-08-09T13:00:00+09:00');
+  const rows = [];
+  for (let d = 1; d <= 25; d++) {
+    rows.push({ ts: `2026-07-${String(d).padStart(2, '0')}T12:00:00+09:00`, mode: 'night', fill: { 1: 0.1, 2: 0.1, 3: 0.1, 4: 0.1 } });
+  }
+  for (let d = 1; d <= 25; d++) {
+    rows.push({ ts: `2026-07-${String(d).padStart(2, '0')}T12:30:00+09:00`, mode: 'day', fill: { 1: 0.7, 2: 0.7, 3: 0.7, 4: 0.7 } });
+  }
+  rows.push({ ts: '2026-08-09T12:50:00+09:00', mode: 'day', fill: { 1: 0.7, 2: 0.7, 3: 0.7, 4: 0.7 } });
+  const t = typicalFillByStall(rows, now, { days: 60 });
+  assert.equal(t.stall1, 0.7, '最新行のモード(day)だけを使う');
+});
+
+test('buildStalls: typicalFillRate を stall に載せる (無ければ null)', async () => {
+  const { buildStalls } = await import('../scripts/lib/pool-status.mjs');
+  const now = new Date('2026-08-09T13:00:00+09:00');
+  const withT = buildStalls([], now, null, null, { stall1: 0.5 }, { stall1: 0.57, stall2: 0.87 });
+  assert.equal(withT.stall1.typicalFillRate, 0.57);
+  assert.equal(withT.stall2.typicalFillRate, 0.87);
+  assert.equal(withT.stall3.typicalFillRate, null);
+  const withoutT = buildStalls([], now, null, null, null, null);
+  assert.equal(withoutT.stall1.typicalFillRate, null, '未指定でも壊れない(後方互換)');
+});

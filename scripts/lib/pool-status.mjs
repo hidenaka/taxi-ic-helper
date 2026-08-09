@@ -160,6 +160,54 @@ export function noribaFillByStall(fillRows, now, windowTicks = 5) {
   return out;
 }
 
+/** 号別×時間帯(2時間括り)×昼夜の「普段の埋まり率」中央値を返す。
+ * 待機車両バーの「通常」目盛り用 — 同じ4段でも 2号は普段より少なめ・4号は普段より多め、
+ * と号ごとに意味が真逆になる問題への対策 (2026-08-09 ユーザー指摘)。
+ * 直近 days 日の履歴から、今と同じ時間帯・同じ昼夜モードの値だけを集める。
+ * サンプルが minSamples 未満の枠は null (目盛りを出さない)。
+ * @param {{ts:string, mode:string, fill:Record<string,number>}[]} fillRows
+ * @returns {Record<string, number|null>|null}
+ */
+export function typicalFillByStall(fillRows, now, opts = {}) {
+  if (!Array.isArray(fillRows) || fillRows.length === 0) return null;
+  const days = opts.days ?? 28;
+  const minSamples = opts.minSamples ?? 20;
+  const nowMs = now.getTime();
+  const sinceMs = nowMs - days * 86400000;
+  const bandOf = (ts) => Math.floor(parseInt(String(ts).slice(11, 13), 10) / 2) * 2;
+  // 今の時間帯・今のモードを最新行から決める(モードは計測側の昼夜判定が正)
+  const latest = fillRows[fillRows.length - 1];
+  const nowBand = Math.floor(now.getHours() / 2) * 2;
+  const nowMode = latest && latest.mode ? latest.mode : null;
+  if (!nowMode) return null;
+  const per = {};
+  for (const s of STALL_NAMES) per[s] = [];
+  const goOf = { stall1: '1', stall2: '2', stall3: '3', stall4: '4' };
+  for (const r of fillRows) {
+    if (!r || r.mode !== nowMode || !r.fill) continue;
+    const t = new Date(r.ts).getTime();
+    if (!Number.isFinite(t) || t < sinceMs || t > nowMs) continue;
+    if (bandOf(r.ts) !== nowBand) continue;
+    for (const s of STALL_NAMES) {
+      const v = r.fill[goOf[s]];
+      if (typeof v === 'number' && v >= 0) per[s].push(v);
+    }
+  }
+  const out = {};
+  let any = false;
+  for (const s of STALL_NAMES) {
+    const a = per[s];
+    if (a.length >= minSamples) {
+      a.sort((x, y) => x - y);
+      out[s] = Number(a[Math.floor((a.length - 1) / 2)].toFixed(3));
+      any = true;
+    } else {
+      out[s] = null;
+    }
+  }
+  return any ? out : null;
+}
+
 const STALL_NAMES = ['stall1', 'stall2', 'stall3', 'stall4'];
 const STALL_LABEL = { stall1: '第1乗り場', stall2: '第2乗り場', stall3: '第3乗り場', stall4: '第4乗り場' };
 const STALL_TERMINAL = { stall1: 'T1', stall2: 'T1', stall3: 'T2', stall4: 'T2' };
@@ -190,7 +238,7 @@ export function buildStallRankHint(stalls) {
 
 /** 乗り場別ブロック（在台・直近1h出庫・待ち目安・動き方・ターミナル）を組み立てる。
  *  holidays 指定時は各 stall に sameConditionCompare を付与（省略時は null）。 */
-export function buildStalls(rows, now, holidays = null, yoloOcc = null, noribaFill = null) {
+export function buildStalls(rows, now, holidays = null, yoloOcc = null, noribaFill = null, typicalFill = null) {
   const occ = currentOccupancyByStall(rows, now, 5);
   if (yoloOcc) {
     if (typeof yoloOcc.stall1 === "number") occ.stall1 = yoloOcc.stall1;
@@ -210,6 +258,8 @@ export function buildStalls(rows, now, holidays = null, yoloOcc = null, noribaFi
       trend: stallTrend(depRecent30[s], depPrior30[s]),
       sameConditionCompare: holidays ? sameConditionCompare(rows, now, holidays, 4, s) : null,
       fillRate: (noribaFill && typeof noribaFill[s] === 'number') ? noribaFill[s] : null,
+      // その号・その時間帯の「普段の埋まり率」(0-1)。アプリの待機車両バーの通常目盛り。
+      typicalFillRate: (typicalFill && typeof typicalFill[s] === 'number') ? typicalFill[s] : null,
     };
   }
   return out;
@@ -392,7 +442,8 @@ export function buildPoolStatus(rows, now = new Date(), arrivals = null, holiday
   // 独立検証(サブエージェント+codex)でテクスチャ占有は固定閾値std>28が脆く、昼でも16->3->16と振動・暗い車で大量偽陰性=出荷不可と判明。占有上書きを一旦停止しfillへ戻す(2026-06-20)。texRows/slotTexOccByStallはシャドウ温存。
   const _texOcc = null; void texRows; void slotTexOccByStall;
   const noribaFill = noribaFillByStall(fillRows, now);
-  const stallsBase = buildStalls(rows, now, holidays, _texOcc, noribaFill);
+  const typicalFill = typicalFillByStall(fillRows, now);
+  const stallsBase = buildStalls(rows, now, holidays, _texOcc, noribaFill, typicalFill);
   const rankHints = buildStallRankHint(stallsBase);
   const stalls = {};
   for (const k of ['stall1', 'stall2', 'stall3', 'stall4']) {
