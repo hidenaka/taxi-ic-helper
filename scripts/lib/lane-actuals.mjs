@@ -46,7 +46,9 @@ export function etaToMinutes(text, { wrapLateNight = true } = {}) {
   const mm = parseInt(m[2], 10);
   if (h > 29 || mm > 59) return null;
   const min = h * 60 + mm;
-  return (wrapLateNight && h < 12) ? min + 1440 : min;
+  // 翌日側に送るのは 0:00-4:59 のみ。h<12 だと朝の便まで深夜バンドに落ち、
+  // 深夜便の実績が朝の便に適用されてしまう(2026-08-14 本人指摘)。
+  return (wrapLateNight && h < 5) ? min + 1440 : min;
 }
 
 /** 時間帯の粗いラベル。深夜帯を細かく、それ以外はまとめる(サンプルを薄めないため)。 */
