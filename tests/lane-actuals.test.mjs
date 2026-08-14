@@ -103,3 +103,60 @@ test('predictLane: 便別(A)を優先し、無ければパターン別(B)にフ�
   const none = predictLane({ flightNumber: 'JL999', estimatedTime: '15:00' }, model);
   assert.equal(none, null, '実績が無ければ何も言わない');
 });
+
+// --- 便×時間帯 と 直近優先 (2026-08-14 実データで判明) ---
+// NH84 は 23:59着なら3号(2/2)・0:48着なら4号(2/2) と時間帯で完全に分かれていた。
+// JL528 は 6月=1号 → 7月以降=2号 と乗り場運用が切り替わっていた。
+
+test("learnByFlightBand(A'): 同じ便でも時間帯で号が分かれるのを捉える", async () => {
+  const { learnByFlightBand } = await import('../scripts/lib/lane-actuals.mjs');
+  const actuals = [
+    mk('2026-07-27', 'NH84', 3, '23:59'), mk('2026-07-28', 'NH84', 3, '23:59'),
+    mk('2026-08-06', 'NH84', 4, '0:48'), mk('2026-08-07', 'NH84', 4, '0:48'),
+  ];
+  const m = learnByFlightBand(actuals);
+  assert.equal(m['NH84|late23'].stall, 3);
+  assert.equal(m['NH84|late23'].share, 1);
+  assert.equal(m['NH84|mid00'].stall, 4);
+  assert.equal(m['NH84|mid00'].share, 1);
+});
+
+test('predictLane: 便×時間帯を最優先で使う', async () => {
+  const { learnByFlight, learnByFlightBand, predictLane } = await import('../scripts/lib/lane-actuals.mjs');
+  const actuals = [
+    mk('2026-07-27', 'NH84', 3, '23:59'), mk('2026-07-28', 'NH84', 3, '23:59'),
+    mk('2026-08-06', 'NH84', 4, '0:48'), mk('2026-08-07', 'NH84', 4, '0:48'),
+  ];
+  const model = { byFlight: learnByFlight(actuals), byFlightBand: learnByFlightBand(actuals), byPattern: {} };
+  // 便別だけなら3号/4号が半々で決まらないが、時間帯を見れば一意に決まる
+  assert.equal(model.byFlight.NH84.share, 0.5);
+  assert.equal(predictLane({ flightNumber: 'NH84', estimatedTime: '0:48' }, model).stall, 4);
+  assert.equal(predictLane({ flightNumber: 'NH84', estimatedTime: '23:59' }, model).stall, 3);
+  assert.equal(predictLane({ flightNumber: 'NH84', estimatedTime: '0:48' }, model).basis, 'flight-band');
+});
+
+test('predictLane: 実績が拮抗するときは直近を採る(乗り場運用の変更に追従)', async () => {
+  const { learnByFlight, predictLane } = await import('../scripts/lib/lane-actuals.mjs');
+  const actuals = [
+    mk('2026-06-26', 'JL528', 1, '23:56'), mk('2026-06-27', 'JL528', 1, '23:56'),
+    mk('2026-07-27', 'JL528', 2, '23:55'), mk('2026-07-28', 'JL528', 2, '23:55'),
+    mk('2026-08-01', 'JL528', 2, '23:55'),
+  ];
+  const model = { byFlight: learnByFlight(actuals), byFlightBand: {}, byPattern: {} };
+  const p = predictLane({ flightNumber: 'JL528', estimatedTime: '23:55' }, model);
+  assert.equal(p.stall, 2, '直近3回が2号');
+  assert.equal(p.share, 0.6);
+  assert.match(p.basis, /recent/, '拮抗時は直近判断と分かるようにする');
+});
+
+test('predictLane: 圧倒的な実績はそのまま採る(直近に振り回されない)', async () => {
+  const { learnByFlight, predictLane } = await import('../scripts/lib/lane-actuals.mjs');
+  const actuals = [
+    mk('2026-07-01', 'BC522', 2, '23:50'), mk('2026-07-02', 'BC522', 2, '23:50'),
+    mk('2026-07-03', 'BC522', 2, '23:50'), mk('2026-07-04', 'BC522', 2, '23:50'),
+  ];
+  const model = { byFlight: learnByFlight(actuals), byFlightBand: {}, byPattern: {} };
+  const p = predictLane({ flightNumber: 'BC522', estimatedTime: '23:50' }, model);
+  assert.equal(p.stall, 2);
+  assert.equal(p.basis, 'flight');
+});

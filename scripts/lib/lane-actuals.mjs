@@ -103,18 +103,49 @@ export function dedupeActuals(rows) {
 const MIN_SAMPLES_FLIGHT = 2;   // 便別: 2回以上見ていれば傾向として出す
 const MIN_SAMPLES_PATTERN = 3;  // パターン別: 3回以上
 
+const RECENT_WINDOW = 3;
+
 function summarizeStalls(list) {
   const count = {};
   for (const r of list) count[r.stall] = (count[r.stall] || 0) + 1;
   const entries = Object.entries(count).map(([k, v]) => [parseInt(k, 10), v]).sort((a, b) => b[1] - a[1]);
   const [topStall, topCount] = entries[0];
+  // 直近ぶんの最多号。乗り場運用が変わると古い実績が足を引っ張るため
+  // (実測: JL528 は 6月=1号 → 7月以降=2号 と切り替わっている)。
+  const sorted = [...list].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const recent = sorted.slice(-RECENT_WINDOW);
+  const rc = {};
+  for (const r of recent) rc[r.stall] = (rc[r.stall] || 0) + 1;
+  const recentTop = Object.entries(rc).map(([k, v]) => [parseInt(k, 10), v]).sort((a, b) => b[1] - a[1])[0];
   return {
     n: list.length,
     stall: topStall,
     share: Number((topCount / list.length).toFixed(2)),
     dist: Object.fromEntries(entries),
-    lastDate: list.map((r) => r.date).sort().slice(-1)[0] ?? null,
+    lastDate: sorted[sorted.length - 1]?.date ?? null,
+    recentStall: recentTop[0],
+    recentN: recent.length,
   };
+}
+
+/**
+ * A': 便×時間帯の実績。同じ便でも到着が日をまたぐと号が変わるため、これが最も効く。
+ * (実測: NH84 は 23:59着なら3号(2/2)・0:48着なら4号(2/2) と時間帯で完全に分かれる)
+ * @returns {Record<string, {n, stall, share, dist, lastDate, recentStall}>} キーは `便名|時間帯`
+ */
+export function learnByFlightBand(actuals, { minSamples = 2 } = {}) {
+  const by = new Map();
+  for (const r of dedupeActuals(actuals)) {
+    const key = `${r.flightNumber}|${r.band}`;
+    if (!by.has(key)) by.set(key, []);
+    by.get(key).push(r);
+  }
+  const out = {};
+  for (const [key, list] of by) {
+    if (list.length < minSamples) continue;
+    out[key] = summarizeStalls(list);
+  }
+  return out;
 }
 
 /**
@@ -161,22 +192,39 @@ export function learnByPattern(actuals, { minSamples = MIN_SAMPLES_PATTERN } = {
  * 推定号(estLane)と違うときだけ意味があるので、呼び出し側で比較して使う。
  * @returns {{stall:number, share:number, n:number, basis:'flight'|'pattern', key:string}|null}
  */
+// 実績が割れているときは直近を採る(運用変更に追従)。share がこの値未満なら recentStall。
+const DECISIVE_SHARE = 0.7;
+
+function pick(entry, basis, key) {
+  const decisive = entry.share >= DECISIVE_SHARE;
+  return {
+    stall: decisive ? entry.stall : (entry.recentStall ?? entry.stall),
+    share: entry.share,
+    n: entry.n,
+    basis: decisive ? basis : basis + '-recent',
+    key,
+    dist: entry.dist,
+    lastDate: entry.lastDate,
+  };
+}
+
 export function predictLane(flight, model) {
   if (!flight || !model) return null;
   const fno = normalizeFlightNumber(flight.flightNumber);
-  const byFlight = model.byFlight || {};
-  if (fno && byFlight[fno]) {
-    const e = byFlight[fno];
-    return { stall: e.stall, share: e.share, n: e.n, basis: 'flight', key: fno };
-  }
   const band = timeBand(flight.estimatedTime ?? flight.scheduledTime ?? null);
+  // 1) 便×時間帯 — 同じ便でも到着が日をまたぐと号が変わるので最優先
+  const byFlightBand = model.byFlightBand || {};
+  if (fno && byFlightBand[`${fno}|${band}`]) {
+    return pick(byFlightBand[`${fno}|${band}`], 'flight-band', `${fno}|${band}`);
+  }
+  // 2) 便別
+  const byFlight = model.byFlight || {};
+  if (fno && byFlight[fno]) return pick(byFlight[fno], 'flight', fno);
+  // 3) 時間帯×航空会社
   const airline = fno ? fno.slice(0, 2) : null;
   if (!airline) return null;
   const key = `${band}|${airline}`;
   const byPattern = model.byPattern || {};
-  if (byPattern[key]) {
-    const e = byPattern[key];
-    return { stall: e.stall, share: e.share, n: e.n, basis: 'pattern', key };
-  }
+  if (byPattern[key]) return pick(byPattern[key], 'pattern', key);
   return null;
 }

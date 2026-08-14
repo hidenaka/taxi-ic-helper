@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { parseFlightNotice } from './lib/notice-flights.mjs';
-import { extractLaneActuals, dedupeActuals, learnByFlight, learnByPattern } from './lib/lane-actuals.mjs';
+import { extractLaneActuals, dedupeActuals, learnByFlight, learnByFlightBand, learnByPattern } from './lib/lane-actuals.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HIST = join(ROOT, 'data/pool-notice-history.jsonl');
@@ -42,11 +42,17 @@ if (actuals.length) {
 }
 
 const byFlight = learnByFlight(actuals);
+const byFlightBand = learnByFlightBand(actuals);
 const byPattern = learnByPattern(actuals);
 console.log(`\n[A] 便別に傾向が出た便: ${Object.keys(byFlight).length}`);
 for (const [fno, e] of Object.entries(byFlight).sort((a, b) => b[1].n - a[1].n)) {
   const dist = Object.entries(e.dist).map(([k, v]) => `${k}号×${v}`).join(' ');
   console.log(`  ${fno.padEnd(8)} ${e.n}回 → 最多${e.stall}号 (${Math.round(e.share * 100)}%) [${dist}] 最終${e.lastDate}`);
+}
+console.log(`\n[A'] 便×時間帯で傾向が出た組合せ: ${Object.keys(byFlightBand).length}`);
+for (const [key, e] of Object.entries(byFlightBand).sort((a, b) => b[1].n - a[1].n)) {
+  const dist = Object.entries(e.dist).map(([k, v]) => `${k}号×${v}`).join(' ');
+  console.log(`  ${key.padEnd(16)} ${e.n}回 → ${e.stall}号 (${Math.round(e.share * 100)}%) [${dist}]`);
 }
 console.log(`\n[B] パターン別に傾向が出た組合せ: ${Object.keys(byPattern).length}`);
 for (const [key, e] of Object.entries(byPattern).sort((a, b) => b[1].n - a[1].n)) {

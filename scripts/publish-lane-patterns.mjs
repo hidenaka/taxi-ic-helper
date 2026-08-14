@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { parseFlightNotice } from './lib/notice-flights.mjs';
-import { extractLaneActuals, dedupeActuals, learnByFlight, learnByPattern } from './lib/lane-actuals.mjs';
+import { extractLaneActuals, dedupeActuals, learnByFlight, learnByFlightBand, learnByPattern } from './lib/lane-actuals.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const NOTICE = join(ROOT, 'data/pool-notice.json');
@@ -54,6 +54,7 @@ if (actuals.length === 0) {
   process.exit(0);
 }
 const byFlight = learnByFlight(actuals);
+const byFlightBand = learnByFlightBand(actuals);
 const byPattern = learnByPattern(actuals);
 const model = {
   schema_version: 1,
@@ -62,7 +63,8 @@ const model = {
   samples: actuals.length,
   span: { from: actuals[0].date, to: actuals[actuals.length - 1].date },
   byFlight,
+  byFlightBand,
   byPattern,
 };
 writeFileSync(OUT, JSON.stringify(model, null, 2) + '\n');
-console.log(`[lane-patterns] +${added}件 / 実績${actuals.length}件 → 便別${Object.keys(byFlight).length} パターン別${Object.keys(byPattern).length}`);
+console.log(`[lane-patterns] +${added}件 / 実績${actuals.length}件 → 便別${Object.keys(byFlight).length} 便×時間帯${Object.keys(byFlightBand).length} パターン別${Object.keys(byPattern).length}`);
