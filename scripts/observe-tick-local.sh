@@ -89,6 +89,10 @@ node scripts/learn-arrival-advance.mjs || true
 # 羽田プール現地案内テキスト取得 (fail-safe・Phase1)
 node scripts/fetch-pool-notice.mjs || true
 
+# 乗り場(号)の実績学習: 現地掲示で確定した「実際に着いた号」を貯めて
+# A(便別)/B(時間帯×航空会社)のパターンを更新する (fail-safe)。
+node scripts/publish-lane-patterns.mjs || true
+
 # 健康チェック (計測停止/バックアップ不全の可視化 — 2026-08-08 追加)。
 # 「待機車両計測の7時間停止」「5月からのバックアップ失敗」に誰も気づけなかった再発防止。
 # read-only + フラグ/デスクトップ通知のベストエフォート。本流は止めない。
@@ -117,7 +121,7 @@ fi
 # 配信に必要な派生 json + サムネだけを commit する。
 # 生履歴 (taxi-pool / slot-occupancy / t3-pool / vehicle-* / movement-shift / t3-front-flow の各 history.jsonl)
 # は Mac mini ローカルのみで保持し push しない (アプリ非配信・8.5G 画像アーカイブから再生成可・GitHub 100MB 制限回避)。
-git add data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/advance-forecast.json data/pool-notice.json 2>/dev/null || true
+git add data/lane-patterns.json data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/advance-forecast.json data/pool-notice.json 2>/dev/null || true
 git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
 
 # 同期 + push (残骸掃除 → fetch → rebase → push を最大 5 回リトライ。
