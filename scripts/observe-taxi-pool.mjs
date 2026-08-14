@@ -260,6 +260,11 @@ async function main() {
         estimatedTaxiPax: f.estimatedTaxiPax,
         lobbyExitTime: f.lobbyExitTime,
         reachTier: f.reachTier,
+        // 乗り場号(1-4)と北/南ウイング。遅延便が通常と違う号に着くパターンを
+        // 後から学習・検証するために保存する。これが無いと「推定した号」が残らず
+        // 現地掲示(実際に着いた号)との突き合わせができない(2026-08-14)。
+        poolLane: f.poolLane ?? null,
+        wing: f.wing ?? null,
       }));
       const snapshotRow = {
         ts,
