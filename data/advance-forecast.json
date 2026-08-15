@@ -1,26 +1,26 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-08-15T14:20:00+09:00",
+  "generatedAt": "2026-08-15T14:30:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 7286,
+  "trainedRows": 7287,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
       "lag": 0,
-      "corr": 0.03,
-      "n": 1209,
+      "corr": 0.031,
+      "n": 1210,
       "applied": false
     },
     "stall2": {
       "lag": 0,
-      "corr": 0.057,
-      "n": 1033,
+      "corr": 0.058,
+      "n": 1034,
       "applied": false
     },
     "stall3": {
       "lag": 0,
       "corr": 0.028,
-      "n": 1693,
+      "n": 1694,
       "applied": false
     },
     "stall4": {
@@ -37,27 +37,27 @@
     "stall4": 8
   },
   "current": {
-    "time": "14:20",
+    "time": "14:30",
     "stalls": {
       "stall1": {
-        "actual": 1,
-        "departure": 0,
-        "forecast": 0.1
+        "actual": 0,
+        "departure": 1,
+        "forecast": 0.3
       },
       "stall2": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.1
+        "forecast": 0.2
       },
       "stall3": {
-        "actual": 0,
-        "departure": 1,
-        "forecast": 1
+        "actual": 2,
+        "departure": 2,
+        "forecast": 0.3
       },
       "stall4": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.3
+        "forecast": 0
       }
     }
   },
@@ -1149,6 +1149,24 @@
         "reasons": [],
         "sampleRows": 2652,
         "rainRate": 0.096,
+        "nightRate": 0,
+        "imageQcLowRate": 0
+      }
+    },
+    {
+      "time": "14:15",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 2,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "normal",
+        "condition": "day",
+        "reasons": [],
+        "sampleRows": 2676,
+        "rainRate": 0.106,
         "nightRate": 0,
         "imageQcLowRate": 0
       }
@@ -2251,14 +2269,14 @@
       "stalls": {
         "stall1": 0.1,
         "stall2": 0.1,
-        "stall3": 1,
-        "stall4": 0.3
+        "stall3": 1.5,
+        "stall4": 0.2
       },
       "quality": {
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 2661,
+        "sampleRows": 2676,
         "rainRate": 0.106,
         "nightRate": 0,
         "imageQcLowRate": 0
@@ -2276,7 +2294,7 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 2651,
+        "sampleRows": 2652,
         "rainRate": 0.085,
         "nightRate": 0,
         "imageQcLowRate": 0
