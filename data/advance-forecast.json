@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-08-17T21:09:00+09:00",
+  "generatedAt": "2026-08-17T21:15:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 7505,
+  "trainedRows": 7506,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,17 +37,17 @@
     "stall4": 8
   },
   "current": {
-    "time": "21:09",
+    "time": "21:15",
     "stalls": {
       "stall1": {
-        "actual": 1,
+        "actual": 2,
         "departure": 1,
-        "forecast": 0.7
+        "forecast": 0.2
       },
       "stall2": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.3
+        "forecast": 0.2
       },
       "stall3": {
         "actual": 0,
@@ -1657,6 +1657,27 @@
         ],
         "sampleRows": 2884,
         "rainRate": 0.133,
+        "nightRate": 1,
+        "imageQcLowRate": 1
+      }
+    },
+    {
+      "time": "21:00",
+      "stalls": {
+        "stall1": 2,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "night",
+        "reasons": [
+          "night",
+          "image_qc"
+        ],
+        "sampleRows": 2865,
+        "rainRate": 0.124,
         "nightRate": 1,
         "imageQcLowRate": 1
       }
@@ -3277,7 +3298,7 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 2853,
+        "sampleRows": 2865,
         "rainRate": 0.124,
         "nightRate": 1,
         "imageQcLowRate": 1
@@ -3298,7 +3319,7 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 2854,
+        "sampleRows": 2855,
         "rainRate": 0.117,
         "nightRate": 1,
         "imageQcLowRate": 1
