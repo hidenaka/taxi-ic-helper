@@ -32,7 +32,20 @@ def latest_frame():
     return None
 
 
+
+def _source_stale():
+    # 旧カメラ凍結中(2026-08-20 カメラ総入れ替え)は追記しない。ROI再校正後に新カメラへ切替える。
+    import json as _json
+    try:
+        _p = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/pool-source-status.json")
+        return _json.load(open(_p)).get("sourceStale") is True
+    except Exception:
+        return False
+
 def main():
+    if _source_stale():
+        print("[texture-occ] source stale (旧カメラ凍結中) — 追記スキップ", file=sys.stderr)
+        return 0
     fn = latest_frame()
     if not fn:
         print("[occ] no frame", file=sys.stderr); return 0

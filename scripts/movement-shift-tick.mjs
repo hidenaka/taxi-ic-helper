@@ -42,13 +42,18 @@ function jstTimestamp(d = new Date()) {
 // 30秒トラックループが保存している最新アーカイブフレームを使う(60秒ジョブでも鮮度を確保)。
 // 追加のネット取得はしない。アーカイブが無ければ observe の5分スナップショットにフォールバック。
 function imagePathForSource(source) {
-  const camera = String(source).includes('real02') ? 'real02' : 'real01_line';
+  // 2026-08-20 カメラ総入れ替え: 新ソース名(real001/real002)はアーカイブのディレクトリ名を
+  // そのまま使う。旧名(real02系/real01系)は従来の対応を残す(過去設定の再現用)。
+  const s = String(source);
+  const camera = (s === 'real001' || s === 'real002') ? s
+    : (s.includes('real02') ? 'real02' : 'real01_line');
   try {
     const dir = dirname(archivePath(camera, new Date(), defaultArchiveDir()));
     const files = readdirSync(dir).filter((f) => f.endsWith('.jpg')).sort();
     if (files.length) return join(dir, files[files.length - 1]);
   } catch { /* 当日ディレクトリ未作成など → フォールバック */ }
-  return join(ROOT, camera === 'real02' ? 'data/pool-cam-real02.jpg' : 'data/pool-cam-real01.jpg');
+  const wantsCam2 = camera === 'real02' || camera === 'real002';
+  return join(ROOT, wantsCam2 ? 'data/pool-cam-real02.jpg' : 'data/pool-cam-real01.jpg');
 }
 
 async function main() {
