@@ -22,12 +22,31 @@ function latestArchiveFrame(cam) {
   return files.length ? path.join(dir, files[files.length - 1]) : null;
 }
 
-async function writeThumb(cam, outName) {
-  const src = latestArchiveFrame(cam);
-  if (!src) { console.error(`[pool-status] no frame ${cam}`); return; }
+// 表示用ライブ画像の取得元。2026-08-20 に配信元が新カメラへ切替わり、旧 real01_line /
+// real02 は同日 11:26 / 12:25 を最後に更新が止まった(URLは生きたまま同じ画像を返す)。
+// 新カメラを先に見て、無いときだけ旧カメラへ落とす。
+const THUMB_SOURCES = {
+  'pool-cam-real01.jpg': ['real001', 'real01_line'],
+  'pool-cam-real02.jpg': ['real002', 'real02'],
+};
+
+// 取れた画像の撮影時刻(JST ISO)。アーカイブの日付ディレクトリとファイル名 HHMMSS から起こす。
+function frameTakenAt(src) {
+  const m = String(src).match(/(\d{4}-\d{2}-\d{2})[/\\](\d{2})(\d{2})(\d{2})\.jpg$/);
+  return m ? `${m[1]}T${m[2]}:${m[3]}:${m[4]}+09:00` : null;
+}
+
+async function writeThumb(cams, outName) {
+  let src = null;
+  for (const cam of cams) {
+    src = latestArchiveFrame(cam);
+    if (src) break;
+  }
+  if (!src) { console.error(`[pool-status] no frame ${cams.join('/')}`); return null; }
   const img = await Jimp.read(src);
   img.resize({ w: THUMB_W });
   await img.write(`./data/${outName}`);
+  return frameTakenAt(src);
 }
 
 async function main() {
@@ -75,8 +94,18 @@ async function main() {
       writeFileSync('./data/pool-status.json', JSON.stringify(status, null, 2) + '\n', 'utf8');
       console.log(`[pool-status] ok total.occ=${status.total.occ} level=${status.total.level} activity=${status.activity.level}`);
     }
-    await writeThumb('real01_line', 'pool-cam-real01.jpg');
-    await writeThumb('real02', 'pool-cam-real02.jpg');
+    const cam1At = await writeThumb(THUMB_SOURCES['pool-cam-real01.jpg'], 'pool-cam-real01.jpg');
+    const cam2At = await writeThumb(THUMB_SOURCES['pool-cam-real02.jpg'], 'pool-cam-real02.jpg');
+    // 写真そのものは新カメラで最新。数値(待機車両・列移動)は区画の作り直しが済むまで
+    // 旧カメラ基準で止まっているので、アプリが文言を分けられるよう別項目で持たせる。
+    try {
+      const sp = './data/pool-status.json';
+      if (existsSync(sp)) {
+        const st = JSON.parse(readFileSync(sp, 'utf8'));
+        st.cameraLiveAt = cam1At || cam2At || null;
+        writeFileSync(sp, JSON.stringify(st, null, 2) + '\n', 'utf8');
+      }
+    } catch (e) { console.error(`[pool-status] cameraLiveAt write failed: ${e.message}`); }
   } catch (e) {
     console.error(`[pool-status] failed: ${e.message}`);
   }
