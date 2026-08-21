@@ -40,12 +40,17 @@ function applyVehicleCounts(status) {
     const vs = rows.map((r) => (r.yolo ?? r.lantern)?.[k]).filter((v) => typeof v === 'number').sort((a, b) => a - b);
     if (vs.length) counts[k] = vs[Math.floor(vs.length / 2)];
   }
+  // 4号後列(real002)は stall4 に合算する(アプリの4号=手前+奥・従来仕様)
+  {
+    const vs = rows.map((r) => r.back?.yolo ?? r.back?.lantern).filter((v) => typeof v === 'number').sort((a, b) => a - b);
+    if (vs.length) counts.stall4_back = vs[Math.floor(vs.length / 2)];
+  }
   if (!Object.keys(counts).length) return;
   // 容量 = 観測最大(自動で引き上げ・永続化)。fill は容量比
   let cap = {};
   try { cap = JSON.parse(readFileSync(CAPACITY_PATH, 'utf8')); } catch { cap = {}; }
   let capDirty = false;
-  for (const k of STALL_KEYS) {
+  for (const k of [...STALL_KEYS, 'stall4_back']) {
     if (typeof counts[k] !== 'number') continue;
     if (!(cap[k] >= counts[k])) { cap[k] = counts[k]; capDirty = true; }
   }
@@ -65,9 +70,13 @@ function applyVehicleCounts(status) {
   for (const k of STALL_KEYS) {
     if (typeof counts[k] !== 'number') continue;
     const st = status.stalls[k] || {};
-    st.occ = counts[k];
-    total += counts[k];
-    st.fillRate = cap[k] > 0 ? Number((counts[k] / cap[k]).toFixed(4)) : null;
+    // 4号は手前(real001の帯)+奥(real002)の合算
+    const isS4 = k === 'stall4' && typeof counts.stall4_back === 'number';
+    const occK = isS4 ? counts[k] + counts.stall4_back : counts[k];
+    const capK = isS4 ? (cap[k] || 0) + (cap.stall4_back || 0) : cap[k];
+    st.occ = occK;
+    total += occK;
+    st.fillRate = capK > 0 ? Number((occK / capK).toFixed(4)) : null;
     delete st.typicalFillRate;              // 新カメラの「普段」は蓄積後に再導入
     delete st.sameConditionCompare;
     const dep1h = evIn(k, 0, 60);

@@ -72,6 +72,42 @@ def _in_pool(x, y):
     return c
 
 
+_b2 = _bands.get('real002')
+if _b2:
+    _VX2, _VY2 = _b2['vp']
+    _XREF2 = _b2['xref']
+    _POOL2 = [tuple(q) for q in _b2['pool']]
+    _T2LO, _T2HI = _b2['t_range']
+
+
+def _t2_of(x, y):
+    if abs(x - _VX2) < 1e-9:
+        return y
+    a = (y - _VY2) / (x - _VX2)
+    return _VY2 + a * (_XREF2 - _VX2)
+
+
+def _in_pool2(x, y):
+    c = False
+    n = len(_POOL2)
+    for i in range(n):
+        x1, y1 = _POOL2[i]
+        x2, y2 = _POOL2[(i + 1) % n]
+        if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
+            c = not c
+    return c
+
+
+def assign_back(cx, cy):
+    """real002: 4号後列の待機ブロック内なら stall4_back。"""
+    if not _b2 or not _in_pool2(cx, cy):
+        return None
+    t = _t2_of(cx, cy)
+    if t < _T2LO or t > _T2HI:
+        return None
+    return 'stall4_back'
+
+
 def assign(cx, cy):
     """検出中心 → 号。プール外/最初のレーンより上(通路等)は None。"""
     if not _in_pool(cx, cy):
@@ -107,7 +143,7 @@ def size_ok(x1, y1, x2, y2):
     return wmin <= w <= wmin * 4.5
 
 
-def yolo_count(img, session, dv):
+def yolo_count(img, session, dv, assign_fn=assign, stall_keys=None):
     def detect_px(crop, conf):
         # detect_image の座標は「渡した画像」基準の0-1。必ずクロップ自身の寸法で戻す
         w, h = crop.size
@@ -132,14 +168,15 @@ def yolo_count(img, session, dv):
                     out.append((bx1 + x0, by1 + y0, bx2 + x0, by2 + y0, c))
         return out
 
+    keys = stall_keys or STALLS
     raw = [b for b in tiled(2, 2, 80, 0.35) + tiled(6, 2, 60, 0.25, (80, 270)) if size_ok(*b[:4])]
     kept = dv.nms([(b[0], b[1], b[2], b[3], b[4], 2) for b in raw], 0.5)
-    counts = {k: 0 for k in STALLS}
-    ext = {k: 0 for k in STALLS}
+    counts = {k: 0 for k in keys}
+    ext = {k: 0 for k in keys}
     skip = 0
     for x1, y1, x2, y2, c, _ in kept:
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-        st = assign(cx, cy)
+        st = assign_fn(cx, cy)
         if st is None:
             skip += 1
             continue
@@ -153,7 +190,7 @@ def yolo_count(img, session, dv):
 
 # ---- 夜: 行灯光点 -----------------------------------------------------------
 
-def lantern_count(img):
+def lantern_count(img, assign_fn=assign, stall_keys=None):
     a = np.asarray(img.convert('L'), dtype=np.float32)
     ii = np.cumsum(np.cumsum(np.pad(a, ((1, 0), (1, 0))), axis=0), axis=1)
     r = 12
@@ -209,11 +246,12 @@ def lantern_count(img):
                 used[j] = True
         used[i] = True
         merged.append((cx, cy))
-    counts = {k: 0 for k in STALLS}
-    ext = {k: 0 for k in STALLS}
+    keys = stall_keys or STALLS
+    counts = {k: 0 for k in keys}
+    ext = {k: 0 for k in keys}
     skip = 0
     for cx, cy in merged:
-        st = assign(cx, cy)
+        st = assign_fn(cx, cy)
         if st is None:
             skip += 1
             continue
@@ -223,6 +261,9 @@ def lantern_count(img):
     counts['ext'] = ext
     counts['skip'] = skip
     return counts
+
+
+_session_cache = [None, None]
 
 
 def main():
@@ -247,6 +288,8 @@ def main():
             import onnxruntime as ort
             import detect_vehicles as dv
             session = ort.InferenceSession(dv.MODEL_PATH, providers=['CPUExecutionProvider'])
+            _session_cache[0] = session
+            _session_cache[1] = dv
             row['yolo'] = yolo_count(img, session, dv)
         except Exception as e:
             print(f'[vehicle-count] yolo failed: {e}', file=sys.stderr)
@@ -257,6 +300,24 @@ def main():
             print(f'[vehicle-count] lantern failed: {e}', file=sys.stderr)
     if 'yolo' not in row and 'lantern' not in row:
         return 0
+    # 4号後列(real002)も同方式で数え、同じ行の back に入れる
+    try:
+        f2 = latest_frame('real002')
+        if f2 and _b2:
+            img2 = Image.open(f2).convert('RGB')
+            if img2.size == (W, H):
+                b2 = float(np.asarray(img2.convert('L'), dtype=np.float32).mean())
+                back = {}
+                if b2 >= NIGHT_MAX and 'yolo' in row:
+                    back['yolo'] = yolo_count(img2, _session_cache[0], _session_cache[1],
+                                              assign_fn=assign_back, stall_keys=['stall4_back'])
+                if b2 <= DAY_MIN:
+                    back['lantern'] = lantern_count(img2, assign_fn=assign_back, stall_keys=['stall4_back'])
+                if back:
+                    row['back'] = {m: v.get('stall4_back') for m, v in back.items()}
+                    row['back']['brightness'] = round(b2, 1)
+    except Exception as e:
+        print(f'[vehicle-count] real002 failed: {e}', file=sys.stderr)
     row['mode'] = 'both' if ('yolo' in row and 'lantern' in row) else ('yolo' if 'yolo' in row else 'lantern')
     with open(OUT_PATH, 'a') as f:
         f.write(json.dumps(row, ensure_ascii=False) + '\n')
