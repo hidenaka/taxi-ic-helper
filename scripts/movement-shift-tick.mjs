@@ -86,9 +86,13 @@ async function main() {
       // b5: 先頭エリア(面)の平均輝度。後段で列移動カウントへ。
       // 1〜3号は「2列(左列+右列)」で並ぶので、両列の先頭をまたいで測る(片側だけだと
       // 2列分の列移動を取りこぼす)。それ以外(4号の奥列等)は従来どおり先頭nスロット。
-      const box = TWO_LINE_STALLS.has(name)
-        ? frontBoxBothLines(def.slots, N_FRONT_PER_LINE)
-        : frontBox(def.slots, N_FRONT);
+      // 明示の front_box(帯構造から定義・2026-08-21)があれば最優先。
+      // 無い stall(real002 の stall4_back 等)は従来どおりスロット由来。
+      const box = def.front_box
+        ? def.front_box
+        : (TWO_LINE_STALLS.has(name)
+          ? frontBoxBothLines(def.slots, N_FRONT_PER_LINE)
+          : frontBox(def.slots, N_FRONT));
       // 昼=平均輝度／夜=行灯の光点割合×係数(暗所でも列移動を拾う)。後段の補充エッジ検出は共通。
       frontDensity = Number(frontSignal(img, box).toFixed(2));
     } catch (e) {
