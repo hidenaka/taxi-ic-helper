@@ -27,7 +27,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(SCRIPT_DIR)
 sys.path.insert(0, SCRIPT_DIR)
 ARCHIVE = os.path.expanduser('~/taxi-image-archive')
-LANES_PATH = os.path.join(ROOT, 'data', 'noriba-lanes-new-draft.json')
+BANDS_PATH = os.path.join(ROOT, 'data', 'noriba-bands.json')
 OUT_PATH = os.path.join(ROOT, 'data', 'vehicle-count-history.jsonl')
 W, H = 1024, 512
 JST = timezone(timedelta(hours=9))
@@ -38,31 +38,27 @@ NIGHT_MAX = 55
 
 STALLS = ['stall1', 'stall2', 'stall3', 'stall4']
 
-_lanes = json.load(open(LANES_PATH))
+# 帯境界(2026-08-21 根本作り直し):
+# 旧: 号ごとの転写点に直線を当て中間線を境界 → 白線と平行にならず、同じ列の車が
+#     途中で別の号に割れた(本人指摘: 3号が少なく1・2号が多い)。
+# 新: 境界は「白線と平行」= 行灯点の並びが最も鋭く揃う消失点(VP)を通る線。
+#     位置は満杯夜のレーン・ヒストグラムの「谷」(通路)に置く = 列を絶対に割らない。
+_bands = json.load(open(BANDS_PATH))
+_VX, _VY = _bands['vp']
+_XREF = _bands['xref']
+_T_TOP = _bands['t_top']
+_B12 = _bands['t_bounds']['b12']
+_B23 = _bands['t_bounds']['b23']
+_B34 = _bands['t_bounds']['b34']
+POOL = [tuple(p) for p in _bands['pool']]
 
 
-def _fit(st):
-    pts = np.array(_lanes[st]) * [W, H]
-    A = np.stack([pts[:, 0], np.ones(len(pts))], 1)
-    a, b = np.linalg.lstsq(A, pts[:, 1], rcond=None)[0]
-    return float(a), float(b)
-
-
-_L = {st: _fit(st) for st in STALLS}
-
-
-def _yat(st, x):
-    a, b = _L[st]
-    return a * x + b
-
-
-def _boundaries(x):
-    y1, y2, y3, y4 = (_yat('stall1', x), _yat('stall2', x), _yat('stall3', x), _yat('stall4', x))
-    return y1 - (y2 - y1) / 2, (y1 + y2) / 2, (y2 + y3) / 2, (y3 + y4) / 2
-
-
-# プール外周(real001・目視で確定)。上=植栽/フェンス、左=小屋前通路、右=植栽。
-POOL = [(95, 300), (150, 148), (250, 130), (700, 128), (940, 148), (985, 300), (985, 511), (95, 511)]
+def _t_of(x, y):
+    """点(x,y)とVPを結ぶ線が x=XREF で切る y。白線と平行な束のパラメータ(上ほど小)。"""
+    if abs(x - _VX) < 1e-9:
+        return y
+    a = (y - _VY) / (x - _VX)
+    return _VY + a * (_XREF - _VX)
 
 
 def _in_pool(x, y):
@@ -77,17 +73,17 @@ def _in_pool(x, y):
 
 
 def assign(cx, cy):
-    """検出中心 → 号。プール外/1号帯より上(通路・外周駐車)は None。"""
+    """検出中心 → 号。プール外/最初のレーンより上(通路等)は None。"""
     if not _in_pool(cx, cy):
         return None
-    top, b12, b23, b34 = _boundaries(cx)
-    if cy < top:
+    t = _t_of(cx, cy)
+    if t < _T_TOP:
         return None
-    if cy < b12:
+    if t < _B12:
         return 'stall1'
-    if cy < b23:
+    if t < _B23:
         return 'stall2'
-    if cy < b34:
+    if t < _B34:
         return 'stall3'
     return 'stall4'
 
