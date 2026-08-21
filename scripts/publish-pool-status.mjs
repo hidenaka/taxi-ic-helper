@@ -35,15 +35,23 @@ function applyVehicleCounts(status) {
   const newest = Date.parse(rows[rows.length - 1].ts);
   if (!Number.isFinite(newest) || Date.now() - newest > 20 * 60 * 1000) return; // 計測が止まっていたら触らない
   // 直近rowsの中央値(モードごとの揺れを均す)。yolo優先・無ければlantern
+  const pickOf = (r) => (r.primary === 'lantern' ? (r.lantern ?? r.yolo) : (r.yolo ?? r.lantern));
   const counts = {};
   for (const k of STALL_KEYS) {
-    const vs = rows.map((r) => (r.yolo ?? r.lantern)?.[k]).filter((v) => typeof v === 'number').sort((a, b) => a - b);
+    const vs = rows.map((r) => pickOf(r)?.[k]).filter((v) => typeof v === 'number').sort((a, b) => a - b);
     if (vs.length) counts[k] = vs[Math.floor(vs.length / 2)];
   }
   // 4号後列(real002)は stall4 に合算する(アプリの4号=手前+奥・従来仕様)
   {
-    const vs = rows.map((r) => r.back?.yolo ?? r.back?.lantern).filter((v) => typeof v === 'number').sort((a, b) => a - b);
+    const vs = rows.map((r) => (r.primary === 'lantern' ? (r.back?.lantern ?? r.back?.yolo) : (r.back?.yolo ?? r.back?.lantern)))
+      .filter((v) => typeof v === 'number').sort((a, b) => a - b);
     if (vs.length) counts.stall4_back = vs[Math.floor(vs.length / 2)];
+    // 夜の real002 は対面ヘッドライトで行灯検出が多重になり異常値を出す(実測224)。
+    // 検出器を直すまで容量の1.2倍でクランプする(2026-08-21 独立検証後の暫定)。
+    if (typeof counts.stall4_back === "number") {
+      const capB = 30;
+      counts.stall4_back = Math.min(counts.stall4_back, Math.round(capB * 1.2));
+    }
   }
   if (!Object.keys(counts).length) return;
   // 容量 = 観測最大(自動で引き上げ・永続化)。fill は容量比
@@ -83,7 +91,9 @@ function applyVehicleCounts(status) {
     const dep1h = evIn(k, 0, 60);
     const depPrev = evIn(k, 60, 120);
     st.recent1hDep = dep1h;
-    st.waitMin = dep1h > 0 ? Math.round((counts[k] * 60) / dep1h) : null;
+    // 直近の列移動が少なすぎる時の待ち目安は数字が暴れる(独立検証: 450分)ので出さない
+    const wm = dep1h >= 2 ? Math.round((occK * 60) / dep1h) : null;
+    st.waitMin = (wm !== null && wm <= 240) ? wm : null;   // 4時間超の目安は非常識なので出さない
     st.trend = depPrev === 0 ? (dep1h > 0 ? 'up' : 'flat') : (dep1h / depPrev >= 1.25 ? 'up' : (dep1h / depPrev < 0.75 ? 'down' : 'flat'));
     status.stalls[k] = st;
   }
@@ -99,7 +109,9 @@ function applyVehicleCounts(status) {
     arrow: depPrevAll === 0 ? (dep1hAll > 0 ? 'up' : 'flat') : (dep1hAll / depPrevAll >= 1.25 ? 'up' : (dep1hAll / depPrevAll < 0.75 ? 'down' : 'flat')),
     sameConditionCompare: null,
   };
-  status.countSource = rows[rows.length - 1].mode;   // yolo / lantern / both
+  status.countSource = rows[rows.length - 1].primary || rows[rows.length - 1].mode;
+  // 旧カメラ由来の凍結値(real02 8/8 full 等)が残る legacy フィールドは配信しない(独立検証P3)
+  delete status.cameras;
 }
 
 

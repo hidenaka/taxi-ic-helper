@@ -32,9 +32,11 @@ OUT_PATH = os.path.join(ROOT, 'data', 'vehicle-count-history.jsonl')
 W, H = 1024, 512
 JST = timezone(timedelta(hours=9))
 
-# 昼夜の切り分け(シーン平均輝度)。中間帯は両方式を回して突き合わせ材料にする
-DAY_MIN = 80
-NIGHT_MAX = 55
+# 昼夜の切り分けは「空(画面上端)の明るさ」で行う。全体輝度は街灯+ゲイン補正で夜も
+# 100を超え役に立たない(実測: 夜の全体輝度108-121)。空なら昼227-253/夜96-118と明確に分かれる。
+# 薄暮(140-210)は両方式を回して突き合わせ材料にする。
+SKY_DAY = 210     # これ以上=昼(YOLOのみ・主系yolo)
+SKY_NIGHT = 140   # これ以下=夜(両方記録・主系lantern。夜YOLOは6割以上取りこぼす)
 
 STALLS = ['stall1', 'stall2', 'stall3', 'stall4']
 
@@ -282,14 +284,20 @@ def main():
     if img.size != (W, H):
         print(f'[vehicle-count] unexpected size {img.size}', file=sys.stderr)
         return 0
-    brightness = float(np.asarray(img.convert('L'), dtype=np.float32).mean())
+    gray = np.asarray(img.convert('L'), dtype=np.float32)
+    brightness = float(gray.mean())
+    sky = float(np.median(gray[0:28, :]))       # 空の明るさ(上端28px中央値)
     row = {
         'ts': datetime.now(JST).isoformat(timespec='seconds'),
         'frame': os.path.basename(os.path.dirname(frame)) + '/' + os.path.basename(frame),
         'brightness': round(brightness, 1),
+        'sky': round(sky, 1),
     }
-    run_yolo = brightness >= NIGHT_MAX          # 夜すぎなければ YOLO は回す
-    run_lantern = brightness <= DAY_MIN         # 昼すぎなければ行灯も回す(薄暮は両方)
+    is_day = sky >= SKY_DAY
+    is_night = sky <= SKY_NIGHT
+    run_yolo = True                              # 記録としては常に回す(夜は主系にしない)
+    run_lantern = not is_day                     # 薄暮・夜は行灯も回す
+    row['primary'] = 'yolo' if not is_night else 'lantern'
     if run_yolo:
         try:
             import onnxruntime as ort
@@ -315,10 +323,11 @@ def main():
             if img2.size == (W, H):
                 b2 = float(np.asarray(img2.convert('L'), dtype=np.float32).mean())
                 back = {}
-                if b2 >= NIGHT_MAX and 'yolo' in row:
+                # 昼夜判定は real001 と同じ(同じ現場の照明)
+                if 'yolo' in row and _session_cache[0] is not None:
                     back['yolo'] = yolo_count(img2, _session_cache[0], _session_cache[1],
                                               assign_fn=assign_back, stall_keys=['stall4_back'])
-                if b2 <= DAY_MIN:
+                if run_lantern:
                     back['lantern'] = lantern_count(img2, assign_fn=assign_back, stall_keys=['stall4_back'])
                 if back:
                     row['back'] = {m: v.get('stall4_back') for m, v in back.items()}
@@ -326,9 +335,11 @@ def main():
     except Exception as e:
         print(f'[vehicle-count] real002 failed: {e}', file=sys.stderr)
     row['mode'] = 'both' if ('yolo' in row and 'lantern' in row) else ('yolo' if 'yolo' in row else 'lantern')
+    # 表示: 主系のカウント
+
     with open(OUT_PATH, 'a') as f:
         f.write(json.dumps(row, ensure_ascii=False) + '\n')
-    pick = row.get('yolo') or row.get('lantern')
+    pick = row.get(row.get('primary') or 'yolo') or row.get('yolo') or row.get('lantern')
     print('[vehicle-count]', row['mode'], f"b={row['brightness']}",
           ' '.join(f"{k[-1]}号={pick[k]}" for k in STALLS))
     return 0
