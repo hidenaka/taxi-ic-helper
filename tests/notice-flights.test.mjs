@@ -211,6 +211,26 @@ test('コーパス全量スモーク: 84種すべて例外なくパースでき�
   assert.ok(signals >= 78, `何かしら読めた掲示 ${signals}/84 >= 78`);
 });
 
+test('最終便情報型(2026-08-21): 便名行のインライン号と時刻+人数行を読む', () => {
+  const row = corpus.find((c) => c.firstSeen === '2026-08-21T18:52:44+09:00');
+  assert.ok(row, 'フィクスチャに2026-08-21掲示がある');
+  const p = parseFlightNotice(row.text);
+  const byName = Object.fromEntries(p.flights.map((f) => [f.name, f]));
+  assert.equal(byName['SKY730札幌'].stall, 2);
+  assert.equal(byName['SKY730札幌'].eta.text, '0:48');
+  assert.equal(byName['SKY730札幌'].pax, 128);
+  assert.equal(byName['ANA78札幌'].stall, 3);
+  assert.equal(byName['ANA78札幌'].eta.text, '1:40');
+  assert.equal(byName['ANA78札幌'].pax, 380);
+  assert.equal(byName['ANA38札幌'].stall, 3);
+  assert.equal(byName['ANA38札幌'].eta.text, '0:40');
+  assert.equal(byName['ANA38札幌'].pax, 264);
+  // 客列状況(1〜4号 各300/300/500/300名)も拾えている
+  const sum = summarizeFlightNotice(p);
+  assert.equal(sum.queue[3], 500);
+  assert.equal(sum.queue[1], 300);
+});
+
 test('normalizeNoticeText: 全角と桁区切りの正規化', () => {
   assert.equal(normalizeNoticeText('２３：４５　約１,４００名'), '23:45 約1400名');
 });

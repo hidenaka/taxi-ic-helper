@@ -9,6 +9,7 @@
 //   ・合算グループ   遅延便2便ともに午前0時40分頃到着予定。予約人数は2便合わせて約500人
 //   ・客列人数       第2乗り場・・・約1,400名 / ・第2乗り場→約70人 / 3号乗り場50人の客列
 //   ・消し込み       到着済み / 全便到着済 / まもなく終了
+//   ・最終便情報型   SKY730札幌 第2乗り場 → 22:40→0:48到着予定 128人 (号が便名行に併記・2026-08-21初出)
 // 読めない行は黙って捨てる(誤抽出より取りこぼしを選ぶ)。
 
 const AIRLINE_RE = /(ANA|JAL|ADO|SKY|SFJ|SNA|BC\d|SF|全日空|日本航空|スカイマーク|ソラシド|エアドゥ|エア・ドゥ|スターフライヤー|ピーチ|ジェットスター)/;
@@ -123,6 +124,16 @@ export function parseStandPax(line) {
   return { stalls, pax };
 }
 
+// 便行内に号が併記される形式(「SKY730札幌 第2乗り場」最終便情報型・2026-08-21初出)
+function parseInlineStall(t) {
+  const m = t.match(/第\s*([1-4])\s*乗り場(?:側)?|([1-4])\s*号\s*乗り場(?:側)?/);
+  return m ? parseInt(m[1] || m[2], 10) : null;
+}
+
+function stripInlineStall(t) {
+  return t.replace(/第\s*[1-4]\s*乗り場(?:側)?|[1-4]\s*号\s*乗り場(?:側)?/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 const ARRIVED_RE = /到着済|着済/;
 
 // 到着済みか。「済」明記のほか、「…到着。」「…到着」で終わり予定でない文も済み扱い
@@ -145,9 +156,10 @@ function parseFlightLine(line) {
   let name = t;
   const cutAt = t.search(/午前|午後|\d{1,2}[:時]\d{0,2}|約\s*\d|降機客数|搭乗人数|予約人数|人数|時刻未定|未定/);
   if (cutAt > 0) name = t.slice(0, cutAt);
+  name = stripInlineStall(name);
   name = name.replace(/^最終便/, '').replace(/は$/, '').replace(/[ \t・、,]+$/, '').replace(/\s+/g, ' ').trim();
   if (!name || !AIRLINE_RE.test(name)) return null;
-  return { name, eta: eta ?? null, pax, arrived: isArrivedText(t) };
+  return { name, eta: eta ?? null, pax, arrived: isArrivedText(t), inlineStall: parseInlineStall(t) };
 }
 
 // 便名だけの行(複数行ブロックの先頭) → 名前|null。"ANA深圳便" / "全日空 深圳便" / "・SKY522沖縄"
@@ -157,7 +169,7 @@ function parseFlightNameOnly(line) {
   if (parseEta(t) || parsePax(t) !== null) return null; // 単行型は parseFlightLine の領分
   if (t.length > 25) return null; // 長文は注記
   if (/に関しては|不足|状況|規制/.test(t)) return null;
-  return t.replace(/\s+/g, ' ');
+  return stripInlineStall(t).replace(/\s+/g, ' ');
 }
 
 // 属性行(複数行ブロックの2行目以降)。到着予定時刻:/降機客数:/事後請求 等。
@@ -177,10 +189,11 @@ function parseAttrLine(line) {
     const pax = parsePax(t);
     if (pax !== null) return { pax };
   }
-  // "午前0時48分到着予定" / "23時50分到着予定" のような時刻単独行
+  // "午前0時48分到着予定" の時刻単独行、"22:40→0:48到着予定 128人" の時刻+人数行(最終便情報型)
   const eta = parseEta(t);
-  if (eta && /到着|予定|着/.test(t) && !AIRLINE_RE.test(t) && parsePax(t) === null) {
-    return { eta, arrived: isArrivedText(t) };
+  if (eta && /到着|予定|着/.test(t) && !AIRLINE_RE.test(t)) {
+    const pax = parsePax(t);
+    return pax !== null ? { eta, pax, arrived: isArrivedText(t) } : { eta, arrived: isArrivedText(t) };
   }
   return null;
 }
@@ -328,7 +341,8 @@ export function parseFlightNotice(rawText) {
     const fl = parseFlightLine(line);
     if (fl) {
       flushBlock();
-      fl.stall = ctx.stall;
+      fl.stall = fl.inlineStall ?? ctx.stall;
+      delete fl.inlineStall;
       fl.terminal = ctx.terminal;
       out.flights.push(fl);
       lastGroup = null;
@@ -339,7 +353,7 @@ export function parseFlightNotice(rawText) {
     const name = parseFlightNameOnly(line);
     if (name) {
       flushBlock();
-      block = { name, eta: null, pax: null, arrived: false, stall: ctx.stall, terminal: ctx.terminal };
+      block = { name, eta: null, pax: null, arrived: false, stall: parseInlineStall(line) ?? ctx.stall, terminal: ctx.terminal };
       lastGroup = null;
       continue;
     }
