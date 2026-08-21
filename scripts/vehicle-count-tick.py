@@ -72,40 +72,47 @@ def _in_pool(x, y):
     return c
 
 
+# 4号後列(real002)の領域: 現地ルール(2026-08-21 本人)
+# 「真ん中下のカラーコーンを起点に8台までが4号。右隣は3号」
+# コーンは列方向レーン峰 u=586 の真上=レーン先頭標識。領域=そのレーン(u範囲)×奥8台(t範囲)。
+# 右隣(3号)は real001 で計上済みなので数えない。奥の密集列(t小)は反対側から見えている
+# 他号なので数えない。
 _b2 = _bands.get('real002')
 if _b2:
-    _VX2, _VY2 = _b2['vp']
+    _VXr2, _VYr2 = _b2['vp_row']
     _XREF2 = _b2['xref']
-    _POOL2 = [tuple(q) for q in _b2['pool']]
+    _VXc2, _VYc2 = _b2['vp_col']
+    _YREF2 = _b2['yref']
+    _U2LO, _U2HI = _b2['u_range']
     _T2LO, _T2HI = _b2['t_range']
 
 
 def _t2_of(x, y):
-    if abs(x - _VX2) < 1e-9:
+    if abs(x - _VXr2) < 1e-9:
         return y
-    a = (y - _VY2) / (x - _VX2)
-    return _VY2 + a * (_XREF2 - _VX2)
+    a = (y - _VYr2) / (x - _VXr2)
+    return _VYr2 + a * (_XREF2 - _VXr2)
 
 
-def _in_pool2(x, y):
-    c = False
-    n = len(_POOL2)
-    for i in range(n):
-        x1, y1 = _POOL2[i]
-        x2, y2 = _POOL2[(i + 1) % n]
-        if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
-            c = not c
-    return c
+def _u2_of(x, y):
+    if abs(y - _VYc2) < 1e-9:
+        return x
+    a = (x - _VXc2) / (y - _VYc2)
+    return _VXc2 + a * (_YREF2 - _VYc2)
 
 
 def assign_back(cx, cy):
-    """real002: 4号後列の待機ブロック内なら stall4_back。"""
-    if not _b2 or not _in_pool2(cx, cy):
+    """real002: コーンのレーン×奥8台の中だけ stall4_back。"""
+    if not _b2:
+        return None
+    u = _u2_of(cx, cy)
+    if u < _U2LO or u > _U2HI:
         return None
     t = _t2_of(cx, cy)
     if t < _T2LO or t > _T2HI:
         return None
     return 'stall4_back'
+
 
 
 def assign(cx, cy):

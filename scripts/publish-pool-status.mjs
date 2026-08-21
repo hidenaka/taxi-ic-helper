@@ -50,8 +50,9 @@ function applyVehicleCounts(status) {
   let cap = {};
   try { cap = JSON.parse(readFileSync(CAPACITY_PATH, 'utf8')); } catch { cap = {}; }
   let capDirty = false;
+  const fixedCaps = new Set(cap._fixed || []);   // 現地ルールで固定の容量(例: 4号後列=8台まで)
   for (const k of [...STALL_KEYS, 'stall4_back']) {
-    if (typeof counts[k] !== 'number') continue;
+    if (typeof counts[k] !== 'number' || fixedCaps.has(k)) continue;
     if (!(cap[k] >= counts[k])) { cap[k] = counts[k]; capDirty = true; }
   }
   if (capDirty) writeFileSync(CAPACITY_PATH, JSON.stringify(cap, null, 1) + '\n', 'utf8');
