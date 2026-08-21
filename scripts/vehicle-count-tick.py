@@ -199,7 +199,22 @@ def yolo_count(img, session, dv, assign_fn=assign, stall_keys=None):
 
 # ---- 夜: 行灯光点 -----------------------------------------------------------
 
-def lantern_count(img, assign_fn=assign, stall_keys=None):
+_static_mask_cache = [None]
+
+
+def _static_mask():
+    # real002用: 夜アーカイブから作った固定光源マスク(build-static-lights.py)。無ければNone
+    if _static_mask_cache[0] is None:
+        path = os.path.join(os.path.dirname(__file__), '..', 'data', 'real002-static-lights.npz')
+        try:
+            _static_mask_cache[0] = np.load(path)['mask']
+        except Exception:
+            _static_mask_cache[0] = False
+    m = _static_mask_cache[0]
+    return None if m is False else m
+
+
+def lantern_count(img, assign_fn=assign, stall_keys=None, back_mode=False):
     a = np.asarray(img.convert('L'), dtype=np.float32)
     ii = np.cumsum(np.cumsum(np.pad(a, ((1, 0), (1, 0))), axis=0), axis=1)
     r = 12
@@ -232,13 +247,26 @@ def lantern_count(img, assign_fn=assign, stall_keys=None):
     for i in range(1, cur + 1):
         ys, xs = np.where(lbl == i)
         size = len(ys)
-        if size < 3 or size > 300:
+        if size < 3 or size > (400 if back_mode else 300):
             continue
         cy, cx = float(ys.mean()), float(xs.mean())
-        if max(ys.max() - ys.min() + 1, xs.max() - xs.min() + 1) > 30:
+        if max(ys.max() - ys.min() + 1, xs.max() - xs.min() + 1) > (45 if back_mode else 30):
             continue
         spots.append((cx, cy, size))
+    if back_mode:
+        # ①固定光源(両晩とも同座標に出る背景灯・常設反射)を除去
+        sm = _static_mask()
+        if sm is not None:
+            spots = [sp for sp in spots if not sm[int(sp[1]), int(sp[0])]]
+        # ②真下反射の抑制: 近いxで自分の上に光点があれば路面反射とみなす
+        spots.sort(key=lambda sp: sp[1])
+        kept = []
+        for sp in spots:
+            if not any(abs(k[0] - sp[0]) < 12 and 8 < (sp[1] - k[1]) < 90 for k in kept):
+                kept.append(sp)
+        spots = kept
     # 同じ車の複数光点(行灯+ブレーキ灯+反射)を車1台ぶんの半径で統合
+    # back_mode: 対面ヘッドライト対+行灯を1台に潰すため横長楕円で統合し、微小単独光は捨てる
     merged = []
     used = [False] * len(spots)
     order = sorted(range(len(spots)), key=lambda i: -spots[i][2])
@@ -246,14 +274,20 @@ def lantern_count(img, assign_fn=assign, stall_keys=None):
         if used[i]:
             continue
         cx, cy, sz = spots[i]
-        rad = max(9, 0.11 * cy)
+        if back_mode:
+            rx = max(14, 0.16 * cy + 6)
+            ry = max(8, 0.05 * cy + 4)
+        else:
+            rx = ry = max(9, 0.11 * cy)
         for j in order:
             if used[j] or j == i:
                 continue
             jx, jy, _ = spots[j]
-            if (jx - cx) ** 2 + (jy - cy) ** 2 <= rad * rad:
+            if ((jx - cx) / rx) ** 2 + ((jy - cy) / ry) ** 2 <= 1:
                 used[j] = True
         used[i] = True
+        if back_mode and sz < 6:
+            continue
         merged.append((cx, cy))
     keys = stall_keys or STALLS
     counts = {k: 0 for k in keys}
@@ -328,7 +362,7 @@ def main():
                     back['yolo'] = yolo_count(img2, _session_cache[0], _session_cache[1],
                                               assign_fn=assign_back, stall_keys=['stall4_back'])
                 if run_lantern:
-                    back['lantern'] = lantern_count(img2, assign_fn=assign_back, stall_keys=['stall4_back'])
+                    back['lantern'] = lantern_count(img2, assign_fn=assign_back, stall_keys=['stall4_back'], back_mode=True)
                 if back:
                     row['back'] = {m: v.get('stall4_back') for m, v in back.items()}
                     row['back']['brightness'] = round(b2, 1)

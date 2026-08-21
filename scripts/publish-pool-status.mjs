@@ -46,11 +46,10 @@ function applyVehicleCounts(status) {
     const vs = rows.map((r) => (r.primary === 'lantern' ? (r.back?.lantern ?? r.back?.yolo) : (r.back?.yolo ?? r.back?.lantern)))
       .filter((v) => typeof v === 'number').sort((a, b) => a - b);
     if (vs.length) counts.stall4_back = vs[Math.floor(vs.length / 2)];
-    // 夜の real002 は対面ヘッドライトで行灯検出が多重になり異常値を出す(実測224)。
-    // 検出器を直すまで容量の1.2倍でクランプする(2026-08-21 独立検証後の暫定)。
+    // 検出器は本修正済(静的光マスク+反射抑制+横長統合)。満車実測45のため、
+    // 万一の異常値だけ落とす広い安全弁として60でクランプする(2026-08-21)。
     if (typeof counts.stall4_back === "number") {
-      const capB = 30;
-      counts.stall4_back = Math.min(counts.stall4_back, Math.round(capB * 1.2));
+      counts.stall4_back = Math.min(counts.stall4_back, 60);
     }
   }
   if (!Object.keys(counts).length) return;
