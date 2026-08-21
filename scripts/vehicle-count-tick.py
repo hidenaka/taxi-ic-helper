@@ -199,22 +199,22 @@ def yolo_count(img, session, dv, assign_fn=assign, stall_keys=None):
 
 # ---- 夜: 行灯光点 -----------------------------------------------------------
 
-_static_mask_cache = [None]
+_static_mask_cache = {}
 
 
-def _static_mask():
-    # real002用: 夜アーカイブから作った固定光源マスク(build-static-lights.py)。無ければNone
-    if _static_mask_cache[0] is None:
-        path = os.path.join(os.path.dirname(__file__), '..', 'data', 'real002-static-lights.npz')
+def _static_mask(cam):
+    # 夜アーカイブから作った固定光源マスク(build-static-lights.py)。無ければNone
+    if cam not in _static_mask_cache:
+        path = os.path.join(os.path.dirname(__file__), '..', 'data', f'{cam}-static-lights.npz')
         try:
-            _static_mask_cache[0] = np.load(path)['mask']
+            _static_mask_cache[cam] = np.load(path)['mask']
         except Exception:
-            _static_mask_cache[0] = False
-    m = _static_mask_cache[0]
+            _static_mask_cache[cam] = False
+    m = _static_mask_cache[cam]
     return None if m is False else m
 
 
-def lantern_count(img, assign_fn=assign, stall_keys=None, back_mode=False):
+def lantern_count(img, assign_fn=assign, stall_keys=None, back_mode=False, cam='real001'):
     a = np.asarray(img.convert('L'), dtype=np.float32)
     ii = np.cumsum(np.cumsum(np.pad(a, ((1, 0), (1, 0))), axis=0), axis=1)
     r = 12
@@ -253,12 +253,13 @@ def lantern_count(img, assign_fn=assign, stall_keys=None, back_mode=False):
         if max(ys.max() - ys.min() + 1, xs.max() - xs.min() + 1) > (45 if back_mode else 30):
             continue
         spots.append((cx, cy, size))
+    # 固定光源(毎晩同座標に出る街灯・背景灯・常設反射)を除去。
+    # 空プールの深夜に~90台の幽霊検出を出していた real001 にも適用(2026-08-22)
+    sm = _static_mask(cam)
+    if sm is not None:
+        spots = [sp for sp in spots if not sm[int(sp[1]), int(sp[0])]]
     if back_mode:
-        # ①固定光源(両晩とも同座標に出る背景灯・常設反射)を除去
-        sm = _static_mask()
-        if sm is not None:
-            spots = [sp for sp in spots if not sm[int(sp[1]), int(sp[0])]]
-        # ②真下反射の抑制: 近いxで自分の上に光点があれば路面反射とみなす
+        # 真下反射の抑制: 近いxで自分の上に光点があれば路面反射とみなす
         spots.sort(key=lambda sp: sp[1])
         kept = []
         for sp in spots:
@@ -362,7 +363,7 @@ def main():
                     back['yolo'] = yolo_count(img2, _session_cache[0], _session_cache[1],
                                               assign_fn=assign_back, stall_keys=['stall4_back'])
                 if run_lantern:
-                    back['lantern'] = lantern_count(img2, assign_fn=assign_back, stall_keys=['stall4_back'], back_mode=True)
+                    back['lantern'] = lantern_count(img2, assign_fn=assign_back, stall_keys=['stall4_back'], back_mode=True, cam='real002')
                 if back:
                     row['back'] = {m: v.get('stall4_back') for m, v in back.items()}
                     row['back']['brightness'] = round(b2, 1)

@@ -41,6 +41,21 @@ try {
         seen.add(k);
         added += 1;
       }
+      // 掲示テキストはあるのに号付き実績が0件 = 新書式の疑い。アラートに残す
+      // (書式は指導員の手打ちで突然変わる。2026-08-21「最終便情報」型を2日間取りこぼした教訓)
+      if (rows.length === 0) {
+        const ALERTS = join(ROOT, 'data/notice-parse-alerts.jsonl');
+        const prev = readJsonl(ALERTS);
+        const day = String(notice.updatedAt ?? '').slice(0, 10);
+        if (!prev.some((a) => a.date === day)) {
+          appendFileSync(ALERTS, JSON.stringify({
+            date: day, ts: notice.updatedAt,
+            reason: 'hasFlightNotice=true だが号付き実績を1件も抽出できない(新書式の疑い)',
+            head: String(notice.flightNoticeText).slice(0, 120),
+          }) + '\n');
+          console.error('[lane-patterns] 警告: 掲示を号付きで読めていない(新書式?) data/notice-parse-alerts.jsonl 参照');
+        }
+      }
     }
   }
 } catch (e) {

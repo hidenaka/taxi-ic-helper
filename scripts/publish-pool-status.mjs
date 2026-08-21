@@ -56,6 +56,31 @@ function applyVehicleCounts(status) {
   // 容量 = 観測最大(自動で引き上げ・永続化)。fill は容量比
   let cap = {};
   try { cap = JSON.parse(readFileSync(CAPACITY_PATH, 'utf8')); } catch { cap = {}; }
+  // 夜(行灯主系)の real001 は固定光マスク後も路面反射の床値が残り、空でも13-25を数える。
+  // 空→0 / 満車→容量 の2点線形校正で吸収する(stall4_back は検出器側で対処済のため対象外)。
+  if (rows[rows.length - 1].primary === 'lantern') {
+    let calib = null;
+    try { calib = JSON.parse(readFileSync(new URL('../data/night-lantern-calib.json', import.meta.url), 'utf8')); } catch { calib = null; }
+    if (calib) {
+      for (const k of STALL_KEYS) {
+        const c = calib[k];
+        const v = counts[k];
+        if (!c || typeof v !== 'number' || !(c.full > c.floor) || !cap[k]) continue;
+        const est = Math.round(cap[k] * (v - c.floor) / (c.full - c.floor));
+        counts[k] = Math.max(0, Math.min(est, cap[k]));  // capちょうどで止める(1.05だと自動吊り上げが毎晩複利で漂流)
+      }
+      // 1〜3号は3-8時JSTに乗り場停止(乗務員の運用知識・2026-08-08本人確認)。
+      // この帯は行灯の床値が路面の乾きで揺れる(空でも25→45)ため、
+      // 空を正しく0-5と出せるYOLO中央値を採る(4号は深夜も稼働のため対象外)。
+      const jstHour = (new Date(Date.now() + 9 * 3600 * 1000)).getUTCHours();
+      if (jstHour >= 3 && jstHour < 8) {
+        for (const k of ['stall1', 'stall2', 'stall3']) {
+          const ys = rows.map((r) => r.yolo?.[k]).filter((x) => typeof x === 'number').sort((a, b) => a - b);
+          if (ys.length) counts[k] = ys[Math.floor(ys.length / 2)];
+        }
+      }
+    }
+  }
   let capDirty = false;
   const fixedCaps = new Set(cap._fixed || []);   // 現地ルールで固定の容量(例: 4号後列=8台まで)
   for (const k of [...STALL_KEYS, 'stall4_back']) {
