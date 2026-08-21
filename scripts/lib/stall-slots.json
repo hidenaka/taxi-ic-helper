@@ -8,7 +8,7 @@
   "night_brightness_threshold": 50,
   "night_lantern_ratio": 0.005,
   "note": "2026-08-20 のカメラ総入れ替えに伴い、旧設定をホモグラフィで新画角へ移したドラフト。 旧: スロット中心は0-1正規化座標。夜時間帯 (画像 avg brightness < night_brightness_threshold) は行灯検出に切替。",
-  "front_box_note": "front_box があれば列移動の先頭計測はそれを使う(2026-08-21)。帯構造(noriba-bands.json)の t 範囲×頭側 x。頭の向きは夕方ドレインの実測(1・2号=右端/3・4号=左端)。"
+  "front_box_note": "front_box があれば列移動の先頭計測はそれを使う(2026-08-21)。帯構造(noriba-bands.json)の t 範囲×頭側 x。頭の向きは夕方ドレインの実測(1・2号=右端/3・4号=左端)。 stall4_back(real002)も同方式: 奥列フィット線沿いの走査で補充対最多の x=360 (17対・近傍316:15/272:14で安定)。"
  },
  "schema_version": 1,
  "stalls": {
@@ -414,7 +414,13 @@
      "cy": 0.5105,
      "r": 0.022
     }
-   ]
+   ],
+   "front_box": {
+    "x0": 0.3516,
+    "x1": 0.416,
+    "y0": 0.2051,
+    "y1": 0.3926
+   }
   }
  }
 }
