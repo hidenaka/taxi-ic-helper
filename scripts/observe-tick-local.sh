@@ -65,6 +65,8 @@ fi
 if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/texture-occupancy-tick.py || true; fi
 # 号別(1〜4)全レーン埋まり率 tick (昼=学習モデル/夜=行灯)。publish が直近 median を pool-status に載せる。
 if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/noriba-fill-tick.py || true; fi
+# 号別の実台数カウント(新カメラ・昼=タイルYOLO/夜=行灯/薄暮=両方)。2026-08-21〜
+if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/vehicle-count-tick.py || true; fi
 
 # 現況バンドル (pool-status.json + サムネ) を生成 (fail-safe)
 node scripts/publish-pool-status.mjs || true
