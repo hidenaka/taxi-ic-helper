@@ -189,11 +189,13 @@ function parseAttrLine(line) {
     const pax = parsePax(t);
     if (pax !== null) return { pax };
   }
-  // "午前0時48分到着予定" の時刻単独行、"22:40→0:48到着予定 128人" の時刻+人数行(最終便情報型)
+  // "午前0時48分到着予定" の時刻単独行、"22:40→0:48到着予定 128人" の時刻+人数行(最終便情報型)、
+  // "0:25降機客数116人" のようにキーワード無しで時刻+人数が連結した行(2026-08-10形式)
   const eta = parseEta(t);
-  if (eta && /到着|予定|着/.test(t) && !AIRLINE_RE.test(t)) {
+  if (eta && !AIRLINE_RE.test(t)) {
     const pax = parsePax(t);
-    return pax !== null ? { eta, pax, arrived: isArrivedText(t) } : { eta, arrived: isArrivedText(t) };
+    if (pax !== null) return { eta, pax, arrived: isArrivedText(t) };
+    if (/到着|予定|着/.test(t)) return { eta, arrived: isArrivedText(t) };
   }
   return null;
 }

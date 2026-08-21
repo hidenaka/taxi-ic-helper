@@ -35,7 +35,15 @@ for (const line of readFileSync(HIST, 'utf8').trim().split('\n')) {
   const parsed = parseFlightNotice(r.flightNoticeText);
   rows.push(...extractLaneActuals(r, parsed));
 }
-const actuals = dedupeActuals(rows);
+// 手動復元行(便名なし掲示を到着便データと突き合わせて人手で確定したもの等)は
+// パーサでは再現できないので、既存ファイルから引き継ぐ(後勝ち=手動行が優先)
+let preserved = [];
+if (existsSync(OUT)) {
+  preserved = readFileSync(OUT, 'utf8').trim().split('\n')
+    .map((l) => { try { return JSON.parse(l); } catch { return null; } })
+    .filter((r) => r && r.source && r.source !== 'notice');
+}
+const actuals = dedupeActuals([...rows, ...preserved]);
 console.log(`[backfill-lane] 掲示行 ${noticeRows} → 実績 ${actuals.length}件 (便番号+号が揃ったもの)`);
 if (actuals.length) {
   console.log(`  期間: ${actuals[0].date} 〜 ${actuals[actuals.length - 1].date}`);
