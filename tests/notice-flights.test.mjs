@@ -231,6 +231,44 @@ test('最終便情報型(2026-08-21): 便名行のインライン号と時刻+�
   assert.equal(sum.queue[1], 300);
 });
 
+test('parseEta: AM/PM 表記(2026-08-25初出) — 深夜便を昼便として読まない', () => {
+  assert.equal(parseEta('PM11:53到着').text, '23:53');
+  assert.equal(parseEta('AM0:25頃到着予定').text, '0:25');
+  assert.equal(parseEta('AM12:10到着').text, '0:10');   // 午前12時台は0時
+  assert.equal(parseEta('PM12:30到着').text, '12:30');  // 午後12時台はそのまま
+  // 従来の日本語表記は変わらない
+  assert.equal(parseEta('午後11時30分頃到着予定').text, '23:30');
+  assert.equal(parseEta('23:51到着予定').text, '23:51');
+});
+
+test('号スコープの人数行を節見出しとして扱う(2026-08-23形式)・出発便は拾わない', () => {
+  const t = [
+    '・1号乗り場　降機客　計700人', 'JAL札幌　0:50出発予定', 'JAL沖縄　1:00到着予定',
+    '・3号乗り場　降機客　計650人', 'ANA沖縄　0:30到着予定', 'ADO札幌　1:00到着予定',
+  ].join('\n\n');
+  const p = parseFlightNotice(t);
+  const got = p.flights.map((f) => [f.name, f.stall, f.eta?.text]);
+  assert.deepEqual(got, [
+    ['JAL沖縄', 1, '1:00'],
+    ['ANA沖縄', 3, '0:30'],
+    ['ADO札幌', 3, '1:00'],
+  ], '出発便は除外し、直前の号ヘッダを引き継ぐ');
+});
+
+test('最終便情報(号インライン+AM/PM): 号・時刻・人数が揃う(2026-08-25形式)', () => {
+  const t = ['第2ターミナル',
+    '第3乗り場　エアドゥ38札幌便 AM0:25頃到着予定　搭乗人数240人',
+    '第4乗り場　エアドゥ44札幌便 PM11:53到着　搭乗人数140人'].join('\n\n');
+  const p = parseFlightNotice(t);
+  const byStall = Object.fromEntries(p.flights.map((f) => [f.stall, f]));
+  assert.equal(byStall[3].eta.text, '0:25');
+  assert.equal(byStall[3].pax, 240);
+  assert.equal(byStall[4].eta.text, '23:53', 'PM11:53 を 11:53 と読まない');
+  assert.equal(byStall[4].pax, 140);
+  // 便名に AM/PM を残さない
+  assert.ok(!/\b(AM|PM)\b/i.test(byStall[3].name), byStall[3].name);
+});
+
 test('normalizeNoticeText: 全角と桁区切りの正規化', () => {
   assert.equal(normalizeNoticeText('２３：４５　約１,４００名'), '23:45 約1400名');
 });

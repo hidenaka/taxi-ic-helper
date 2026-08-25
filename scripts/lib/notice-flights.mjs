@@ -36,17 +36,26 @@ export function parseEta(s) {
   // "22:55→23:47" / "22:40→翌1:35" は右側(変更後)を採る
   const arrow = t.split(/→/);
   const target = arrow.length > 1 ? arrow[arrow.length - 1] : t;
-  const ampm = /午後/.test(target) ? 12 : 0;
+  // 午後/PM は 12時間足す(12時台はそのまま)。午前/AM の 12時台は 0時。
+  // 掲示は「PM11:53到着」のような英字表記も混ざる(2026-08-25 初出)。これを読めないと
+  // 23:53 の深夜便を 11:53 の昼便として学習してしまう。
+  const isPM = /午後|(^|[^A-Za-z])PM/i.test(target);
+  const isAM = /午前|(^|[^A-Za-z])AM/i.test(target);
+  const applyAmPm = (h) => {
+    if (isPM) return h < 12 ? h + 12 : h;
+    if (isAM) return h === 12 ? 0 : h;
+    return h;
+  };
   let m = target.match(/(\d{1,2}):(\d{2})/);
   if (!m) m = target.match(/(\d{1,2})\s*時\s*(\d{1,2})\s*分/);
   let hh; let mm;
   if (m) {
-    hh = parseInt(m[1], 10) + ampm;
+    hh = applyAmPm(parseInt(m[1], 10));
     mm = parseInt(m[2], 10);
   } else {
     const h = target.match(/(\d{1,2})\s*時(?![\d間])/);
     if (!h) return null;
-    hh = parseInt(h[1], 10) + ampm;
+    hh = applyAmPm(parseInt(h[1], 10));
     mm = 0;
   }
   if (hh >= 30 || mm >= 60) return null;
@@ -149,6 +158,7 @@ function parseFlightLine(line) {
   const t = line.trim();
   if (!AIRLINE_RE.test(t)) return null;
   if (/に関しては|連絡はまだ|詳細は不明/.test(t)) return null; // 注記文は捨てる
+  if (/出発/.test(t) && !/到着/.test(t)) return null;          // 出発便は到着号の実績ではない
   const eta = parseEta(t);
   const pax = parsePax(t);
   if (!eta && pax === null) return null;
@@ -157,6 +167,7 @@ function parseFlightLine(line) {
   const cutAt = t.search(/午前|午後|\d{1,2}[:時]\d{0,2}|約\s*\d|降機客数|搭乗人数|予約人数|人数|時刻未定|未定/);
   if (cutAt > 0) name = t.slice(0, cutAt);
   name = stripInlineStall(name);
+  name = name.replace(/[ \t]*(AM|PM)[ \t]*$/i, '');
   name = name.replace(/^最終便/, '').replace(/は$/, '').replace(/[ \t・、,]+$/, '').replace(/\s+/g, ' ').trim();
   if (!name || !AIRLINE_RE.test(name)) return null;
   return { name, eta: eta ?? null, pax, arrived: isArrivedText(t), inlineStall: parseInlineStall(t) };
@@ -335,9 +346,15 @@ export function parseFlightNotice(rawText) {
       continue;
     }
 
-    // 客列人数
+    // 客列人数。単一の号に紐づく人数行(「・1号乗り場 降機客 計700人」)は
+    // 実質その号の節見出しなので、後続の便行に号を引き継ぐ(2026-08-23 形式)。
     const sp = parseStandPax(line);
-    if (sp) { flushBlock(); out.standPax.push(sp); continue; }
+    if (sp) {
+      flushBlock();
+      out.standPax.push(sp);
+      if (sp.stalls.length === 1) ctx = { stall: sp.stalls[0], terminal: ctx.terminal };
+      continue;
+    }
 
     // 便(単行)
     const fl = parseFlightLine(line);
