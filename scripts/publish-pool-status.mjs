@@ -5,7 +5,7 @@ import { readFileSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { Jimp } from 'jimp';
-import { buildPoolStatus } from './lib/pool-status.mjs';
+import { buildPoolStatus, poolFreshness } from './lib/pool-status.mjs';
 
 const OCC_PATH = './data/slot-occupancy-history.jsonl';
 const SLOT_TEX_PATH = './data/slot-texture-occupancy.jsonl';
@@ -27,6 +27,13 @@ function readTail(pathStr, maxBytes = 262144) {
   const lines = s.split('\n').filter(Boolean);
   if (buf.length > maxBytes) lines.shift(); // 途中で切れた行を捨てる
   return lines.map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+}
+
+// 台数計測(vehicle-count-history)の最終時刻。止まっていれば null。
+function vehicleCountsFreshAt() {
+  const rows = readTail(VEHICLE_COUNT_PATH);
+  if (!rows.length) return null;
+  return Date.parse(rows[rows.length - 1].ts) || null;
 }
 
 function applyVehicleCounts(status) {
@@ -230,9 +237,11 @@ async function main() {
       try {
         const st8 = JSON.parse(readFileSync(path.join(ARCHIVE, '.new-cams-state.json'), 'utf8'));
         const at = Date.parse(st8?.real001?.at ?? '');
-        const fresh = Number.isFinite(at) && (Date.now() - at) < 10 * 60 * 1000;
-        status.sourceStale = !fresh;
-        if (!fresh && st8?.real001?.at) status.sourceStaleSince = st8.real001.at;
+        // 写真が新しくても台数計測が止まっていれば「数値は更新停止中」として出す。
+        // 止まった数値(旧カメラ由来の凍結値)を最新のように見せないため。
+        const { stale, since } = poolFreshness(at, vehicleCountsFreshAt(), Date.now());
+        status.sourceStale = stale;
+        if (stale && since) status.sourceStaleSince = since;
         else delete status.sourceStaleSince;
       } catch { /* state無し → observe由来のフラグのまま */ }
       writeFileSync('./data/pool-status.json', JSON.stringify(status, null, 2) + '\n', 'utf8');

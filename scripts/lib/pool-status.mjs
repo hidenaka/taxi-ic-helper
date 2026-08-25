@@ -468,3 +468,21 @@ export function buildPoolStatus(rows, now = new Date(), arrivals = null, holiday
     noribaArrivalsList: buildNoribaArrivalsList(arrivals, now),
   };
 }
+
+// 配信データの鮮度判定。写真(アーカイブ更新)と台数計測(vehicle-count)の両方が
+// 新しいときだけ「最新」とする。
+// 2026-08-24〜26: 配信元の解像度変更で台数計測だけ2日止まったが、写真の鮮度しか
+// 見ていなかったため、凍結した旧系統の数値を最新として配信していた。
+// 戻り値 { stale, since } — since は「どこまでは正しかったか」の時刻(ISO)。
+export function poolFreshness(imageAtMs, countAtMs, nowMs,
+  { imageMaxAgeMin = 10, countMaxAgeMin = 20 } = {}) {
+  const okImage = Number.isFinite(imageAtMs) && (nowMs - imageAtMs) < imageMaxAgeMin * 60 * 1000;
+  const okCount = Number.isFinite(countAtMs) && (nowMs - countAtMs) < countMaxAgeMin * 60 * 1000;
+  if (okImage && okCount) return { stale: false, since: null };
+  // 止まっている側の最終時刻を出す(両方止まっていれば古いほう)
+  const candidates = [];
+  if (!okImage && Number.isFinite(imageAtMs)) candidates.push(imageAtMs);
+  if (!okCount && Number.isFinite(countAtMs)) candidates.push(countAtMs);
+  const since = candidates.length ? new Date(Math.min(...candidates)).toISOString() : null;
+  return { stale: true, since };
+}

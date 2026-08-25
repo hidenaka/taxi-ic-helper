@@ -310,14 +310,26 @@ def lantern_count(img, assign_fn=assign, stall_keys=None, back_mode=False, cam='
 _session_cache = [None, None]
 
 
+def load_frame(path):
+    """フレームを基準サイズ(1024x512)で返す。配信元の解像度が変わっても
+    同じ画角(2:1)なら拡大して吸収する。画角自体が違うものだけ弾く。"""
+    img = Image.open(path).convert('RGB')
+    if img.size == (W, H):
+        return img
+    w, h = img.size
+    if w <= 0 or h <= 0 or abs(w / h - W / H) > 0.02:
+        print(f'[vehicle-count] 画角が違うフレーム {img.size} — スキップ', file=sys.stderr)
+        return None
+    return img.resize((W, H), Image.LANCZOS)
+
+
 def main():
     frame = latest_frame('real001')
     if not frame:
         print('[vehicle-count] no frame', file=sys.stderr)
         return 0
-    img = Image.open(frame).convert('RGB')
-    if img.size != (W, H):
-        print(f'[vehicle-count] unexpected size {img.size}', file=sys.stderr)
+    img = load_frame(frame)
+    if img is None:
         return 0
     gray = np.asarray(img.convert('L'), dtype=np.float32)
     brightness = float(gray.mean())
@@ -354,8 +366,8 @@ def main():
     try:
         f2 = latest_frame('real002')
         if f2 and _b2:
-            img2 = Image.open(f2).convert('RGB')
-            if img2.size == (W, H):
+            img2 = load_frame(f2)
+            if img2 is not None:
                 b2 = float(np.asarray(img2.convert('L'), dtype=np.float32).mean())
                 back = {}
                 # 昼夜判定は real001 と同じ(同じ現場の照明)
