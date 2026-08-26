@@ -15,6 +15,7 @@
 #   {ts, mode, brightness, yolo:{stall1..4,ext,skip}, lantern:{...}}  (走らせた方式のみ)
 
 import glob
+import hashlib
 import json
 import os
 import sys
@@ -323,6 +324,11 @@ def load_frame(path):
     return img.resize((W, H), Image.LANCZOS)
 
 
+def _frame_fingerprint(img):
+    a = np.asarray(img.convert('L'), dtype=np.uint8)
+    return hashlib.sha256(a[24:, :].tobytes()).hexdigest()   # 焼き込み時刻の帯を除く
+
+
 def main():
     frame = latest_frame('real001')
     if not frame:
@@ -331,6 +337,23 @@ def main():
     img = load_frame(frame)
     if img is None:
         return 0
+
+    # 配信元の凍結検出: 直前に計測した絵と中身が同一なら記録しない。
+    # (同じ場面を数え続けると、夜の絵のまま朝の行が並ぶ等、履歴が現実と食い違う)
+    fp = _frame_fingerprint(img)
+    fp_path = os.path.join(ROOT, 'data', '.vehicle-count-last-frame')
+    try:
+        with open(fp_path) as fh:
+            if fh.read().strip() == fp:
+                print('[vehicle-count] 配信元の画像が前回と同一 — 計測をスキップ', file=sys.stderr)
+                return 0
+    except FileNotFoundError:
+        pass
+    try:
+        with open(fp_path, 'w') as fh:
+            fh.write(fp)
+    except OSError:
+        pass
     gray = np.asarray(img.convert('L'), dtype=np.float32)
     brightness = float(gray.mean())
     sky = float(np.median(gray[0:28, :]))       # 空の明るさ(上端28px中央値)
