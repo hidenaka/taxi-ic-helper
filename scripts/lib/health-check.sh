@@ -113,9 +113,35 @@ health_check_backup() {
   return 0
 }
 
+# 3. 現行の台数計測 (vehicle-count-history) の鮮度。
+# 旧 noriba-fill はカメラ入れ替え(2026-08-20)で恒久停止したため、こちらが本系。
+# 2026-08-24: 配信元の解像度変更でこの計測が2日止まったが、監視が旧系統を
+# 見ていたため気づけなかった。同じ取りこぼしを防ぐ。
+health_check_vehicle_count() {
+  local hist="${1:-data/vehicle-count-history.jsonl}"
+  [ -s "$hist" ] || { health_alert vcount_missing "台数計測の履歴が無い ($hist)"; return 1; }
+  local last_ts
+  last_ts=$(tail -1 "$hist" | sed -n 's/.*"ts": *"\([^"]*\)".*/\1/p')
+  [ -n "$last_ts" ] || { health_alert vcount_parse "台数計測 最終行の ts が読めない"; return 1; }
+  local last_epoch now age_min
+  last_epoch=$(date -j -f '%Y-%m-%dT%H:%M:%S%z' "${last_ts/+09:00/+0900}" +%s 2>/dev/null)
+  [ -n "$last_epoch" ] || { health_alert vcount_parse "台数計測 ts のパース失敗: $last_ts"; return 1; }
+  now="$(_health_now)"
+  age_min=$(( (now - last_epoch) / 60 ))
+  if [ "$age_min" -gt "${HEALTH_VCOUNT_MAX_AGE_MIN:-30}" ]; then
+    health_alert vcount_stale "羽田プールの台数計測が ${age_min} 分止まっている (最終 $last_ts)"
+    return 1
+  fi
+  health_clear vcount_stale
+  return 0
+}
+
 # まとめて実行 (observe-tick から 1 行で呼ぶ)。常に exit 0 相当 (本流を止めない)。
+# 旧 noriba-fill の鮮度監視は恒久停止のため既定で外す(鳴り続ける警報は警報にならない)。
+# 復活させたい場合は HEALTH_WATCH_LEGACY_FILL=1。
 health_check_all() {
-  health_check_fill_freshness "$@" || true
+  health_check_vehicle_count || true
+  [ -n "$HEALTH_WATCH_LEGACY_FILL" ] && { health_check_fill_freshness "$@" || true; }
   health_check_backup || true
   return 0
 }
