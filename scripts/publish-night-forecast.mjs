@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { nightsFromCounts, lateShiftFrom, trainNightModel, predictNight, fmtMin,
-         lightningWarning, hanedaLightningHours }
+         lightningWarning, hanedaLightningHours, delayByRoute }
   from './lib/night-forecast.mjs';
 const ROOT=path.join(path.dirname(fileURLToPath(import.meta.url)),'..');
 const R=(x)=>path.join(ROOT,x);
@@ -22,10 +22,11 @@ const model=trainNightModel(nights,LS,holidays);
 // 今夜: 現在の arrivals.json から遅延量を出す
 const jstNow=new Date(Date.now()+9*3600000);
 const today=jstNow.toISOString().slice(0,10);
-let pax=0,cnt=0;
+let pax=0,cnt=0,routes=[];
 try{
   const a=JSON.parse(readFileSync(R('data/arrivals.json'),'utf8'));
   const r=lateShiftFrom(a.flights); pax=r.pax; cnt=r.count;
+  routes=delayByRoute(a.flights);
 }catch(e){ console.error('arrivals読み込み失敗:',e.message); }
 const p=predictNight(today,pax,model,holidays);
 if(!p){ console.error('予測できません'); process.exit(1); }
@@ -47,6 +48,7 @@ const out={
   total:Math.round(p.total), baseTotal:Math.round(p.baseTotal),
   vsUsualMin:Math.round(p.endMin-p.baseEndMin),
   vsUsualRatio:Number((p.total/p.baseTotal).toFixed(2)),
+  delayRoutes:routes,
   hanedaLightningHours:tsHours,
   warning:warn,
   note:'夜(20:00〜翌4:00)の動きが終わる目安。実測92夜から学習。誤差の目安は約30分',
@@ -57,4 +59,5 @@ console.log(`  区分: ${p.dayType}`);
 console.log(`  遅延で23時以降に押し出された客: ${pax}人 (${cnt}便)  ※平均は${model.delay.meanShift.toFixed(0)}人`);
 console.log(`  動きの終わり: ${out.endTime}  (ふつうのこの曜日は ${out.baseEndTime} / 差 ${out.vsUsualMin>=0?'+':''}${out.vsUsualMin}分)`);
 if(warn) console.log(`  ⚠ ${warn.text} (羽田の雷 ${tsHours}時間)`);
+if(routes.length) console.log(`  遅れている路線: ${routes.map(r=>`${r.route}(${r.flights}便 ${r.pax}人 最大${r.maxDelay}分遅れ)`).join(' / ')}`);
 console.log(`  動きの総量  : ${out.total}回  (ふつう ${out.baseTotal}回 / いつもの${out.vsUsualRatio}倍)`);
