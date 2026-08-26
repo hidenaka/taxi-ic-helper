@@ -194,41 +194,50 @@ export function delayByRoute(flights, { minDelay = 20, afterMin = 23 * 60, top =
     .sort((a, b) => b.pax - a.pax).slice(0, top);
 }
 
-// 1回の列移動でさばける台数。深夜(23-4時・流入が少ない時間帯)の実測で
-// 「在台の減り563台 ÷ 列移動213回 = 2.6台/回」。
-// 在台も列移動も同じ計測で出しているので、多少の数え落としがあっても比は保たれる。
-export const CARS_PER_MOVE = 2.6;
+// 号ごとの「捌け具合」。新カメラ期(2026-08-22〜26の5夜)の実測。
+// 21時にいた車が朝までに在台ほぼ0まで減ったか＝そのとき並んだ人が乗せられたか。
+//   1号 5夜中4夜 / 2号 5夜中5夜 / 3号 5夜中4夜 / 4号 5夜中1夜のみ
+// 4号だけ残りやすい(8/24は50台→27台が残った)。号をまとめて出しても意味がないので号別に持つ。
+// ★夜が5つしかない。数字は仮置きで、夜が増えるたびに作り直す前提。
+export const STALL_DRAIN = {
+  stall1: { drained: 4, nights: 5, maxOkOcc: 28 },
+  stall2: { drained: 5, nights: 5, maxOkOcc: 84 },
+  stall3: { drained: 4, nights: 5, maxOkOcc: 69 },
+  stall4: { drained: 1, nights: 5, maxOkOcc: 48 },
+};
 
 /**
- * 「今から並んで今夜のうちに乗せられるか」。
- * 前に並んでいる台数(=いまの在台数) と 今夜これからさばける台数 を比べる。
- * @param {number} occNow いまプールにいる台数
- * @param {number} movesLeft これから起きる列移動の回数(予測)
+ * その号に今から並んで乗せられるか。
+ * 「その号の在台が、今夜のうちにほぼ0まで減るか」を過去の実績と今の混み具合から見る。
+ * @param {string} stall  'stall1'..'stall4'
+ * @param {number} occNow その号の今の在台数
+ * @param {number} hour   いまの時刻(JST時)
  */
-export function canJoinNow(occNow, movesLeft, { carsPerMove = CARS_PER_MOVE } = {}) {
-  if (!(occNow >= 0) || !(movesLeft >= 0)) return null;
-  const served = Math.round(movesLeft * carsPerMove);
-  const margin = served - occNow;
-  // 余裕が在台の1割に満たなければ「きわどい」。計測の誤差がこの程度あるため。
-  const band = Math.max(20, occNow * 0.1);
-  const verdict = margin >= band ? 'ok' : (margin >= -band ? 'tight' : 'hard');
+export function canJoinStall(stall, occNow, hour) {
+  const d = STALL_DRAIN[stall];
+  if (!d || !(occNow >= 0)) return null;
+  const rate = d.drained / d.nights;          // 過去に捌け切った割合
+  // 遅い時刻ほど残り時間が短い。21時を1.0として、1時間ごとに約2割ずつ減る目安。
+  const h = hour < 4 ? hour + 24 : hour;
+  const timeLeft = Math.max(0, Math.min(1, (28 - h) / 7));
+  // 今の在台が「過去に捌け切ったときの最大」を超えていたら苦しい
+  const load = d.maxOkOcc > 0 ? occNow / d.maxOkOcc : 1;
+  const score = rate * timeLeft / Math.max(load, 0.2);
+  const verdict = score >= 0.9 ? 'ok' : score >= 0.5 ? 'tight' : 'hard';
   return {
-    ahead: Math.round(occNow), served, margin: Math.round(margin), verdict,
-    text: verdict === 'ok' ? '今から並んでも間に合いそうです'
-        : verdict === 'tight' ? '今から並ぶと、きわどいところです'
-        : '今から並ぶと、今夜は届かないかもしれません',
+    stall, ahead: Math.round(occNow), verdict,
+    drainedRate: rate, nights: d.nights,
+    text: verdict === 'ok' ? '間に合いそう' : verdict === 'tight' ? 'きわどい' : '届かないかも',
+    note: `この号は過去${d.nights}夜のうち${d.drained}夜で捌け切りました`,
   };
 }
 
-/**
- * 夜の総量予測のうち、いまの時刻から先に残っている割合。
- * 実測の平均的な1日の形から、時刻ごとの残り割合を持つ(21時=約68%が残っている)。
- */
-const REMAIN_BY_HOUR = {
-  20: 0.82, 21: 0.68, 22: 0.48, 23: 0.28, 0: 0.10, 1: 0.05, 2: 0.02, 3: 0.01,
-};
-export function movesLeftAt(hour, nightTotal) {
-  const r = REMAIN_BY_HOUR[hour % 24];
-  if (r === undefined || !(nightTotal >= 0)) return null;
-  return nightTotal * r;
+/** 4号すべてをまとめて判定する(並ぶ号を選ぶための一覧)。 */
+export function joinAllStalls(occByStall, hour) {
+  const out = [];
+  for (const k of ['stall1', 'stall2', 'stall3', 'stall4']) {
+    const r = canJoinStall(k, occByStall?.[k], hour);
+    if (r) out.push(r);
+  }
+  return out;
 }
