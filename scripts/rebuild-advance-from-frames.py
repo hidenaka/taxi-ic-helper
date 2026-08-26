@@ -31,7 +31,7 @@ MIN_BRIGHT = 0.01   # 先頭エリアに1%以上の明るい点が要る(空+ヘ
 SWITCH_DAY = "2026-08-21"   # この日から新カメラ
 
 _old = json.load(open("data/stall-slots-legacy-20260522.json"))
-_new = json.load(open("scripts/lib/stall-slots.json"))
+_newbox = json.load(open("data/front-box-real001.json"))
 TWO_LINE = {"stall1", "stall2", "stall3"}
 
 
@@ -49,10 +49,15 @@ def box_old(stall):
 
 
 def box_new(stall):
-    b = _new["stalls"][stall].get("front_box")
+    b = _newbox["front_box"].get(stall)
     if not b:
         return None
     return (b["x0"], b["x1"], b["y0"], min(b["y1"], 1.0))
+
+
+# しきい値はカメラごとに違う(画角と拡大率が違うため)。
+# 旧カメラ=30 / 新カメラ=25 で、どちらも1日の回数が同水準になり目視でも本物と確認済み。
+THR_BY_CAM = {"real01_line": 30.0, "real001": 25.0}
 
 
 def config_for(day):
@@ -84,7 +89,7 @@ def process(day):
         except Exception:
             continue
         W, H = im.size
-        small = np.asarray(im.resize((128, 64)), dtype=np.float32)
+        small = np.asarray(im.resize((160, 80)), dtype=np.float32)
         rec = {"t": int(nm[:2]) * 3600 + int(nm[2:4]) * 60 + int(nm[4:6]),
                "full": small, "lum": float(small.mean())}
         for s in STALLS:
@@ -98,6 +103,7 @@ def process(day):
         rows.append(rec)
     if len(rows) < 50:
         return None
+    thr = THR_BY_CAM.get(cam, THR)
     ts = [r["t"] for r in rows]
     events = {s: [] for s in STALLS}
     last = {s: -10 ** 9 for s in STALLS}
@@ -109,7 +115,7 @@ def process(day):
         if d < GAP * 0.7 or d > GAP * 2.5:
             continue
         a = rows[j]; r = rows[i]
-        common = float(np.abs(r["full"] - a["full"]).mean())
+        common = float(np.median(np.abs(r["full"] - a["full"])))
         scale = REF_LUM / max(r["lum"], 8.0)
         for s in STALLS:
             if r[s] is None or a[s] is None:
@@ -118,7 +124,7 @@ def process(day):
             if max(float((a[s] >= BRIGHT_T).mean()), float((r[s] >= BRIGHT_T).mean())) < MIN_BRIGHT:
                 continue
             val = max(0.0, float(np.abs(r[s] - a[s]).mean()) - common) * scale
-            if val >= THR and ts[i] - last[s] >= DEBOUNCE:
+            if val >= thr and ts[i] - last[s] >= DEBOUNCE:
                 events[s].append(ts[i]); last[s] = ts[i]
     bins = {}
     for s in STALLS:
@@ -154,7 +160,7 @@ for k, day in enumerate(todo):
     with open(OUT, "a") as f:
         for key in sorted(bins):
             f.write(json.dumps({"ts": key, "stalls": bins[key],
-                                "method": "frame-diff-v3", "cam": cam}, ensure_ascii=False) + "\n")
+                                "method": "frame-diff-v4", "cam": cam}, ensure_ascii=False) + "\n")
     open(DONE, "a").write(day + "\n")
     print(f"  [{k+1}/{len(todo)}] {day} {cam} 枚数{nframes} → "
           f"1号{tot['stall1']} 2号{tot['stall2']} 3号{tot['stall3']} 4号{tot['stall4']} "
