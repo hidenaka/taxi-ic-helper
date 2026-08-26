@@ -130,3 +130,34 @@ export function predictNight(date, lateShiftPax, model, holidays = new Set()) {
 }
 
 export const fmtMin = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.round(m) % 60).padStart(2, '0')}`;
+
+/**
+ * 羽田の雷は、グランドスタッフが作業できなくなり遅延を生む(乗務員の現場知識・2026-08-27)。
+ * 実測(98夜): 雷なし=終わり23:54で1時以降まで動くのは9%。
+ * 雷4時間以上の夜は2夜とも02:00超え、総量も196回(通常133回)。
+ * 夜の数が少ないので回帰には入れず、警告として出す。
+ * 雷は Open-Meteo の天気コードでは取れない(5〜8月で0件)。空港の実際の気象通報(METAR)を使う。
+ * @param {number} tsHours 羽田で雷が観測された時間数(12-23時)
+ */
+export function lightningWarning(tsHours) {
+  if (!(tsHours > 0)) return null;
+  if (tsHours >= 4) {
+    return { level: 'high', text: '羽田で雷が続いています。深夜2時ごろまで動く夜になりやすいです', samples: 2 };
+  }
+  if (tsHours >= 1) {
+    return { level: 'mid', text: '羽田で雷が出ています。いつもより遅く、動きも多めになりがちです', samples: 6 };
+  }
+  return null;
+}
+
+/** METAR(空港の気象通報)から、その日の羽田の雷の時間数を数える(12-23時)。 */
+export function hanedaLightningHours(metarRows, day) {
+  let n = 0;
+  for (const r of metarRows || []) {
+    if (!/TS/.test(r.wx || '')) continue;
+    if (String(r.t || '').slice(0, 10) !== day) continue;
+    const h = Number(String(r.t).slice(11, 13));
+    if (h >= 12 && h <= 23) n += 1;
+  }
+  return n;
+}
