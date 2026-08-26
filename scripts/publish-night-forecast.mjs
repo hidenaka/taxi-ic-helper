@@ -4,7 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { nightsFromCounts, lateShiftFrom, trainNightModel, predictNight, fmtMin,
-         lightningWarning, hanedaLightningHours, delayByRoute }
+         lightningWarning, hanedaLightningHours, delayByRoute,
+         canJoinNow, movesLeftAt }
   from './lib/night-forecast.mjs';
 const ROOT=path.join(path.dirname(fileURLToPath(import.meta.url)),'..');
 const R=(x)=>path.join(ROOT,x);
@@ -37,6 +38,15 @@ try{
   const hn=Object.values(M).find(v=>v.name==='羽田');
   if(hn){ tsHours=hanedaLightningHours(hn.rows, today); warn=lightningWarning(tsHours); }
 }catch(e){}
+// いまプールにいる台数(配信中の現況から)。取れなければ判定しない。
+let occNow=null, join=null;
+try{
+  const ps=JSON.parse(readFileSync(R('data/pool-status.json'),'utf8'));
+  occNow = ps?.total?.occ ?? null;
+  const hour = jstNow.getUTCHours();
+  const left = movesLeftAt(hour, p.total);
+  if(occNow!=null && left!=null) join = canJoinNow(occNow, left);
+}catch(e){}
 const out={
   schema_version:1,
   generatedAt:new Date(Date.now()+9*3600000).toISOString().replace('Z','+09:00'),
@@ -49,6 +59,7 @@ const out={
   vsUsualMin:Math.round(p.endMin-p.baseEndMin),
   vsUsualRatio:Number((p.total/p.baseTotal).toFixed(2)),
   delayRoutes:routes,
+  occNow, canJoin:join,
   hanedaLightningHours:tsHours,
   warning:warn,
   note:'夜(20:00〜翌4:00)の動きが終わる目安。実測92夜から学習。誤差の目安は約30分',
@@ -58,6 +69,7 @@ console.log(`【今夜(${today})の見込み】`);
 console.log(`  区分: ${p.dayType}`);
 console.log(`  遅延で23時以降に押し出された客: ${pax}人 (${cnt}便)  ※平均は${model.delay.meanShift.toFixed(0)}人`);
 console.log(`  動きの終わり: ${out.endTime}  (ふつうのこの曜日は ${out.baseEndTime} / 差 ${out.vsUsualMin>=0?'+':''}${out.vsUsualMin}分)`);
+if(join) console.log(`  ${join.verdict==='ok'?'○':join.verdict==='tight'?'△':'×'} ${join.text}  (前に${join.ahead}台 / これからさばける約${join.served}台)`);
 if(warn) console.log(`  ⚠ ${warn.text} (羽田の雷 ${tsHours}時間)`);
 if(routes.length) console.log(`  遅れている路線: ${routes.map(r=>`${r.route}(${r.flights}便 ${r.pax}人 最大${r.maxDelay}分遅れ)`).join(' / ')}`);
 console.log(`  動きの総量  : ${out.total}回  (ふつう ${out.baseTotal}回 / いつもの${out.vsUsualRatio}倍)`);

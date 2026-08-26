@@ -193,3 +193,42 @@ export function delayByRoute(flights, { minDelay = 20, afterMin = 23 * 60, top =
   return [...by.entries()].map(([route, v]) => ({ route, ...v }))
     .sort((a, b) => b.pax - a.pax).slice(0, top);
 }
+
+// 1回の列移動でさばける台数。深夜(23-4時・流入が少ない時間帯)の実測で
+// 「在台の減り563台 ÷ 列移動213回 = 2.6台/回」。
+// 在台も列移動も同じ計測で出しているので、多少の数え落としがあっても比は保たれる。
+export const CARS_PER_MOVE = 2.6;
+
+/**
+ * 「今から並んで今夜のうちに乗せられるか」。
+ * 前に並んでいる台数(=いまの在台数) と 今夜これからさばける台数 を比べる。
+ * @param {number} occNow いまプールにいる台数
+ * @param {number} movesLeft これから起きる列移動の回数(予測)
+ */
+export function canJoinNow(occNow, movesLeft, { carsPerMove = CARS_PER_MOVE } = {}) {
+  if (!(occNow >= 0) || !(movesLeft >= 0)) return null;
+  const served = Math.round(movesLeft * carsPerMove);
+  const margin = served - occNow;
+  // 余裕が在台の1割に満たなければ「きわどい」。計測の誤差がこの程度あるため。
+  const band = Math.max(20, occNow * 0.1);
+  const verdict = margin >= band ? 'ok' : (margin >= -band ? 'tight' : 'hard');
+  return {
+    ahead: Math.round(occNow), served, margin: Math.round(margin), verdict,
+    text: verdict === 'ok' ? '今から並んでも間に合いそうです'
+        : verdict === 'tight' ? '今から並ぶと、きわどいところです'
+        : '今から並ぶと、今夜は届かないかもしれません',
+  };
+}
+
+/**
+ * 夜の総量予測のうち、いまの時刻から先に残っている割合。
+ * 実測の平均的な1日の形から、時刻ごとの残り割合を持つ(21時=約68%が残っている)。
+ */
+const REMAIN_BY_HOUR = {
+  20: 0.82, 21: 0.68, 22: 0.48, 23: 0.28, 0: 0.10, 1: 0.05, 2: 0.02, 3: 0.01,
+};
+export function movesLeftAt(hour, nightTotal) {
+  const r = REMAIN_BY_HOUR[hour % 24];
+  if (r === undefined || !(nightTotal >= 0)) return null;
+  return nightTotal * r;
+}
