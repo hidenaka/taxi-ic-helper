@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-08-27T19:29:00+09:00",
+  "generatedAt": "2026-08-27T19:35:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 8374,
+  "trainedRows": 8375,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,7 +37,7 @@
     "stall4": 8
   },
   "current": {
-    "time": "19:29",
+    "time": "19:35",
     "stalls": {
       "stall1": {
         "actual": 0,
@@ -47,16 +47,16 @@
       "stall2": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.7
+        "forecast": 0.4
       },
       "stall3": {
-        "actual": 1,
+        "actual": 0,
         "departure": 1,
-        "forecast": 0.2
+        "forecast": 0.3
       },
       "stall4": {
         "actual": 0,
-        "departure": 1,
+        "departure": 0,
         "forecast": 0.2
       }
     }
@@ -1512,6 +1512,27 @@
         "nightRate": 0.525,
         "imageQcLowRate": 0.597
       }
+    },
+    {
+      "time": "19:15",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 1,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "night",
+        "reasons": [
+          "night",
+          "image_qc"
+        ],
+        "sampleRows": 1170,
+        "rainRate": 0.135,
+        "nightRate": 0.787,
+        "imageQcLowRate": 0.992
+      }
     }
   ],
   "slots": [
@@ -2894,9 +2915,9 @@
     {
       "time": "18:15",
       "stalls": {
-        "stall1": 0.3,
-        "stall2": 0.1,
-        "stall3": 0.6,
+        "stall1": 0.4,
+        "stall2": 0.3,
+        "stall3": 1.6,
         "stall4": 0.5
       },
       "quality": {
@@ -2948,8 +2969,8 @@
     {
       "time": "19:00",
       "stalls": {
-        "stall1": 1,
-        "stall2": 0.3,
+        "stall1": 1.1,
+        "stall2": 0.2,
         "stall3": 0.3,
         "stall4": 0.1
       },
@@ -2970,9 +2991,9 @@
       "time": "19:15",
       "stalls": {
         "stall1": 0.2,
-        "stall2": 0.2,
-        "stall3": 0.4,
-        "stall4": 0.5
+        "stall2": 0.1,
+        "stall3": 0.3,
+        "stall4": 0.4
       },
       "quality": {
         "confidence": "reference",
@@ -2981,7 +3002,7 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 1169,
+        "sampleRows": 1170,
         "rainRate": 0.135,
         "nightRate": 0.787,
         "imageQcLowRate": 0.992
@@ -3002,9 +3023,9 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 1107,
+        "sampleRows": 1117,
         "rainRate": 0.113,
-        "nightRate": 0.807,
+        "nightRate": 0.798,
         "imageQcLowRate": 1
       }
     },
@@ -3013,7 +3034,7 @@
       "stalls": {
         "stall1": 0.2,
         "stall2": 0.2,
-        "stall3": 0.3,
+        "stall3": 0.1,
         "stall4": 0
       },
       "quality": {
@@ -3034,7 +3055,7 @@
       "stalls": {
         "stall1": 0.1,
         "stall2": 0,
-        "stall3": 0.2,
+        "stall3": 0.4,
         "stall4": 0.2
       },
       "quality": {
@@ -3055,7 +3076,7 @@
       "stalls": {
         "stall1": 0.3,
         "stall2": 0,
-        "stall3": 0.3,
+        "stall3": 0.5,
         "stall4": 0
       },
       "quality": {
@@ -3076,7 +3097,7 @@
       "stalls": {
         "stall1": 0.2,
         "stall2": 0.4,
-        "stall3": 0.6,
+        "stall3": 0.5,
         "stall4": 0.3
       },
       "quality": {
@@ -3118,8 +3139,8 @@
       "stalls": {
         "stall1": 0.3,
         "stall2": 0.4,
-        "stall3": 0.6,
-        "stall4": 0.2
+        "stall3": 0.7,
+        "stall4": 0.1
       },
       "quality": {
         "confidence": "reference",
@@ -3139,8 +3160,8 @@
       "stalls": {
         "stall1": 0.2,
         "stall2": 0.1,
-        "stall3": 0.3,
-        "stall4": 0.2
+        "stall3": 0.2,
+        "stall4": 0.4
       },
       "quality": {
         "confidence": "reference",
@@ -3160,7 +3181,7 @@
       "stalls": {
         "stall1": 0.4,
         "stall2": 0.2,
-        "stall3": 0.6,
+        "stall3": 0.5,
         "stall4": 0.2
       },
       "quality": {
@@ -3179,7 +3200,7 @@
     {
       "time": "21:45",
       "stalls": {
-        "stall1": 1.1,
+        "stall1": 1,
         "stall2": 0.1,
         "stall3": 0.9,
         "stall4": 0.3
@@ -3242,7 +3263,7 @@
     {
       "time": "22:30",
       "stalls": {
-        "stall1": 0.3,
+        "stall1": 0.5,
         "stall2": 0.4,
         "stall3": 0.9,
         "stall4": 0.3
@@ -3328,7 +3349,7 @@
       "stalls": {
         "stall1": 0.6,
         "stall2": 0.3,
-        "stall3": 0.3,
+        "stall3": 0.2,
         "stall4": 0.4
       },
       "quality": {
