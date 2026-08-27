@@ -195,7 +195,14 @@ export function delayByRoute(flights, { minDelay = 20, afterMin = 23 * 60, top =
 }
 
 // 号ごとの「捌け具合」。新カメラ期(2026-08-22〜26の5夜)の実測。
-// 21時にいた車が朝までに在台ほぼ0まで減ったか＝そのとき並んだ人が乗せられたか。
+// ★この数字は使えない(2026-08-27 本人指摘)。
+//   「朝までに在台が0になった」は、捌けた証拠にならない:
+//     ・0時すぎに到着便が止まるので、減るのは当たり前
+//     ・早朝便に合わせて、夜のうちにまた集まる時間帯がある
+//     ・客がつかず空のままプールを出る車がある
+//   必要なのは「1回の列移動で何台が客を乗せて出るか」。これは未計測。
+//   先頭列をYOLOで数える案は、枠が小さすぎて数えられなかった(平均0台)。
+// 参考値として残すが判定には使わない(JOIN_JUDGMENT_VALIDATED=false)。
 //   1号 5夜中4夜 / 2号 5夜中5夜 / 3号 5夜中4夜 / 4号 5夜中1夜のみ
 // 4号だけ残りやすい(8/24は50台→27台が残った)。号をまとめて出しても意味がないので号別に持つ。
 // ★夜が5つしかない。数字は仮置きで、夜が増えるたびに作り直す前提。
@@ -213,7 +220,10 @@ export const STALL_DRAIN = {
  * @param {number} occNow その号の今の在台数
  * @param {number} hour   いまの時刻(JST時)
  */
+export const JOIN_JUDGMENT_VALIDATED = false;   // ← 根拠が固まるまで表示しない
+
 export function canJoinStall(stall, occNow, hour) {
+  if (!JOIN_JUDGMENT_VALIDATED) return null;
   const d = STALL_DRAIN[stall];
   if (!d || !(occNow >= 0)) return null;
   const rate = d.drained / d.nights;          // 過去に捌け切った割合
