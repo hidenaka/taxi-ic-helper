@@ -438,3 +438,47 @@ export function summarizeFlightNotice(parsed) {
   for (const m of [byStall, byTerminal]) for (const k of Object.keys(m)) delete m[k]._min;
   return { byStall, byTerminal, queue, allClear: parsed.allClear };
 }
+
+/**
+ * 掲示から「いま1列移動をしている乗り場」を読む。
+ * 通常は2列スライド(公式資料)だが、満車時は1列移動に切り替わり掲示で告知される。
+ * さばける台数が半分になるので、待ちの見積もりに効く。
+ * @returns {{oneLane: number[], all: boolean, raw: string|null}}
+ *   oneLane = 1列移動中の号(1-4)。all=全乗り場が対象。
+ */
+export function parseOneLaneMove(rawText) {
+  const t = normalizeNoticeText(rawText);
+  if (!t) return { oneLane: [], all: false, raw: null };
+  const lines = t.split('\n').filter((l) => /[1１一]列移動/.test(l));
+  if (!lines.length) return { oneLane: [], all: false, raw: null };
+  const raw = lines.join(' ');
+  // 「予定です」は未実施なので数えない
+  const active = lines.filter((l) => !/予定/.test(l) || /実施中|行っております|行っています/.test(l.replace(/予定[^。]*/, '')));
+  const body = active.join(' ');
+  if (!body) return { oneLane: [], all: false, raw };
+  // 「全ての乗り場」「全待機レーン」= 全号
+  if (/全(て|ての)?(の)?(乗り場|待機レーン)|各乗り場|各待機レーン|全レーン/.test(body)) {
+    return { oneLane: [1, 2, 3, 4], all: true, raw };
+  }
+  // 号の列挙: 「第1・第2・第3乗り場」「2号乗り場」「3号及び4号」「2号側、3号側」
+  const nums = new Set();
+  for (const m of body.matchAll(/第?([1-4])\s*(?:号|乗り場|側)/g)) nums.add(Number(m[1]));
+  // 「第1・第2・第3乗り場レーン」の中黒つなぎも拾う
+  for (const m of body.matchAll(/第([1-4])(?:[・、,]第?([1-4]))?(?:[・、,]第?([1-4]))?(?:[・、,]第?([1-4]))?\s*乗り場/g)) {
+    for (let i = 1; i <= 4; i++) if (m[i]) nums.add(Number(m[i]));
+  }
+  if (!nums.size) {
+    // 「満車の待機レーンでは1列移動」のように号を名指ししない告知。
+    // どの号かは分からないが「混んでいる号は1列移動」という状態は伝わる。
+    return { oneLane: [], all: false, partial: true, raw };
+  }
+  return { oneLane: [...nums].sort(), all: false, partial: false, raw };
+}
+
+/** 1回の列移動でさばける台数。公式資料の位置番号(列-台)から。 */
+export const CARS_PER_COLUMN = { 1: null, 2: null, 3: 8, 4: 6 };  // 第1・2はショットガン対象外で資料に記載なし
+export function carsPerMove(stallNo, oneLane) {
+  const per = CARS_PER_COLUMN[stallNo];
+  if (!per) return null;
+  return per * (oneLane ? 1 : 2);
+}
