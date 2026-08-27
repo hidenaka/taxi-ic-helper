@@ -194,6 +194,34 @@ export function delayByRoute(flights, { minDelay = 20, afterMin = 23 * 60, top =
     .sort((a, b) => b.pax - a.pax).slice(0, top);
 }
 
+// 1列に何台入るか。公式資料 docs/haneda-pool-20250201-shotgun.pdf の
+// 位置番号(列-台)から確定。第3=8台・第4=6台。
+// 第1・第2はショットガンシステムの対象外で資料に記載がなく未確定。
+export const CARS_PER_COLUMN = { stall1: null, stall2: null, stall3: 8, stall4: 6 };
+
+/**
+ * その号で出た台数。車は列移動でしか動かないので、回数×1列の台数で決まる。
+ * 通常は2列スライド、満車時は1列移動(現地掲示で号ごとに告知される)。
+ * @param {string} stall
+ * @param {number} moves 列移動の回数
+ * @param {boolean} oneLane その号がいま1列移動かどうか(掲示から)
+ */
+export function carsDispatched(stall, moves, oneLane) {
+  const per = CARS_PER_COLUMN[stall];
+  if (per == null || !(moves >= 0)) return null;
+  return Math.round(moves * per * (oneLane ? 1 : 2));
+}
+
+/**
+ * その号に今から並んだとき、自分の前の車が捌けるまでに必要な列移動の回数。
+ * @param {number} ahead 前に並んでいる台数
+ */
+export function movesNeeded(stall, ahead, oneLane) {
+  const per = CARS_PER_COLUMN[stall];
+  if (per == null || !(ahead >= 0)) return null;
+  return Math.ceil(ahead / (per * (oneLane ? 1 : 2)));
+}
+
 // 号ごとの「捌け具合」。新カメラ期(2026-08-22〜26の5夜)の実測。
 // ★この数字は使えない(2026-08-27 本人指摘)。
 //   「朝までに在台が0になった」は、捌けた証拠にならない:
