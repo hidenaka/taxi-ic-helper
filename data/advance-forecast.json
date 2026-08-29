@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-08-30T07:14:00+09:00",
+  "generatedAt": "2026-08-30T07:19:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 8613,
+  "trainedRows": 8614,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,7 +37,7 @@
     "stall4": 8
   },
   "current": {
-    "time": "07:14",
+    "time": "07:19",
     "stalls": {
       "stall1": {
         "actual": 0,
@@ -51,13 +51,13 @@
       },
       "stall3": {
         "actual": 0,
-        "departure": 0,
+        "departure": 1,
         "forecast": 0
       },
       "stall4": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0
+        "forecast": 0.1
       }
     }
   },
@@ -626,6 +626,24 @@
         "rainRate": 0.115,
         "nightRate": 0.032,
         "imageQcLowRate": 0.008
+      }
+    },
+    {
+      "time": "07:00",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "normal",
+        "condition": "day",
+        "reasons": [],
+        "sampleRows": 1174,
+        "rainRate": 0.109,
+        "nightRate": 0.032,
+        "imageQcLowRate": 0.012
       }
     }
   ],
@@ -1208,7 +1226,7 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 1173,
+        "sampleRows": 1174,
         "rainRate": 0.109,
         "nightRate": 0.032,
         "imageQcLowRate": 0.012
@@ -1226,7 +1244,7 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 1155,
+        "sampleRows": 1164,
         "rainRate": 0.16,
         "nightRate": 0.032,
         "imageQcLowRate": 0.012
@@ -1976,7 +1994,7 @@
         "stall1": 0.1,
         "stall2": 0.7,
         "stall3": 0.9,
-        "stall4": 0.2
+        "stall4": 0.7
       },
       "quality": {
         "confidence": "normal",
@@ -1994,7 +2012,7 @@
         "stall1": 0.2,
         "stall2": 0.4,
         "stall3": 1,
-        "stall4": 0.2
+        "stall4": 0.1
       },
       "quality": {
         "confidence": "normal",
