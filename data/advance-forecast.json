@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-08-30T23:10:00+09:00",
+  "generatedAt": "2026-08-30T23:15:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 8677,
+  "trainedRows": 8678,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,12 +37,12 @@
     "stall4": 8
   },
   "current": {
-    "time": "23:10",
+    "time": "23:15",
     "stalls": {
       "stall1": {
         "actual": 0,
-        "departure": 1,
-        "forecast": 0.6
+        "departure": 0,
+        "forecast": 0.7
       },
       "stall2": {
         "actual": 0,
@@ -51,13 +51,13 @@
       },
       "stall3": {
         "actual": 0,
-        "departure": 1,
-        "forecast": 0.6
+        "departure": 0,
+        "forecast": 1
       },
       "stall4": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0
+        "forecast": 0.5
       }
     }
   },
@@ -1824,6 +1824,27 @@
         "sampleRows": 1235,
         "rainRate": 0.156,
         "nightRate": 0.721,
+        "imageQcLowRate": 1
+      }
+    },
+    {
+      "time": "23:00",
+      "stalls": {
+        "stall1": 1,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "night",
+        "reasons": [
+          "night",
+          "image_qc"
+        ],
+        "sampleRows": 1236,
+        "rainRate": 0.132,
+        "nightRate": 0.722,
         "imageQcLowRate": 1
       }
     }
@@ -3597,9 +3618,9 @@
     {
       "time": "23:00",
       "stalls": {
-        "stall1": 0.6,
+        "stall1": 0.8,
         "stall2": 0.3,
-        "stall3": 0.6,
+        "stall3": 0.5,
         "stall4": 0
       },
       "quality": {
@@ -3609,9 +3630,9 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 1227,
+        "sampleRows": 1236,
         "rainRate": 0.132,
-        "nightRate": 0.729,
+        "nightRate": 0.722,
         "imageQcLowRate": 1
       }
     },
@@ -3630,9 +3651,9 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 1222,
+        "sampleRows": 1224,
         "rainRate": 0.142,
-        "nightRate": 0.74,
+        "nightRate": 0.739,
         "imageQcLowRate": 1
       }
     },
