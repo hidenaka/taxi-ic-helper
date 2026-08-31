@@ -51,8 +51,13 @@ fi
 # 次の observe 実行で最新内容に上書きされる。
 git checkout HEAD -- data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json 2>/dev/null || true
 
-git_clean_interrupted_state   # pull 前に孤立残骸を掃除 (これが無いと pull --rebase が永久に失敗する)
-git pull --rebase --autostash origin main 2>&1 | tail -3
+# 手作業の add/commit と衝突しないよう、git を触る区間はロックで直列化する。
+# 取れなければこの tick では同期をあきらめる (数分後の次 tick で取り直す)。
+_tick_pull() {
+  git_clean_interrupted_state   # pull 前に孤立残骸を掃除 (これが無いと pull --rebase が永久に失敗する)
+  git pull --rebase --autostash origin main 2>&1 | tail -3
+}
+git_with_lock _tick_pull || echo "[observe-tick] git がロック中のため今回の同期はスキップ" 
 
 node scripts/observe-taxi-pool.mjs
 NODE_EXIT=$?
@@ -123,15 +128,18 @@ fi
 # 配信に必要な派生 json + サムネだけを commit する。
 # 生履歴 (taxi-pool / slot-occupancy / t3-pool / vehicle-* / movement-shift / t3-front-flow の各 history.jsonl)
 # は Mac mini ローカルのみで保持し push しない (アプリ非配信・8.5G 画像アーカイブから再生成可・GitHub 100MB 制限回避)。
-git add data/lane-patterns.json data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/advance-forecast.json data/pool-notice.json 2>/dev/null || true
-git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
+_tick_commit_and_push() {
+  git add data/lane-patterns.json data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/advance-forecast.json data/pool-notice.json 2>/dev/null || true
+  git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
 
 # 同期 + push (残骸掃除 → fetch → rebase → push を最大 5 回リトライ。
 # weather/arrivals の 15 分ごとの auto-commit による non-fast-forward 競合に勝つ。
 # 失敗時は .local/push-stuck.flag + デスクトップ通知で可視化し、無音で詰まらせない)。
-if git_safe_sync_and_push "$REPO" main 5; then
-  echo "[observe-tick] push ok"
-else
-  echo "[observe-tick] push STILL failing after retries — see .local/push-stuck.flag"
-fi
+  if git_safe_sync_and_push "$REPO" main 5; then
+    echo "[observe-tick] push ok"
+  else
+    echo "[observe-tick] push STILL failing after retries — see .local/push-stuck.flag"
+  fi
+}
+git_with_lock _tick_commit_and_push || echo "[observe-tick] git がロック中のため今回の commit/push はスキップ" 
 exit 0
