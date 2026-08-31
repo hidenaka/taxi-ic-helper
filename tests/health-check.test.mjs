@@ -102,3 +102,57 @@ test('回帰: 巨大ログ(20万行)でも即座に終わる (2026-08-09 配信�
   assert.ok(elapsed < 5000, `巨大ログでも5秒以内に完了: ${elapsed}ms`);
   assert.equal(existsSync(join(dir, '.local/health-alert.flag')), false, '正常runなのでアラートなし');
 });
+
+// --- 配信ファイルの鮮度 (2026-08-20 のカメラ入れ替えで 11 日間気づけなかった型) ---
+
+test('配信鮮度: generatedAt が新しければ通知しない', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hc-pub-'));
+  mkdirSync(join(dir, '.local'), { recursive: true });
+  const f = join(dir, 'pool-status.json');
+  const fresh = new Date(jstNow().getTime() - 3 * 60000);
+  writeFileSync(f, JSON.stringify({ generatedAt: isoJst(fresh), total: { occ: 40 } }));
+  run(dir, 'health_check_published_freshness', { HEALTH_PUBLISHED_FILES: f });
+  assert.equal(existsSync(join(dir, '.local/health-alert.flag')), false);
+});
+
+test('配信鮮度: 中身が古いまま配信され続けていたらアラート', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hc-pub-'));
+  mkdirSync(join(dir, '.local'), { recursive: true });
+  const f = join(dir, 'stall-forecast.json');
+  // 実害の再現: 11 日間 8/20 のまま配信されていた
+  const stale = new Date(jstNow().getTime() - 11 * 24 * 3600 * 1000);
+  writeFileSync(f, JSON.stringify({ generatedAt: isoJst(stale), slots: [] }));
+  try { run(dir, 'health_check_published_freshness', { HEALTH_PUBLISHED_FILES: f }); } catch { /* 戻り値1でよい */ }
+  const flag = readFileSync(join(dir, '.local/health-alert.flag'), 'utf8');
+  assert.match(flag, /古い中身を配信/);
+});
+
+test('配信鮮度: updatedAt でも判定でき、小数秒があっても読める', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hc-pub-'));
+  mkdirSync(join(dir, '.local'), { recursive: true });
+  const f = join(dir, 'lane-patterns.json');
+  const fresh = new Date(jstNow().getTime() - 2 * 60000);
+  writeFileSync(f, JSON.stringify({ updatedAt: isoJst(fresh).replace('+09:00', '.637+09:00') }));
+  run(dir, 'health_check_published_freshness', { HEALTH_PUBLISHED_FILES: f });
+  assert.equal(existsSync(join(dir, '.local/health-alert.flag')), false);
+});
+
+test('配信鮮度: 時刻が無いファイルは「判定できない」とアラート(黙って通さない)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hc-pub-'));
+  mkdirSync(join(dir, '.local'), { recursive: true });
+  const f = join(dir, 'no-time.json');
+  writeFileSync(f, JSON.stringify({ areas: [] }));
+  try { run(dir, 'health_check_published_freshness', { HEALTH_PUBLISHED_FILES: f }); } catch { /* 戻り値1でよい */ }
+  const flag = readFileSync(join(dir, '.local/health-alert.flag'), 'utf8');
+  assert.match(flag, /鮮度を判定できない/);
+});
+
+test('配信鮮度: ファイルが無ければアラート', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hc-pub-'));
+  mkdirSync(join(dir, '.local'), { recursive: true });
+  try {
+    run(dir, 'health_check_published_freshness', { HEALTH_PUBLISHED_FILES: join(dir, 'nope.json') });
+  } catch { /* 戻り値1でよい */ }
+  const flag = readFileSync(join(dir, '.local/health-alert.flag'), 'utf8');
+  assert.match(flag, /配信ファイルが無い/);
+});

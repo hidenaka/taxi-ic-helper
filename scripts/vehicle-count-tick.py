@@ -22,7 +22,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(SCRIPT_DIR)
@@ -132,6 +132,78 @@ def assign(cx, cy):
     if t < _B34:
         return 'stall3'
     return 'stall4'
+
+
+
+# ---- 路面ベースの埋まり具合 -------------------------------------------------
+# 空いている場所はアスファルト(灰色・のっぺり)。車がいる場所は暗い/光る/輪郭が多い。
+# その面積比を、空(下位5%)と満(上位95%)の2点で 0-1 に伸ばす。
+FILL_CALIB_PATH = os.path.join(ROOT, 'data', 'surface-fill-calib.json')
+MASK_CACHE_PATH = os.path.join(ROOT, 'data', 'band-masks-real001.npz')
+_fill_calib_cache = [None]
+_band_mask_cache = [None]
+
+
+def _fill_calib():
+    if _fill_calib_cache[0] is None:
+        try:
+            _fill_calib_cache[0] = json.load(open(FILL_CALIB_PATH))
+        except Exception:
+            _fill_calib_cache[0] = {}
+    return _fill_calib_cache[0]
+
+
+def _band_masks():
+    """帯ごとの画素マスク。毎tick作ると遅いので帯定義のハッシュ付きでキャッシュする。"""
+    if _band_mask_cache[0] is not None:
+        return _band_mask_cache[0]
+    key = hashlib.sha256(open(BANDS_PATH, 'rb').read()).hexdigest()[:16]
+    try:
+        z = np.load(MASK_CACHE_PATH)
+        if str(z['key']) == key:
+            _band_mask_cache[0] = {s: z[s] for s in STALLS}
+            return _band_mask_cache[0]
+    except Exception:
+        pass
+    m = {s: np.zeros((H, W), bool) for s in STALLS}
+    for y in range(H):
+        for x in range(W):
+            st = assign(float(x), float(y))
+            if st in m:
+                m[st][y, x] = True
+    try:
+        np.savez_compressed(MASK_CACHE_PATH, key=key, **m)
+    except OSError:
+        pass
+    _band_mask_cache[0] = m
+    return m
+
+
+def surface_fill(img):
+    """帯ごとの埋まり具合(0-1)。校正が無い号は返さない。"""
+    calib = _fill_calib()
+    if not calib:
+        return None
+    masks = _band_masks()
+    g = img.convert('L')
+    lum_all = np.asarray(g, dtype=np.float32)
+    edge_all = np.asarray(g.filter(ImageFilter.FIND_EDGES), dtype=np.float32)
+    rgb = np.asarray(img, dtype=np.float32)
+    sat_all = rgb.max(axis=2) - rgb.min(axis=2)
+    out = {}
+    for st in STALLS:
+        mk = masks.get(st)
+        c = calib.get(st)
+        if mk is None or c is None or mk.sum() < 50:
+            continue
+        lum = lum_all[mk]
+        med = float(np.median(lum))
+        carish = (edge_all[mk] > 18) | (np.abs(lum - med) > 26) | (sat_all[mk] > 40)
+        span = c['full'] - c['empty']
+        if span <= 0:
+            continue
+        out[st] = round(min(1.0, max(0.0, (float(carish.mean()) - c['empty']) / span)), 3)
+    return out or None
 
 
 def latest_frame(cam):
@@ -383,6 +455,16 @@ def main():
             row['lantern'] = lantern_count(img)
         except Exception as e:
             print(f'[vehicle-count] lantern failed: {e}', file=sys.stderr)
+    # 路面ベースの埋まり具合。奥の号は YOLO で1台ずつ分けられないのでこちらを主系にする。
+    # 暗いと数字が上振れする(車が減る夕方以降に上がってしまう)ため昼だけ記録する。
+    if is_day:
+        try:
+            fill = surface_fill(img)
+            if fill:
+                row['fill'] = fill
+        except Exception as e:
+            print(f'[vehicle-count] surface fill failed: {e}', file=sys.stderr)
+
     if 'yolo' not in row and 'lantern' not in row:
         return 0
     # 4号後列(real002)も同方式で数え、同じ行の back に入れる

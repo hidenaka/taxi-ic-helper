@@ -136,6 +136,46 @@ health_check_vehicle_count() {
   return 0
 }
 
+
+# 4. アプリへ配信しているファイルの鮮度 (generatedAt が古くないか)。
+# 2026-08-20 のカメラ入れ替えで observe-taxi-pool.mjs が止まり、そこが作る9種類の
+# データが 11 日間 8/20 のまま配信され続けたのに気づけなかった。
+# 「動いているか」ではなく「中身が今のものか」を見る。
+# HEALTH_PUBLISHED_FILES で対象を差し替え可能 (テスト用)。
+health_check_published_freshness() {
+  local max_min="${HEALTH_PUBLISHED_MAX_AGE_MIN:-60}"
+  local files="${HEALTH_PUBLISHED_FILES:-data/pool-status.json data/advance-forecast.json data/lane-patterns.json data/pool-notice.json}"
+  local now; now="$(_health_now)"
+  local bad=0 f ts epoch age key
+  for f in $files; do
+    key="pub_$(basename "$f" | tr -c 'a-zA-Z0-9' '_')"
+    if [ ! -s "$f" ]; then
+      health_alert "$key" "配信ファイルが無い ($f)"; bad=1; continue
+    fi
+    # generatedAt / updatedAt のどちらでもよい。小数秒は落とす。
+    # BSD sed は \| の交替を解さないので generatedAt → updatedAt の順に個別に試す
+    ts=$(sed -n 's/.*"generatedAt" *: *"\([^"]*\)".*/\1/p' "$f" | head -1)
+    [ -n "$ts" ] || ts=$(sed -n 's/.*"updatedAt" *: *"\([^"]*\)".*/\1/p' "$f" | head -1)
+    # 小数秒を落とす (09:08:25.637+09:00 → 09:08:25+09:00)
+    ts=$(printf '%s' "$ts" | sed 's/\.[0-9][0-9]*\([+Z-]\)/\1/')
+    if [ -z "$ts" ]; then
+      health_alert "$key" "配信ファイルに時刻が無く鮮度を判定できない ($f)"; bad=1; continue
+    fi
+    epoch=$(date -j -f '%Y-%m-%dT%H:%M:%S%z' "${ts/+09:00/+0900}" +%s 2>/dev/null)
+    if [ -z "$epoch" ]; then
+      health_alert "$key" "配信ファイルの時刻が読めない ($f: $ts)"; bad=1; continue
+    fi
+    age=$(( (now - epoch) / 60 ))
+    if [ "$age" -gt "$max_min" ]; then
+      health_alert "$key" "アプリに古い中身を配信している: $(basename "$f") が ${age} 分前のまま ($ts)"
+      bad=1
+    else
+      health_clear "$key"
+    fi
+  done
+  return "$bad"
+}
+
 # まとめて実行 (observe-tick から 1 行で呼ぶ)。常に exit 0 相当 (本流を止めない)。
 # 旧 noriba-fill の鮮度監視は恒久停止のため既定で外す(鳴り続ける警報は警報にならない)。
 # 復活させたい場合は HEALTH_WATCH_LEGACY_FILL=1。
@@ -143,5 +183,6 @@ health_check_all() {
   health_check_vehicle_count || true
   [ -n "$HEALTH_WATCH_LEGACY_FILL" ] && { health_check_fill_freshness "$@" || true; }
   health_check_backup || true
+  health_check_published_freshness || true
   return 0
 }

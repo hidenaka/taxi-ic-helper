@@ -6,6 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { Jimp } from 'jimp';
 import { buildPoolStatus, poolFreshness } from './lib/pool-status.mjs';
+import { pickFillRate, capacityFor } from './lib/fill-select.mjs';
 
 const OCC_PATH = './data/slot-occupancy-history.jsonl';
 const SLOT_TEX_PATH = './data/slot-texture-occupancy.jsonl';
@@ -59,10 +60,26 @@ function applyVehicleCounts(status) {
       counts.stall4_back = Math.min(counts.stall4_back, 60);
     }
   }
+  // 路面ベースの埋まり具合(0-1)。計測側は昼だけ書く。
+  // 奥の1〜3号は YOLO で1台ずつ分けられない(満車の1号が目視20台以上・検出2台)ので
+  // こちらを主系にする。4号は手前の帯で数字が暴れるため対象外。
+  const surfaceFill = {};
+  for (const k of ['stall1', 'stall2', 'stall3']) {
+    const vs = rows.map((r) => r.fill?.[k]).filter((v) => typeof v === 'number').sort((a, b) => a - b);
+    if (vs.length) surfaceFill[k] = vs[Math.floor(vs.length / 2)];
+  }
   if (!Object.keys(counts).length) return;
   // 容量 = 観測最大(自動で引き上げ・永続化)。fill は容量比
   let cap = {};
   try { cap = JSON.parse(readFileSync(CAPACITY_PATH, 'utf8')); } catch { cap = {}; }
+  // 昼(YOLO)と夜(行灯)では同じ満車でも数えられる台数が違う。方式に合う容量で割る。
+  const isNightRow = rows[rows.length - 1].primary === 'lantern';
+  if (!isNightRow && !cap.day) cap.day = {};
+  const capActive = new Proxy({}, {
+    get: (_t, k) => capacityFor(cap, k, isNightRow),
+    set: (_t, k, v) => { (isNightRow ? cap : (cap.day ||= {}))[k] = v; return true; },
+    has: (_t, k) => capacityFor(cap, k, isNightRow) !== undefined,
+  });
   // 夜(行灯主系)の real001 は固定光マスク後も路面反射の床値が残り、空でも13-25を数える。
   // 空→0 / 満車→容量 の2点線形校正で吸収する(stall4_back は検出器側で対処済のため対象外)。
   if (rows[rows.length - 1].primary === 'lantern') {
@@ -92,7 +109,7 @@ function applyVehicleCounts(status) {
   const fixedCaps = new Set(cap._fixed || []);   // 現地ルールで固定の容量(例: 4号後列=8台まで)
   for (const k of [...STALL_KEYS, 'stall4_back']) {
     if (typeof counts[k] !== 'number' || fixedCaps.has(k)) continue;
-    if (!(cap[k] >= counts[k])) { cap[k] = counts[k]; capDirty = true; }
+    if (!(capActive[k] >= counts[k])) { capActive[k] = counts[k]; capDirty = true; }
   }
   if (capDirty) writeFileSync(CAPACITY_PATH, JSON.stringify(cap, null, 1) + '\n', 'utf8');
   // 列移動: 直近60分/その前60分のイベント数(1時間あたりの列移動回数=主指標)
@@ -113,10 +130,17 @@ function applyVehicleCounts(status) {
     // 4号は手前(real001の帯)+奥(real002)の合算
     const isS4 = k === 'stall4' && typeof counts.stall4_back === 'number';
     const occK = isS4 ? counts[k] + counts.stall4_back : counts[k];
-    const capK = isS4 ? (cap[k] || 0) + (cap.stall4_back || 0) : cap[k];
+    const capK = isS4 ? (capActive[k] || 0) + (capActive.stall4_back || 0) : capActive[k];
     st.occ = occK;
     total += occK;
-    st.fillRate = capK > 0 ? Number((occK / capK).toFixed(4)) : null;
+    // 主系=路面ベース。無いときだけ台数÷容量へ退避し、どちらで出したかを残す
+    // (黙って退避すると今回のように障害が11日気づかれないため)。
+    const picked = pickFillRate({
+      surface: surfaceFill[k], occ: occK, capacity: capK,
+      isNight: isNightRow, isStall4: isS4,
+    });
+    st.fillRate = picked.fillRate;
+    st.fillMethod = picked.fillMethod;
     delete st.typicalFillRate;              // 新カメラの「普段」は蓄積後に再導入
     delete st.sameConditionCompare;
     const dep1h = evIn(k, 0, 60);
@@ -128,7 +152,7 @@ function applyVehicleCounts(status) {
     st.trend = depPrev === 0 ? (dep1h > 0 ? 'up' : 'flat') : (dep1h / depPrev >= 1.25 ? 'up' : (dep1h / depPrev < 0.75 ? 'down' : 'flat'));
     status.stalls[k] = st;
   }
-  const capTotal = STALL_KEYS.reduce((s2, k) => s2 + (cap[k] || 0), 0);
+  const capTotal = STALL_KEYS.reduce((s2, k) => s2 + (capActive[k] || 0), 0);
   status.total = { occ: total, level: capTotal > 0 ? (total === 0 ? 'empty' : (total / capTotal < 0.35 ? '空き' : (total / capTotal < 0.65 ? '普通' : (total / capTotal < 0.9 ? '混雑' : '満車')))) : null };
   const dep1hAll = STALL_KEYS.reduce((s2, k) => s2 + evIn(k, 0, 60), 0);
   const depPrevAll = STALL_KEYS.reduce((s2, k) => s2 + evIn(k, 60, 120), 0);

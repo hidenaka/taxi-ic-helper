@@ -104,6 +104,49 @@ function readArrivalsJson() {
   }
 }
 
+function writeArrivalsSnapshot(ts, tickSeq) {
+  // 各 tick で「その時点で予測されていた便リスト」を保存し、後から
+  // 「便 → 出庫」の直接対応を取れるようにする。
+  // 映像ソースが止まっていても、到着便はカメラと無関係なので必ず残す
+  // (2026-08-20 の旧カメラ凍結で stale ガードに巻き込まれ 11 日間欠測した)。
+  const arrivalsJson = readArrivalsJson();
+  if (!arrivalsJson || !Array.isArray(arrivalsJson.flights)) return;
+  try {
+    mkdirSync(SNAPSHOTS_DIR, { recursive: true });
+    const snapshotPath = `${SNAPSHOTS_DIR}/arrivals-${ts.slice(0, 10)}.jsonl`;
+    const flightsLite = arrivalsJson.flights.map(f => ({
+      flightNumber: f.flightNumber,
+      airline: f.airline,
+      from: f.from,
+      terminal: f.terminal,
+      isInternational: f.isInternational,
+      scheduledTime: f.scheduledTime,
+      estimatedTime: f.estimatedTime,
+      actualTime: f.actualTime,
+      status: f.status,
+      aircraftCode: f.aircraftCode,
+      seatCount: f.seatCount,
+      estimatedPax: f.estimatedPax,
+      estimatedTaxiPax: f.estimatedTaxiPax,
+      lobbyExitTime: f.lobbyExitTime,
+      reachTier: f.reachTier,
+      // 乗り場号(1-4)と北/南ウイング。遅延便が通常と違う号に着くパターンを
+      // 後から学習・検証するために保存する。これが無いと「推定した号」が残らず
+      // 現地掲示(実際に着いた号)との突き合わせができない(2026-08-14)。
+      poolLane: f.poolLane ?? null,
+      wing: f.wing ?? null,
+    }));
+    appendFileSync(snapshotPath, JSON.stringify({
+      ts,
+      tick_seq: tickSeq,
+      arrivals_updated_at: arrivalsJson.updatedAt,
+      flights: flightsLite,
+    }) + '\n', 'utf8');
+  } catch (e) {
+    console.error(`[observe] arrivals snapshot write failed: ${e.message}`);
+  }
+}
+
 function readArrivalsState(arrivals) {
   if (!arrivals) return null;
   const updatedAt = arrivals.updatedAt ?? null;
@@ -205,6 +248,9 @@ async function main() {
     console.error(`[observe] pool-source-status write failed: ${e.message}`);
   }
 
+  // 到着便の記録はカメラと無関係なので、映像が止まっていても先に残す。
+  writeArrivalsSnapshot(ts, tickSeq);
+
   // stale の時は計測しない(同じ画像をもう1tick分の観測として二重計測しない)。
   if (sourceStale) {
     console.error(`[observe] 元画像が前tickとバイト同一 (右下タイムスタンプ未更新=元ページが画像未更新)。計測スキップ (no jsonl append) sha=${img1.sha256.slice(0, 8)}/${img2.sha256.slice(0, 8)}`);
@@ -235,48 +281,6 @@ async function main() {
     ? summarizeArrivalsWindow(arrivalsJson, new Date())
     : null;
   const weather = readWeather();
-
-  // Phase B 準備: arrivals.json の便単位スナップショットを日別 jsonl に追記
-  // (各 tick で「その時点で予測されていた便リスト」を保存することで、
-  //  後から「便→出庫」の直接対応を取れるようにする)
-  if (arrivalsJson && Array.isArray(arrivalsJson.flights)) {
-    try {
-      mkdirSync(SNAPSHOTS_DIR, { recursive: true });
-      const dateStr = ts.slice(0, 10); // YYYY-MM-DD
-      const snapshotPath = `${SNAPSHOTS_DIR}/arrivals-${dateStr}.jsonl`;
-      const flightsLite = arrivalsJson.flights.map(f => ({
-        flightNumber: f.flightNumber,
-        airline: f.airline,
-        from: f.from,
-        terminal: f.terminal,
-        isInternational: f.isInternational,
-        scheduledTime: f.scheduledTime,
-        estimatedTime: f.estimatedTime,
-        actualTime: f.actualTime,
-        status: f.status,
-        aircraftCode: f.aircraftCode,
-        seatCount: f.seatCount,
-        estimatedPax: f.estimatedPax,
-        estimatedTaxiPax: f.estimatedTaxiPax,
-        lobbyExitTime: f.lobbyExitTime,
-        reachTier: f.reachTier,
-        // 乗り場号(1-4)と北/南ウイング。遅延便が通常と違う号に着くパターンを
-        // 後から学習・検証するために保存する。これが無いと「推定した号」が残らず
-        // 現地掲示(実際に着いた号)との突き合わせができない(2026-08-14)。
-        poolLane: f.poolLane ?? null,
-        wing: f.wing ?? null,
-      }));
-      const snapshotRow = {
-        ts,
-        tick_seq: tickSeq,
-        arrivals_updated_at: arrivalsJson.updatedAt,
-        flights: flightsLite,
-      };
-      appendFileSync(snapshotPath, JSON.stringify(snapshotRow) + '\n', 'utf8');
-    } catch (e) {
-      console.error(`[observe] arrivals snapshot write failed: ${e.message}`);
-    }
-  }
 
   const row = {
     schema_version: SCHEMA_VERSION,
