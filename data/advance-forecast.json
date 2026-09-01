@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-09-01T17:40:00+09:00",
+  "generatedAt": "2026-09-01T17:46:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 8847,
+  "trainedRows": 8848,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,27 +37,27 @@
     "stall4": 8
   },
   "current": {
-    "time": "17:40",
+    "time": "17:46",
     "stalls": {
       "stall1": {
         "actual": 0,
-        "departure": 0,
-        "forecast": 0.1
+        "departure": 1,
+        "forecast": 0.4
       },
       "stall2": {
-        "actual": 2,
-        "departure": 0,
-        "forecast": 0.1
+        "actual": 0,
+        "departure": 1,
+        "forecast": 0.3
       },
       "stall3": {
         "actual": 1,
-        "departure": 2,
-        "forecast": 1.1
+        "departure": 1,
+        "forecast": 0.5
       },
       "stall4": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.5
+        "forecast": 0.1
       }
     }
   },
@@ -1380,6 +1380,24 @@
         "reasons": [],
         "sampleRows": 1269,
         "rainRate": 0.146,
+        "nightRate": 0,
+        "imageQcLowRate": 0
+      }
+    },
+    {
+      "time": "17:30",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 1,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "normal",
+        "condition": "day",
+        "reasons": [],
+        "sampleRows": 1271,
+        "rainRate": 0.128,
         "nightRate": 0,
         "imageQcLowRate": 0
       }
@@ -2720,7 +2738,7 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 1263,
+        "sampleRows": 1271,
         "rainRate": 0.128,
         "nightRate": 0,
         "imageQcLowRate": 0
@@ -2738,7 +2756,7 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 1260,
+        "sampleRows": 1263,
         "rainRate": 0.14,
         "nightRate": 0,
         "imageQcLowRate": 0
