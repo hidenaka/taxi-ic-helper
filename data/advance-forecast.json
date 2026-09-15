@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-09-15T18:25:00+09:00",
+  "generatedAt": "2026-09-15T18:31:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 10194,
+  "trainedRows": 10195,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,26 +37,26 @@
     "stall4": 8
   },
   "current": {
-    "time": "18:25",
+    "time": "18:31",
     "stalls": {
       "stall1": {
-        "actual": 1,
-        "departure": 1,
-        "forecast": 0.1
+        "actual": 0,
+        "departure": 0,
+        "forecast": 0.2
       },
       "stall2": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.3
+        "forecast": 0.2
       },
       "stall3": {
         "actual": 0,
         "departure": 1,
-        "forecast": 0.2
+        "forecast": 1.4
       },
       "stall4": {
         "actual": 1,
-        "departure": 1,
+        "departure": 0,
         "forecast": 0.5
       }
     }
@@ -1434,6 +1434,24 @@
         "reasons": [],
         "sampleRows": 1680,
         "rainRate": 0.143,
+        "nightRate": 0,
+        "imageQcLowRate": 0
+      }
+    },
+    {
+      "time": "18:15",
+      "stalls": {
+        "stall1": 1,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 1
+      },
+      "quality": {
+        "confidence": "normal",
+        "condition": "day",
+        "reasons": [],
+        "sampleRows": 1677,
+        "rainRate": 0.139,
         "nightRate": 0,
         "imageQcLowRate": 0
       }
@@ -2828,7 +2846,7 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 1669,
+        "sampleRows": 1677,
         "rainRate": 0.139,
         "nightRate": 0,
         "imageQcLowRate": 0
@@ -2846,7 +2864,7 @@
         "confidence": "normal",
         "condition": "day",
         "reasons": [],
-        "sampleRows": 1651,
+        "sampleRows": 1653,
         "rainRate": 0.14,
         "nightRate": 0,
         "imageQcLowRate": 0.015
