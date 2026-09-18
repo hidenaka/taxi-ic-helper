@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# stall3-block-move-tick — 3号(real001)の「列移動」を、帯の大半が同時に変わる瞬間(=塊ごと動く)で数える。
+# stall3-block-move-tick — 1〜3号(real001)の「列移動」を、帯の大半が同時に変わる瞬間(=塊ごと動く)で数える。
+# (名前は最初に作った3号のまま。2026-09-18 に 2号・1号も同じ仕組みで追加)
 #
 # なぜ 4号(前縁追跡)と違うやり方か(2026-09-18 画像研究):
 #   3号の列1(出口側=画面左端)は、混んでいる時間は画面の外にある。前縁が見えないので
@@ -15,9 +16,12 @@
 #   4) 並びがそのまま(ずれ0の相関>=0.85)なら照明変化とみなし除外
 #   5) 3分以内の二重検出は1回
 #   ※ 3〜8時は乗り場停止(入庫の並べ替えが混ざる)なので publish 側の運用時間ゲートで落とす
+#   ※ 2号・1号(遠くて小さい・行灯のまぶしさが支配的)は、露出変化に引きずられないよう
+#      (a) プロファイルの中央値を引いてから差を取る (b) 画面全体の変化(gdiff)が大きい瞬間は除く。
+#      3号は近くて見え方が安定しているので検証済みの元の判定のまま(guard=False)。
 #
-# 出力: data/stall3-row-events.jsonl {ts, rows:1, extent, corr0}
-#       data/stall3-block-move-state.json 処理位置・直前プロファイル・保留フレーム
+# 出力: data/stall{1,2,3}-row-events.jsonl {ts, rows:1, extent, corr0}
+#       data/stall{1,2,3}-block-move-state.json 処理位置・直前プロファイル・保留フレーム
 import os, sys, json, glob
 from datetime import datetime, timedelta, timezone
 import numpy as np
@@ -26,17 +30,23 @@ from PIL import Image, ImageFilter
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ARCHIVE = os.environ.get("TAXI_IMAGE_ARCHIVE_DIR", os.path.expanduser("~/taxi-image-archive"))
 CAM = "real001"
-EVENTS = os.path.join(ROOT, "data/stall3-row-events.jsonl")
-STATE = os.path.join(ROOT, "data/stall3-block-move-state.json")
-STATIC_DIR = os.path.join(ROOT, "data/stall3-static-edge")
+STATIC_DIR = os.path.join(ROOT, "data/stall3-static-edge")   # real001 のエッジ最小値キャッシュ(全帯で共用)
+STALLS = {
+    "stall3": {"ts": [235, 270, 305, 340, 375, 405], "x0": 95, "x1": 760, "half": 6, "ethr": 11.0, "dthr": 10.0,
+               "region_min": 150, "win": 360, "guard": False},
+    "stall2": {"ts": [146, 160, 175, 190, 205], "x0": 120, "x1": 980, "half": 4, "ethr": 9.0, "dthr": 8.0,
+               "region_min": 120, "win": 300, "guard": True},
+    "stall1": {"ts": [114, 120, 126, 132, 137], "x0": 150, "x1": 700, "half": 2, "ethr": 8.0, "dthr": 7.0,
+               "region_min": 90, "win": 250, "guard": True},
+}
+GDIFF_MAX = 6.0
+def events_path(k): return os.path.join(ROOT, f"data/{k}-row-events.jsonl")
+def state_path(k): return os.path.join(ROOT, f"data/{k}-block-move-state.json")
 JST = timezone(timedelta(hours=9))
 
 W, H = 1024, 512
 VX, VY, XREF = -995, 115, 500.0          # noriba-bands.json real001 の消失点(帯は白線と平行)
-TS = [235, 270, 305, 340, 375, 405]       # 3号の帯(t=213..420)の内側 6 本
-X0, X1 = 95, 760                          # プール左端〜(右は3号の塊の届く範囲)
-HALF = 6
-EDGE_THR = 11.0; EXT_THR = 0.45; REGION_MIN = 150; SETTLE_THR = 0.35; LIGHT_CORR = 0.85
+EXT_THR = 0.45; SETTLE_THR = 0.35; LIGHT_CORR = 0.85
 DEBOUNCE_FRAMES = 6                        # ≈3分(30秒間隔)
 MAX_FRAMES_PER_TICK = 40
 
@@ -52,30 +62,36 @@ def load(path):
     return g, e
 
 
-def band_profiles(g, e, emin):
+def band_profiles(g, e, emin, c):
     ed = np.maximum(e - emin, 0) if emin is not None else e
-    gp = []; ep = []
-    for t in TS:
+    gp = []; ep = []; h = c["half"]
+    for t in c["ts"]:
         gv = []; ev = []
-        for x in range(X0, X1):
+        for x in range(c["x0"], c["x1"]):
             y = int(round(yat(t, x)))
-            gv.append(float(g[y - HALF:y + HALF + 1, x - 1:x + 2].mean()))
-            ev.append(float(ed[y - HALF:y + HALF + 1, x - 2:x + 3].mean()))
+            gv.append(float(g[y - h:y + h + 1, x - 1:x + 2].mean()))
+            ev.append(float(ed[y - h:y + h + 1, x - 2:x + 3].mean()))
         gp.append(gv); ep.append(ev)
     gp = np.mean(gp, axis=0)
     ep = np.convolve(np.mean(ep, axis=0), np.ones(9) / 9, mode="same")
-    return gp, ep > EDGE_THR
+    return gp, ep > c["ethr"]
 
 
-def corr0(g0, g1, occ):
+def corr0(g0, g1, occ, win):
     idx = np.where(occ)[0]
-    if len(idx) < 120:
+    if len(idx) < 80:
         return None
-    lo, hi = int(idx[0]), int(min(idx[-1], idx[0] + 360))
+    lo, hi = int(idx[0]), int(min(idx[-1], idx[0] + win))
     a = g0[lo:hi] - g0[lo:hi].mean(); b = g1[lo:hi] - g1[lo:hi].mean()
-    if a.std() < 3 or b.std() < 3:
+    if a.std() < 2 or b.std() < 2:
         return None
     return float(np.corrcoef(a, b)[0, 1])
+
+
+def global_diff(g, prev_small):
+    small = g.reshape(32, 16, 64, 16).mean(axis=(1, 3))
+    d = float(np.median(np.abs(small - prev_small))) if prev_small is not None else 0.0
+    return d, small
 
 
 def day_frames(day):
@@ -108,16 +124,16 @@ def jst_iso(day, hhmmss):
     return f"{day}T{hhmmss[:2]}:{hhmmss[2:4]}:{hhmmss[4:6]}+09:00"
 
 
-def load_state():
+def load_state(k):
     try:
-        return json.load(open(STATE))
+        return json.load(open(state_path(k)))
     except Exception:
-        return {"last": None, "prev": None, "pending": [], "last_event_frame": -99, "frame_no": 0}
+        return {"last": None, "prev": None, "pending": [], "last_event_frame": -99, "frame_no": 0, "small": None}
 
 
-def pending_frames(state, now):
+def pending_frames(last, now):
     days = [(now - timedelta(days=1)).strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")]
-    last = state.get("last"); out = []
+    out = []
     for day in days:
         for f in day_frames(day):
             key = f"{day}/{f[:6]}"
@@ -127,23 +143,21 @@ def pending_frames(state, now):
     return out[:MAX_FRAMES_PER_TICK]
 
 
-def main():
-    now = datetime.now(JST)
-    state = load_state()
-    frames = pending_frames(state, now)
+def run_stall(k, c, now, emin_cache):
+    state = load_state(k)
+    frames = pending_frames(state.get("last"), now)
     if not frames:
-        return 0
-    emin_cache = {}
-    prev = state.get("prev")           # {"gp":[...], "occ":[...]} 直前フレーム
-    pending = state.get("pending") or []   # 判定待ち候補 [{ts, frame_no, extent, gp_before, occ_before, after:[extent...]}]
-    frame_no = state.get("frame_no", 0)
-    last_event_frame = state.get("last_event_frame", -99)
+        return
+    prev = state.get("prev"); pending = state.get("pending") or []
+    frame_no = state.get("frame_no", 0); last_event_frame = state.get("last_event_frame", -99)
+    prev_small = np.array(state["small"], dtype=np.float32) if state.get("small") else None
     new_events = []
     for day, f in frames:
         if day not in emin_cache:
             emin_cache[day] = static_edges_for(day)
         g, e = load(os.path.join(ARCHIVE, CAM, day, f))
-        gp, occ = band_profiles(g, e, emin_cache[day])
+        gdiff, prev_small = global_diff(g, prev_small)
+        gp, occ = band_profiles(g, e, emin_cache[day], c)
         frame_no += 1
         ts = jst_iso(day, f[:6])
         extent = 0.0; region = 0
@@ -151,38 +165,49 @@ def main():
             pg = np.array(prev["gp"], dtype=np.float32); pocc = np.array(prev["occ"], dtype=bool)
             reg = occ | pocc; region = int(reg.sum())
             if region > 0:
-                extent = float((np.abs(gp - pg)[reg] > 10).mean())
-        # 保留中の候補に「その後の変化」を積む。2フレームぶん揃ったら判定
+                a, b = (gp - np.median(gp), pg - np.median(pg)) if c["guard"] else (gp, pg)
+                extent = float((np.abs(a - b)[reg] > c["dthr"]).mean())
         still = []
-        for c in pending:
-            c["after"].append(extent)
-            if len(c["after"]) >= 2:
-                if not (c["after"][0] > SETTLE_THR and c["after"][1] > SETTLE_THR):
-                    g0 = np.array(c["gp_before"], dtype=np.float32); occ0 = np.array(c["occ_before"], dtype=bool)
-                    # 直後フレーム(=候補の1つ後)のプロファイルは c["gp_after"] に保存済み
-                    g1 = np.array(c["gp_after"], dtype=np.float32)
-                    c0 = corr0(g0, g1, occ0)
-                    if not (c0 is not None and c0 >= LIGHT_CORR) and c["frame_no"] - last_event_frame > DEBOUNCE_FRAMES:
-                        new_events.append({"ts": c["ts"], "rows": 1, "rows_raw": None, "extent": round(c["extent"], 2),
+        for cand in pending:
+            cand["after"].append(extent)
+            if len(cand["after"]) >= 2:
+                if not (cand["after"][0] > SETTLE_THR and cand["after"][1] > SETTLE_THR):
+                    g0 = np.array(cand["gp_before"], dtype=np.float32); occ0 = np.array(cand["occ_before"], dtype=bool)
+                    g1 = np.array(cand["gp_after"], dtype=np.float32)
+                    c0 = corr0(g0, g1, occ0, c["win"])
+                    if not (c0 is not None and c0 >= LIGHT_CORR) and cand["frame_no"] - last_event_frame > DEBOUNCE_FRAMES:
+                        new_events.append({"ts": cand["ts"], "rows": 1, "rows_raw": None, "extent": round(cand["extent"], 2),
                                            "corr0": (round(c0, 2) if c0 is not None else None)})
-                        last_event_frame = c["frame_no"]
+                        last_event_frame = cand["frame_no"]
                 continue
-            if len(c["after"]) == 1:
-                c["gp_after"] = gp.astype(float).round(1).tolist()
-            still.append(c)
+            if len(cand["after"]) == 1:
+                cand["gp_after"] = gp.astype(float).round(1).tolist()
+            still.append(cand)
         pending = still
-        if prev is not None and extent >= EXT_THR and region >= REGION_MIN and frame_no - last_event_frame > DEBOUNCE_FRAMES:
+        gate = (not c["guard"]) or gdiff <= GDIFF_MAX
+        if prev is not None and gate and extent >= EXT_THR and region >= c["region_min"] and frame_no - last_event_frame > DEBOUNCE_FRAMES:
             pending.append({"ts": ts, "frame_no": frame_no, "extent": extent,
                             "gp_before": prev["gp"], "occ_before": prev["occ"], "after": []})
         prev = {"gp": gp.astype(float).round(1).tolist(), "occ": occ.tolist()}
         state["last"] = f"{day}/{f[:6]}"
     if new_events:
-        with open(EVENTS, "a") as fh:
+        with open(events_path(k), "a") as fh:
             for ev in new_events:
                 fh.write(json.dumps(ev) + "\n")
-        print("[stall3-block-move] events:", ", ".join(e["ts"][11:16] for e in new_events))
-    state.update({"prev": prev, "pending": pending, "frame_no": frame_no, "last_event_frame": last_event_frame})
-    json.dump(state, open(STATE, "w"))
+        print(f"[{k}-block-move] events:", ", ".join(e["ts"][11:16] for e in new_events))
+    state.update({"prev": prev, "pending": pending, "frame_no": frame_no, "last_event_frame": last_event_frame,
+                  "small": (prev_small.round(1).tolist() if prev_small is not None else None)})
+    json.dump(state, open(state_path(k), "w"))
+
+
+def main():
+    now = datetime.now(JST)
+    emin_cache = {}
+    for k, c in STALLS.items():
+        try:
+            run_stall(k, c, now, emin_cache)
+        except Exception as ex:
+            print(f"[{k}-block-move] failed: {ex}", file=sys.stderr)
     return 0
 
 

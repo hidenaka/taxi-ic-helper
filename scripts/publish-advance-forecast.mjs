@@ -19,8 +19,10 @@ const MS_HIST = join(ROOT, 'data/movement-shift-history.jsonl');
 const S4_EVENTS = join(ROOT, 'data/stall4-row-events.jsonl');
 // 3号の列移動(塊が動いた=1回)。stall3-block-move-tick.py が書く。無ければ従来経路。
 const S3_EVENTS = join(ROOT, 'data/stall3-row-events.jsonl');
+const S2_EVENTS = join(ROOT, 'data/stall2-row-events.jsonl');   // 2号・1号も同じ tick(塊が動いた=1回)
+const S1_EVENTS = join(ROOT, 'data/stall1-row-events.jsonl');
 // 乗り場停止中(1〜3号 3〜8時)の入庫並べ替えは列移動に数えない(DEFAULT_QUIET_HOURS と同じ)
-const ROW_QUIET = { stall3: [[3, 8]] };
+const ROW_QUIET = { stall1: [[3, 8]], stall2: [[3, 8]], stall3: [[3, 8]] };
 const OCC_HIST = join(ROOT, 'data/slot-occupancy-history.jsonl'); // 空レーンのゲート用
 const POOL_HIST = join(ROOT, 'data/taxi-pool-history.jsonl'); // 天候/画像QCメタ用
 const OUT = join(ROOT, 'data/advance-forecast.json');
@@ -96,7 +98,8 @@ const s4Events = existsSync(S4_EVENTS)
 const s3Events = existsSync(S3_EVENTS)
   ? parseRowEvents(readFileSync(S3_EVENTS, 'utf8').split('\n').slice(-600).join('\n'))
   : null;
-const rowEventsByStall = { stall4: s4Events, stall3: s3Events };
+const readEvents = (p) => (existsSync(p) ? parseRowEvents(readFileSync(p, 'utf8').split('\n').slice(-600).join('\n')) : null);
+const rowEventsByStall = { stall4: s4Events, stall3: s3Events, stall2: readEvents(S2_EVENTS), stall1: readEvents(S1_EVENTS) };
 
 // 占有履歴(空レーンのゲート用)。直近ぶんだけ読む。
 let occRows = [];
