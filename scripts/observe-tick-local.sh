@@ -84,6 +84,9 @@ if [ ! -f data/.arrival-backfill-done-v7 ]; then
   if node scripts/backfill-arrival-demand.mjs; then touch data/.arrival-backfill-done-v7; fi
 fi
 
+# 4号後列の列移動(列1の前縁追跡・1分おきのアーカイブ画像から)。advance-forecast の 4号がこれを読む。
+if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/stall4-row-shift-tick.py || true; fi
+
 # 前進カウント(実測+予測)を data/advance-forecast.json に生成 (fail-safe)。
 # 学習履歴(advance-count-history.jsonl)が無ければ publish 側で skip。
 # 段階A: 到着便(乗り場号)を予測に反映。段階B学習用に到着需要も追記。

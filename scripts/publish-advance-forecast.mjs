@@ -7,6 +7,7 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { buildAdvanceModel, predictAdvance, predictAdvanceWithFlights, flightFactorByStall, arrivalDemandByStall, recentActualBreakdown, lastCompletedBinRow, buildQualityByBucket, bucketOfDay } from './lib/advance-forecast.mjs';
+import { parseRowEvents, rowsInWindow, applyStall4Rows } from './lib/stall4-rows.mjs';
 
 const THR = 8; // 列移動検出の絶対しきい値。コモンモード除去で照明/夜明け/行灯フリッカを
                // 別途相殺するため、しきい値は感度重視で8に下げる(15は過小検出=予測が低すぎた)。
@@ -14,6 +15,8 @@ const THR = 8; // 列移動検出の絶対しきい値。コモンモード除�
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HIST = join(ROOT, 'data/advance-count-history.jsonl');
 const MS_HIST = join(ROOT, 'data/movement-shift-history.jsonl');
+// 4号後列の列移動(列1の前縁追跡・2列移動は2)。stall4-row-shift-tick.py が書く。無ければ従来経路。
+const S4_EVENTS = join(ROOT, 'data/stall4-row-events.jsonl');
 const OCC_HIST = join(ROOT, 'data/slot-occupancy-history.jsonl'); // 空レーンのゲート用
 const POOL_HIST = join(ROOT, 'data/taxi-pool-history.jsonl'); // 天候/画像QCメタ用
 const OUT = join(ROOT, 'data/advance-forecast.json');
@@ -61,8 +64,9 @@ function currentActuals(model, nowIso, msRows, factorByStall, occRows) {
     const movement = msRows.length
       ? recentActualBreakdown(msRows, s, nowEpoch, { windowMin: 15, absThreshold: THR, debounceSec: 120, occRows })
       : null;
+    const s4Live = (s === 'stall4' && s4Events) ? rowsInWindow(s4Events, nowEpoch - 15 * 60, nowEpoch + 1) : null;
     out[s] = {
-      actual: movement ? movement.replenish : null,
+      actual: s4Live !== null ? s4Live : (movement ? movement.replenish : null),
       departure: movement ? movement.departure : null,
       forecast: Number(predictAdvanceWithFlights(model, nowIso, s, factorByStall).toFixed(1)),
     };
@@ -80,6 +84,10 @@ if (existsSync(MS_HIST)) {
   const all = readFileSync(MS_HIST, 'utf8').trim().split('\n');
   msRows = all.slice(-60).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
 }
+// 4号の列移動イベント(直近ぶんだけ読む)。計測が動いていない環境では null → 従来の frontDensity 経路。
+const s4Events = existsSync(S4_EVENTS)
+  ? parseRowEvents(readFileSync(S4_EVENTS, 'utf8').split('\n').slice(-400).join('\n'))
+  : null;
 
 // 占有履歴(空レーンのゲート用)。直近ぶんだけ読む。
 let occRows = [];
@@ -93,9 +101,11 @@ const poolRows = readJsonl(POOL_HIST);
 const qualityByBucket = buildQualityByBucket({ poolRows, occRows: occRowsAll });
 
 // ① 履歴を育てる: 直前に完成した15分ビンを学習データへ追記(重複なし)。次回以降の予測精度が上がる。
-const grown = msRows.length
+const grownRaw = msRows.length
   ? lastCompletedBinRow(rows, msRows, Math.floor(Date.now() / 1000), { stalls: STALLS, absThreshold: THR, debounceSec: 120, occRows })
   : null;
+// 4号だけは列移動イベント由来に置き換える(コーンの箱では列1が来ないため数えられない・2026-09-18)。
+const grown = applyStall4Rows(grownRaw, s4Events);
 if (grown) {
   appendFileSync(HIST, JSON.stringify(grown) + '\n');
   rows.push(grown);
