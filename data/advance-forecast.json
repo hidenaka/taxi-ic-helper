@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-09-19T19:57:00+09:00",
+  "generatedAt": "2026-09-19T20:03:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 10584,
+  "trainedRows": 10585,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,12 +37,12 @@
     "stall4": 8
   },
   "current": {
-    "time": "19:57",
+    "time": "20:03",
     "stalls": {
       "stall1": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.7
+        "forecast": 0.1
       },
       "stall2": {
         "actual": 0,
@@ -51,13 +51,13 @@
       },
       "stall3": {
         "actual": 1,
-        "departure": 1,
-        "forecast": 1.2
+        "departure": 0,
+        "forecast": 1.5
       },
       "stall4": {
         "actual": 1,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0.1
       }
     }
   },
@@ -1551,6 +1551,26 @@
         "nightRate": 0.454,
         "imageQcLowRate": 1
       }
+    },
+    {
+      "time": "19:45",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 1,
+        "stall4": 1
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "day",
+        "reasons": [
+          "image_qc"
+        ],
+        "sampleRows": 1804,
+        "rainRate": 0.129,
+        "nightRate": 0.459,
+        "imageQcLowRate": 1
+      }
     }
   ],
   "slots": [
@@ -2286,7 +2306,7 @@
       "time": "09:15",
       "stalls": {
         "stall1": 0.2,
-        "stall2": 0.3,
+        "stall2": 0.2,
         "stall3": 0.3,
         "stall4": 0.1
       },
@@ -2700,8 +2720,8 @@
       "time": "15:00",
       "stalls": {
         "stall1": 0.2,
-        "stall2": 1.7,
-        "stall3": 2.3,
+        "stall2": 1.6,
+        "stall3": 2.4,
         "stall4": 0.4
       },
       "quality": {
@@ -2755,7 +2775,7 @@
       "stalls": {
         "stall1": 0.8,
         "stall2": 1.1,
-        "stall3": 1.4,
+        "stall3": 1.5,
         "stall4": 0.2
       },
       "quality": {
@@ -2844,7 +2864,7 @@
       "time": "17:00",
       "stalls": {
         "stall1": 0.2,
-        "stall2": 0.6,
+        "stall2": 0.5,
         "stall3": 1.5,
         "stall4": 1.3
       },
@@ -2916,7 +2936,7 @@
       "time": "18:00",
       "stalls": {
         "stall1": 1.4,
-        "stall2": 1.6,
+        "stall2": 1.5,
         "stall3": 0.6,
         "stall4": 1.1
       },
@@ -2934,7 +2954,7 @@
       "time": "18:15",
       "stalls": {
         "stall1": 0.3,
-        "stall2": 1.1,
+        "stall2": 1,
         "stall3": 2,
         "stall4": 1.4
       },
@@ -3047,9 +3067,9 @@
     {
       "time": "19:45",
       "stalls": {
-        "stall1": 0.7,
-        "stall2": 0.5,
-        "stall3": 1.2,
+        "stall1": 0.2,
+        "stall2": 0.4,
+        "stall3": 0.9,
         "stall4": 0.2
       },
       "quality": {
@@ -3058,18 +3078,18 @@
         "reasons": [
           "image_qc"
         ],
-        "sampleRows": 1799,
+        "sampleRows": 1804,
         "rainRate": 0.129,
-        "nightRate": 0.46,
+        "nightRate": 0.459,
         "imageQcLowRate": 1
       }
     },
     {
       "time": "20:00",
       "stalls": {
-        "stall1": 0,
+        "stall1": 0.1,
         "stall2": 0.5,
-        "stall3": 1.3,
+        "stall3": 1.5,
         "stall4": 0.1
       },
       "quality": {
@@ -3078,9 +3098,9 @@
         "reasons": [
           "image_qc"
         ],
-        "sampleRows": 1750,
+        "sampleRows": 1756,
         "rainRate": 0.141,
-        "nightRate": 0.471,
+        "nightRate": 0.469,
         "imageQcLowRate": 1
       }
     },
@@ -3088,9 +3108,9 @@
       "time": "20:15",
       "stalls": {
         "stall1": 0.2,
-        "stall2": 0.5,
-        "stall3": 0.7,
-        "stall4": 0.6
+        "stall2": 1,
+        "stall3": 0.9,
+        "stall4": 0.4
       },
       "quality": {
         "confidence": "reference",
@@ -3108,9 +3128,9 @@
       "time": "20:30",
       "stalls": {
         "stall1": 0.4,
-        "stall2": 1.3,
+        "stall2": 1.5,
         "stall3": 0.6,
-        "stall4": 0.2
+        "stall4": 0.3
       },
       "quality": {
         "confidence": "reference",
@@ -3130,7 +3150,7 @@
         "stall1": 0.1,
         "stall2": 1.2,
         "stall3": 0.6,
-        "stall4": 0.5
+        "stall4": 0.6
       },
       "quality": {
         "confidence": "reference",
@@ -3149,8 +3169,8 @@
       "stalls": {
         "stall1": 0.1,
         "stall2": 0.7,
-        "stall3": 1.1,
-        "stall4": 0.3
+        "stall3": 1.6,
+        "stall4": 0.4
       },
       "quality": {
         "confidence": "reference",
@@ -3170,7 +3190,7 @@
       "stalls": {
         "stall1": 0.1,
         "stall2": 0.6,
-        "stall3": 1.4,
+        "stall3": 2.3,
         "stall4": 0.1
       },
       "quality": {
@@ -3191,7 +3211,7 @@
       "stalls": {
         "stall1": 0.2,
         "stall2": 0.5,
-        "stall3": 3.6,
+        "stall3": 1.1,
         "stall4": 0.4
       },
       "quality": {
@@ -3233,7 +3253,7 @@
       "stalls": {
         "stall1": 0.1,
         "stall2": 2.4,
-        "stall3": 2.6,
+        "stall3": 2,
         "stall4": 0.1
       },
       "quality": {
@@ -3253,7 +3273,7 @@
       "time": "22:15",
       "stalls": {
         "stall1": 0.3,
-        "stall2": 2.6,
+        "stall2": 2.5,
         "stall3": 1.8,
         "stall4": 0.1
       },
@@ -3274,7 +3294,7 @@
       "time": "22:30",
       "stalls": {
         "stall1": 0.2,
-        "stall2": 1.3,
+        "stall2": 1.2,
         "stall3": 2.1,
         "stall4": 0.2
       },
