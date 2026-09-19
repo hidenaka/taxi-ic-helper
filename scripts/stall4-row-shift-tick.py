@@ -129,9 +129,9 @@ def detect(recent):
             m = [FE[k, L] for (L, yb, ya, r) in jumps if valid[k, L]]
             if m and np.median(m) <= yb_med + 0.3 * rowpx(yb_med): back = True; break
         if back: i += 1; continue
-        # 前縁がコーン線(y>340)まで来ることは無い(独立評価: 本物50件は全て y_after<=327、偽・二重は 350〜398 =
-        # 雨の路面のヘッドライトの光筋・再配置)。
-        if float(np.median([ya for (_, _, ya, _) in jumps])) > 340: i += 1; continue
+        # 前縁がコーン線(y>340)まで来る移動は、9/17 では偽(雨の路面の光筋・再配置、lines=3)だけだったが、
+        # 塊が長い日(9/19)は本物も y>340 まで来る。そこでは線4本以上を要求して光筋(3本)だけ落とす。
+        if float(np.median([ya for (_, _, ya, _) in jumps])) > 340 and len(jumps) < 4: i += 1; continue
         # 二重除外は実時間で100秒(同一画像が続く30秒フレームなのでフレーム数では揺れる)
         if ev and (datetime.fromisoformat(recent[i]['ts']) - datetime.fromisoformat(ev[-1]['ts'])).total_seconds() < 100: i += 1; continue
         raw = float(np.median([r for (_, _, _, r) in jumps]))
