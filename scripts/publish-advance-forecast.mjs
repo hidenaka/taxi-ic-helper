@@ -118,6 +118,22 @@ const grownRaw = msRows.length
   : null;
 // 4号(前縁追跡)と3号(塊が動いた)は画像計測のイベント由来に置き換える(2026-09-18)。
 const grown = applyRowEvents(grownRaw, rowEventsByStall, { quietHours: ROW_QUIET });
+// 画像計測の tick が遅れて追いついたとき、すでに書いた直近ビンにイベントが載っていないことがある
+// (2026-09-19: 4号が0回に見えた原因の1つ)。直近2時間ぶんのビンは毎回イベントで書き直す。
+{
+  const cutoff = Math.floor(Date.now() / 1000) - 2 * 3600;
+  let changed = false;
+  for (let i = rows.length - 1; i >= 0 && rows.length - i <= 12; i--) {
+    const t = Math.floor(new Date(rows[i].ts).getTime() / 1000);
+    if (!Number.isFinite(t) || t < cutoff) break;
+    const nr = applyRowEvents(rows[i], rowEventsByStall, { quietHours: ROW_QUIET });
+    if (JSON.stringify(nr.stalls) !== JSON.stringify(rows[i].stalls)) { rows[i] = nr; changed = true; }
+  }
+  if (changed) {
+    writeFileSync(HIST, rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    console.log('[advance-forecast] refreshed recent bins from row events');
+  }
+}
 if (grown) {
   appendFileSync(HIST, JSON.stringify(grown) + '\n');
   rows.push(grown);
