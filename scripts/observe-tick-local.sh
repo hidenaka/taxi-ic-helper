@@ -88,6 +88,8 @@ fi
 if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/stall4-row-shift-tick.py || true; fi
 # 3号の列移動(帯の大半が同時に変わる=塊が動いた。30秒おきのアーカイブ画像から)。
 if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/stall3-block-move-tick.py || true; fi
+# 1号の列移動(車の向きに合わせた箱で頭の跳びを追う。30秒おきのアーカイブ画像から)。
+if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/stall1-cell-tick.py || true; fi
 
 # 前進カウント(実測+予測)を data/advance-forecast.json に生成 (fail-safe)。
 # 学習履歴(advance-count-history.jsonl)が無ければ publish 側で skip。

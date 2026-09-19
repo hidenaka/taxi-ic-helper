@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# stall3-block-move-tick — 1〜3号(real001)の「列移動」を、帯の大半が同時に変わる瞬間(=塊ごと動く)で数える。
+# stall3-block-move-tick — 2〜3号(real001)の「列移動」を、帯の大半が同時に変わる瞬間(=塊ごと動く)で数える。
 # (名前は最初に作った3号のまま。2026-09-18 に 2号・1号も同じ仕組みで追加)
 #
 # なぜ 4号(前縁追跡)と違うやり方か(2026-09-18 画像研究):
@@ -36,8 +36,7 @@ STALLS = {
                "region_min": 150, "win": 360, "guard": False},
     "stall2": {"ts": [146, 160, 175, 190, 205], "x0": 120, "x1": 980, "half": 4, "ethr": 9.0, "dthr": 8.0,
                "region_min": 120, "win": 300, "guard": True},
-    "stall1": {"ts": [114, 120, 126, 132, 137], "x0": 150, "x1": 700, "half": 2, "ethr": 8.0, "dthr": 7.0,
-               "region_min": 90, "win": 250, "guard": True},
+    # stall1 は scripts/stall1-cell-tick.py(車の向きに合わせた箱・2026-09-19)へ移行。ここでは扱わない。
 }
 GDIFF_MAX = 6.0
 def events_path(k): return os.path.join(ROOT, f"data/{k}-row-events.jsonl")
