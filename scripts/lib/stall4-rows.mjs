@@ -27,8 +27,11 @@ function jstHour(ts) {
  * opts.quietHours = [[from,to],...] の JST 時間帯(乗り場停止中)のイベントは数えない
  * (停止中の入庫の並べ替えを列移動に数えないため。advance-forecast の DEFAULT_QUIET_HOURS と同じ考え)。
  */
+// 数えるのは「列移動の回数」(本人指示 2026-09-19)。rows(何列ぶん進んだか)はイベントの付帯情報として残すだけで、
+// 集計には使わない(opts.unit === 'rows' を明示したときだけ列数を足す)。
 export function rowsInWindow(events, startEpoch, endEpoch, opts = {}) {
   const quiet = opts.quietHours || null;
+  const useRows = opts.unit === 'rows';
   let sum = 0;
   for (const e of events || []) {
     const t = Math.floor(new Date(e.ts).getTime() / 1000);
@@ -37,7 +40,7 @@ export function rowsInWindow(events, startEpoch, endEpoch, opts = {}) {
       const h = jstHour(e.ts);
       if (quiet.some(([a, b]) => h >= a && h < b)) continue;
     }
-    sum += Math.max(0, Math.round(e.rows));
+    sum += useRows ? Math.max(0, Math.round(e.rows)) : 1;
   }
   return sum;
 }
