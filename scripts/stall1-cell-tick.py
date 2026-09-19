@@ -36,7 +36,7 @@ VX, VY, XREF = -995, 115, 500.0
 CAR = 25; XS = list(range(380, 780, CAR)); NC = len(XS)
 SL = -8.9 / 6.4; T1 = 138
 WINDOW = 80            # 直近40分ぶんを保持(前後の判定に必要)
-MAX_FRAMES_PER_TICK = 40
+MAX_FRAMES_PER_TICK = 240
 
 
 def yat(t, x): return VY + (t - VY) * (x - VX) / (XREF - VX)
@@ -142,24 +142,32 @@ def pending_frames(last, now):
     return out[:MAX_FRAMES_PER_TICK]
 
 
+def later_than(ts, ref, gap_sec):
+    """ts が ref より gap_sec 秒以上あと(判定窓をまたいだ二重を防ぐ)。"""
+    a = datetime.fromisoformat(ts); b = datetime.fromisoformat(ref)
+    return (a - b).total_seconds() >= gap_sec
+
+
 def main():
     now = datetime.now(JST); state = load_state()
     frames = pending_frames(state.get("last"), now)
     if not frames: return 0
-    recent = state.get("recent") or []
-    for day, f in frames:
-        g = np.asarray(Image.open(os.path.join(ARCHIVE, CAM, day, f)).convert("L").resize((W, H)), dtype=np.float32)
-        ts = f"{day}T{f[:2]}:{f[2:4]}:{f[4:6]}+09:00"
-        recent.append({"ts": ts, "cv": [round(v, 4) for v in cell_cv(g)], "sky": round(sky(g), 1)})
-        state["last"] = f"{day}/{f[:6]}"
-    recent = recent[-WINDOW:]
-    last_ts = state.get("last_event_ts")
-    new = [e for e in detect(recent) if (not last_ts or e["ts"] > last_ts)]
-    if new:
-        with open(EVENTS, "a") as fh:
-            for e in new: fh.write(json.dumps(e) + "\n")
-        state["last_event_ts"] = new[-1]["ts"]
-        print("[stall1-cell] events:", ", ".join(f"{e['ts'][11:16]} {e['rows']}列" for e in new))
+    recent = state.get("recent") or []; last_ts = state.get("last_event_ts"); new_all = []
+    CHUNK = 20   # 遅れて追いつくときも判定窓からこぼれないよう、20枚ずつ足しては判定する
+    for c0 in range(0, len(frames), CHUNK):
+        for day, f in frames[c0:c0 + CHUNK]:
+            g = np.asarray(Image.open(os.path.join(ARCHIVE, CAM, day, f)).convert("L").resize((W, H)), dtype=np.float32)
+            recent.append({"ts": f"{day}T{f[:2]}:{f[2:4]}:{f[4:6]}+09:00", "cv": [round(v, 4) for v in cell_cv(g)], "sky": round(sky(g), 1)})
+            state["last"] = f"{day}/{f[:6]}"
+        recent = recent[-WINDOW:]
+        new = [e for e in detect(recent) if (not last_ts or later_than(e["ts"], last_ts, 200))]
+        if new:
+            with open(EVENTS, "a") as fh:
+                for e in new: fh.write(json.dumps(e) + "\n")
+            last_ts = new[-1]["ts"]; new_all += new
+    if new_all:
+        state["last_event_ts"] = last_ts
+        print("[stall1-cell] events:", ", ".join(f"{e['ts'][11:16]} {e['rows']}列" for e in new_all))
     state["recent"] = recent
     json.dump(state, open(STATE, "w"))
     return 0

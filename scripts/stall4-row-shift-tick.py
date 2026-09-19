@@ -37,7 +37,7 @@ Y0, Y1 = 470, 60
 YSTART = [350, 350, 440, 440, 420, 395, 395]
 EDGE_THR = 11.0; RUN = 32; HALF = 14
 FRAMES_2MIN = 4; DEBOUNCE = 3; MIN_LINES = 3; JUMP_ROWS = 0.7   # 画像は実質1分1枚(同一画像が続く)なので DEBOUNCE=3フレーム≈90秒
-WINDOW = 60; MAX_FRAMES_PER_TICK = 40
+WINDOW = 60; MAX_FRAMES_PER_TICK = 240   # 遅れても1tickで2時間ぶん追いつける(処理≈0.1秒/枚)
 
 
 def rowpx(y): return 0.2 * y + 15
@@ -162,23 +162,34 @@ def pending_frames(last, now):
     return out[:MAX_FRAMES_PER_TICK]
 
 
+def later_than(ts, ref, gap_sec):
+    """ts が ref より gap_sec 秒以上あと(判定窓をまたいだ二重を防ぐ)。"""
+    a = datetime.fromisoformat(ts); b = datetime.fromisoformat(ref)
+    return (a - b).total_seconds() >= gap_sec
+
+
 def main():
     now = datetime.now(JST); state = load_state()
     frames = pending_frames(state.get("last"), now)
     if not frames: return 0
     recent = state.get("recent") or []; emin_cache = {}
-    for day, f in frames:
-        if day not in emin_cache: emin_cache[day] = static_edges_for(day)
-        recent.append({"ts": jst_iso(day, f[:6]), "fe": frame_fe(os.path.join(ARCHIVE, CAM, day, f), emin_cache[day])})
-        state["last"] = f"{day}/{f[:6]}"
-    recent = recent[-WINDOW:]
-    last_ts = state.get("last_event_ts")
-    new = [e for e in detect(recent) if (not last_ts or e["ts"] > last_ts)]
-    if new:
-        with open(EVENTS, "a") as fh:
-            for e in new: fh.write(json.dumps(e) + "\n")
-        state["last_event_ts"] = new[-1]["ts"]
-        print("[stall4-row-shift] events:", ", ".join(f"{e['ts'][11:16]} {e['rows']}列" for e in new))
+    last_ts = state.get("last_event_ts"); new_all = []
+    # 遅れて追いつくときも判定窓(WINDOW)からイベントがこぼれないよう、20枚ずつ足しては判定する
+    CHUNK = 20
+    for c0 in range(0, len(frames), CHUNK):
+        for day, f in frames[c0:c0 + CHUNK]:
+            if day not in emin_cache: emin_cache[day] = static_edges_for(day)
+            recent.append({"ts": jst_iso(day, f[:6]), "fe": frame_fe(os.path.join(ARCHIVE, CAM, day, f), emin_cache[day])})
+            state["last"] = f"{day}/{f[:6]}"
+        recent = recent[-WINDOW:]
+        new = [e for e in detect(recent) if (not last_ts or later_than(e["ts"], last_ts, 100))]
+        if new:
+            with open(EVENTS, "a") as fh:
+                for e in new: fh.write(json.dumps(e) + "\n")
+            last_ts = new[-1]["ts"]; new_all += new
+    if new_all:
+        state["last_event_ts"] = last_ts
+        print("[stall4-row-shift] events:", ", ".join(f"{e['ts'][11:16]} {e['rows']}列" for e in new_all))
     state["recent"] = recent
     json.dump(state, open(STATE, "w"))
     return 0
