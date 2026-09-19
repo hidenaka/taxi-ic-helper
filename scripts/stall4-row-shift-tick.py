@@ -65,7 +65,8 @@ def front_edge(e, pts, ystart):
         cnt = cnt + 1 if v else 0
         if cnt >= RUN:
             y = Y0 - (i - RUN + 1)
-            if y >= ystart - 3 or y <= 100: return None      # 走査開始点(コーン/チェーン)・画面上端の固定値は無効
+            if y <= 100: return None      # 画面上端の固定値は無効。走査開始点付近(コーン列まで来た本物の前縁)は有効のまま
+            #   ※ 走査開始点の固定値(コーン/チェーン)はジャンプを起こさないので線ごとの判定では害にならない(2026-09-19)
             return y
     return None
 
