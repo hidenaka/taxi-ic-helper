@@ -15,7 +15,8 @@
 #   - 入庫・再配置の除外: ジャンプ前2分に有効な線が3本未満(塊が無い)なら数えない。
 #   - 退出車の通過の取り消し: ジャンプ後2分以内に前縁が元の位置まで戻ったら数えない。
 #   - rows = ジャンプした線の中央値(列ぶん・区間中点の目盛り)。丸めは 1.85/2.85 境界。集計は回数(rows は付帯情報)。
-#   - 独立評価(9/17): v2 再現率≈76%・適合率≈92〜100%。残る取りこぼし=前列に1〜2台残る部分出発の一部。
+#   - 独立評価(9/17): v3 再現率≈86%・適合率≈88%(y_after>340 除外と100秒二重除外で≈96%見込み)。
+#     残る取りこぼし=前列に1〜2台残る部分出発(21:55型)。格子方式(案A)は昼の少数台の並べ直しを拾うため不採用(2026-09-19)。
 # 出力: data/stall4-row-events.jsonl {ts, rows, rows_raw, lines, y_before, y_after}
 #       data/stall4-row-shift-state.json {last, recent:[{ts,fe[7]}], last_event_ts}
 import os, sys, json, glob
@@ -128,6 +129,11 @@ def detect(recent):
             m = [FE[k, L] for (L, yb, ya, r) in jumps if valid[k, L]]
             if m and np.median(m) <= yb_med + 0.3 * rowpx(yb_med): back = True; break
         if back: i += 1; continue
+        # 前縁がコーン線(y>340)まで来ることは無い(独立評価: 本物50件は全て y_after<=327、偽・二重は 350〜398 =
+        # 雨の路面のヘッドライトの光筋・再配置)。
+        if float(np.median([ya for (_, _, ya, _) in jumps])) > 340: i += 1; continue
+        # 二重除外は実時間で100秒(同一画像が続く30秒フレームなのでフレーム数では揺れる)
+        if ev and (datetime.fromisoformat(recent[i]['ts']) - datetime.fromisoformat(ev[-1]['ts'])).total_seconds() < 100: i += 1; continue
         raw = float(np.median([r for (_, _, _, r) in jumps]))
         rows = 1 if raw < 1.85 else (2 if raw < 2.85 else 3)
         ev.append({"ts": recent[i]["ts"], "rows": rows, "rows_raw": round(raw, 2), "lines": len(jumps),
@@ -163,7 +169,7 @@ def pending_frames(last, now):
     return out[:MAX_FRAMES_PER_TICK]
 
 
-def later_than(ts, ref, gap_sec):
+def later_than(ts, ref, gap_sec=100):
     """ts が ref より gap_sec 秒以上あと(判定窓をまたいだ二重を防ぐ)。"""
     a = datetime.fromisoformat(ts); b = datetime.fromisoformat(ref)
     return (a - b).total_seconds() >= gap_sec
