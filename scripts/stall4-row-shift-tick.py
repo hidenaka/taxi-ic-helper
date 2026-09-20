@@ -17,6 +17,8 @@
 #   - rows = ジャンプした線の中央値(列ぶん・区間中点の目盛り)。丸めは 1.85/2.85 境界。集計は回数(rows は付帯情報)。
 #   - v3.2(2026-09-20): 雨の少数台の日は塊に掛かる線が3本しかなく、y_after>340→線4本ルールが本物を全落とし(15-17時 5回中1回)。
 #     線の本数の絶対値ではなく「動いた線のうち前へ跳んだ線の割合≥0.6」に変更し、y_after>340 ルールを撤去。
+#   - v3.3(2026-09-20): 前縁がコーン線に張り付いたまま前列が入れ替わる(1分以内に出て詰める)を前列パッチ差分で拾う(kind=swap)。
+#     取りこぼしは 9/13(日曜・混雑) 52回に対し11回、9/19 3回、9/17 0回だった。
 #   - 独立評価(9/17): v3 再現率≈86%・適合率≈88%(y_after>340 除外と100秒二重除外で≈96%見込み)。
 #     残る取りこぼし=前列に1〜2台残る部分出発(21:55型)。格子方式(案A)は昼の少数台の並べ直しを拾うため不採用(2026-09-19)。
 # 出力: data/stall4-row-events.jsonl {ts, rows, rows_raw, lines, y_before, y_after}
@@ -39,7 +41,9 @@ XS = [470, 560, 650, 740, 830, 920, 1010]
 Y0, Y1 = 470, 60
 YSTART = [350, 350, 440, 440, 420, 395, 395]
 EDGE_THR = 11.0; RUN = 32; HALF = 14
-FRAMES_2MIN = 4; DEBOUNCE = 3; MIN_LINES = 3; JUMP_ROWS = 0.7; ACTIVE_RATIO = 0.6   # 画像は実質1分1枚(同一画像が続く)なので DEBOUNCE=3フレーム≈90秒
+FRAMES_2MIN = 4; DEBOUNCE = 3; MIN_LINES = 3; JUMP_ROWS = 0.7; ACTIVE_RATIO = 0.6
+SWAP_THR = 20.0; CONE_MARGIN = 35   # 前縁がコーン線に張り付いたまま前列の中身が入れ替わる(1分以内に出て詰める)を拾う(v3.3)
+PREV_GRAY = os.path.join(ROOT, "data/stall4-prev-gray.npy")   # 画像は実質1分1枚(同一画像が続く)なので DEBOUNCE=3フレーム≈90秒
 WINDOW = 60; MAX_FRAMES_PER_TICK = 240   # 遅れても1tickで2時間ぶん追いつける(処理≈0.1秒/枚)
 
 
@@ -103,6 +107,24 @@ def frame_fe(path, emin):
     return [front_edge(e, p, ys) for p, ys in zip(LINES, YSTART)]
 
 
+def frame_feat(path, emin, prev_gray):
+    """fe[7] と、線ごとの前列パッチ(前縁から1列ぶん奥まで・幅±20px)の前フレームとの平均差分 diff[7]。gray も返す。"""
+    fe = frame_fe(path, emin)
+    g = np.asarray(Image.open(path).convert("L").resize((W, H)), dtype=np.float32)
+    diffs = [None] * len(XS)
+    if prev_gray is not None and prev_gray.shape == g.shape:
+        for L, (pts, y) in enumerate(zip(LINES, fe)):
+            if y is None: continue
+            y0 = int(y - 0.9 * rowpx(y)); vals = []
+            for (x, yy) in pts:
+                yi = int(round(yy))
+                if y0 <= yi <= y:
+                    xi = int(round(x)); a = g[yi, max(0, xi - 20):xi + 21]; b = prev_gray[yi, max(0, xi - 20):xi + 21]
+                    vals.append(float(np.abs(a - b).mean()))
+            if vals: diffs[L] = round(float(np.mean(vals)), 1)
+    return fe, diffs, g
+
+
 def detect(recent):
     """recent: [{ts, fe[7]}] 30秒おき。確定できたイベントを返す(終端+FRAMES_2MIN が揃うもの)。"""
     n = len(recent)
@@ -121,7 +143,20 @@ def detect(recent):
             yb = min(prev); d = FE[i, L] - yb
             if abs(d) >= 0.3 * rowpx(yb): active += 1   # 動いた線(塊に掛かっている線)。動かない線は塊の外か固定エッジ
             if d >= JUMP_ROWS * rowpx(yb): jumps.append((L, yb, FE[i, L], d / rowpx((yb + FE[i, L]) / 2)))   # 列数は区間の中点の目盛りで
-        if len(jumps) < MIN_LINES: i += 1; continue
+        if len(jumps) < MIN_LINES:
+            # v3.3 入れ替え検出: 前縁が3本以上コーン線に張り付いたまま(前後フレームとも)、前列パッチの中身が大きく変わった
+            #   = 前列が出て1分以内に次列が詰めた(前縁ジャンプが画像に写らない)。静止時の差分は p90≈8・本物は中央値≈42(9/13,9/17,9/19)。
+            #   画像確認(9/13: 12件中11本物, 9/19: 4件中3本物)。
+            dif = recent[i].get("diff") or [None] * len(XS)
+            cone = [L for L in range(len(XS)) if valid[i, L] and valid[i - 1, L] and FE[i, L] >= YSTART[L] - CONE_MARGIN
+                    and FE[i - 1, L] >= YSTART[L] - CONE_MARGIN and dif[L] is not None]
+            if len(cone) >= 3 and float(np.median([dif[L] for L in cone])) >= SWAP_THR:
+                if not (ev and (datetime.fromisoformat(recent[i]['ts']) - datetime.fromisoformat(ev[-1]['ts'])).total_seconds() < 100):
+                    ev.append({"ts": recent[i]["ts"], "rows": 1, "rows_raw": 1.0, "lines": len(cone), "kind": "swap",
+                               "diff": round(float(np.median([dif[L] for L in cone])), 1),
+                               "y_before": round(float(np.median([FE[i, L] for L in cone])), 1), "y_after": round(float(np.median([FE[i, L] for L in cone])), 1)})
+                    last = i
+            i += 1; continue
         # 塊が細い日(雨・少数台)は塊に掛かる線が3〜4本しかない。線の本数ではなく「動いた線のうち前へ跳んだ割合」で見る(v3.2)
         if len(jumps) / max(active, 1) < ACTIVE_RATIO: i += 1; continue
         # 入庫・再配置の除外: ジャンプ前2分に有効線が3本未満なら塊が無かった
@@ -150,7 +185,10 @@ def run_day(day, emin=None):
     """バックフィル用: 1日ぶんを通しで処理。"""
     fs = day_frames(day)
     if emin is None: emin = static_edges_for(day)
-    recent = [{"ts": f"{day}T{f[:2]}:{f[2:4]}:{f[4:6]}+09:00", "fe": frame_fe(os.path.join(ARCHIVE, CAM, day, f), emin)} for f in fs]
+    recent = []; g = None
+    for f in fs:
+        fe, dif, g = frame_feat(os.path.join(ARCHIVE, CAM, day, f), emin, g)
+        recent.append({"ts": jst_iso(day, f[:6]), "fe": fe, "diff": dif})
     return detect(recent)
 
 
@@ -184,13 +222,16 @@ def main():
     frames = pending_frames(state.get("last"), now)
     if not frames: return 0
     recent = state.get("recent") or []; emin_cache = {}
+    try: g = np.load(PREV_GRAY).astype(np.float32)
+    except Exception: g = None
     last_ts = state.get("last_event_ts"); new_all = []
     # 遅れて追いつくときも判定窓(WINDOW)からイベントがこぼれないよう、20枚ずつ足しては判定する
     CHUNK = 20
     for c0 in range(0, len(frames), CHUNK):
         for day, f in frames[c0:c0 + CHUNK]:
             if day not in emin_cache: emin_cache[day] = static_edges_for(day)
-            recent.append({"ts": jst_iso(day, f[:6]), "fe": frame_fe(os.path.join(ARCHIVE, CAM, day, f), emin_cache[day])})
+            fe, dif, g = frame_feat(os.path.join(ARCHIVE, CAM, day, f), emin_cache[day], g)
+            recent.append({"ts": jst_iso(day, f[:6]), "fe": fe, "diff": dif})
             state["last"] = f"{day}/{f[:6]}"
         recent = recent[-WINDOW:]
         new = [e for e in detect(recent) if (not last_ts or later_than(e["ts"], last_ts, 100))]
@@ -203,6 +244,7 @@ def main():
         print("[stall4-row-shift] events:", ", ".join(f"{e['ts'][11:16]} {e['rows']}列" for e in new_all))
     state["recent"] = recent
     json.dump(state, open(STATE, "w"))
+    if g is not None: np.save(PREV_GRAY, g.astype(np.uint8))
     return 0
 
 
