@@ -15,6 +15,8 @@
 #   - 入庫・再配置の除外: ジャンプ前2分に有効な線が3本未満(塊が無い)なら数えない。
 #   - 退出車の通過の取り消し: ジャンプ後2分以内に前縁が元の位置まで戻ったら数えない。
 #   - rows = ジャンプした線の中央値(列ぶん・区間中点の目盛り)。丸めは 1.85/2.85 境界。集計は回数(rows は付帯情報)。
+#   - v3.2(2026-09-20): 雨の少数台の日は塊に掛かる線が3本しかなく、y_after>340→線4本ルールが本物を全落とし(15-17時 5回中1回)。
+#     線の本数の絶対値ではなく「動いた線のうち前へ跳んだ線の割合≥0.6」に変更し、y_after>340 ルールを撤去。
 #   - 独立評価(9/17): v3 再現率≈86%・適合率≈88%(y_after>340 除外と100秒二重除外で≈96%見込み)。
 #     残る取りこぼし=前列に1〜2台残る部分出発(21:55型)。格子方式(案A)は昼の少数台の並べ直しを拾うため不採用(2026-09-19)。
 # 出力: data/stall4-row-events.jsonl {ts, rows, rows_raw, lines, y_before, y_after}
@@ -37,7 +39,7 @@ XS = [470, 560, 650, 740, 830, 920, 1010]
 Y0, Y1 = 470, 60
 YSTART = [350, 350, 440, 440, 420, 395, 395]
 EDGE_THR = 11.0; RUN = 32; HALF = 14
-FRAMES_2MIN = 4; DEBOUNCE = 3; MIN_LINES = 3; JUMP_ROWS = 0.7   # 画像は実質1分1枚(同一画像が続く)なので DEBOUNCE=3フレーム≈90秒
+FRAMES_2MIN = 4; DEBOUNCE = 3; MIN_LINES = 3; JUMP_ROWS = 0.7; ACTIVE_RATIO = 0.6   # 画像は実質1分1枚(同一画像が続く)なので DEBOUNCE=3フレーム≈90秒
 WINDOW = 60; MAX_FRAMES_PER_TICK = 240   # 遅れても1tickで2時間ぶん追いつける(処理≈0.1秒/枚)
 
 
@@ -111,14 +113,17 @@ def detect(recent):
     while i < n - FRAMES_2MIN:
         if i - last <= DEBOUNCE: i += 1; continue
         # 線ごと: i-4..i の間に手前へ 0.7列以上ジャンプしたか(直前の有効値との差)
-        jumps = []
+        jumps = []; active = 0
         for L in range(len(XS)):
             if not valid[i, L]: continue
             prev = [FE[k, L] for k in range(i - FRAMES_2MIN, i) if valid[k, L]]
             if not prev: continue
             yb = min(prev); d = FE[i, L] - yb
+            if abs(d) >= 0.3 * rowpx(yb): active += 1   # 動いた線(塊に掛かっている線)。動かない線は塊の外か固定エッジ
             if d >= JUMP_ROWS * rowpx(yb): jumps.append((L, yb, FE[i, L], d / rowpx((yb + FE[i, L]) / 2)))   # 列数は区間の中点の目盛りで
         if len(jumps) < MIN_LINES: i += 1; continue
+        # 塊が細い日(雨・少数台)は塊に掛かる線が3〜4本しかない。線の本数ではなく「動いた線のうち前へ跳んだ割合」で見る(v3.2)
+        if len(jumps) / max(active, 1) < ACTIVE_RATIO: i += 1; continue
         # 入庫・再配置の除外: ジャンプ前2分に有効線が3本未満なら塊が無かった
         if (valid[i - FRAMES_2MIN - 4:i - FRAMES_2MIN].sum(axis=1) >= MIN_LINES).sum() < 2: i += 1; continue
         # 退出車の通過の取り消し: 2分以内に戻る
@@ -129,9 +134,8 @@ def detect(recent):
             m = [FE[k, L] for (L, yb, ya, r) in jumps if valid[k, L]]
             if m and np.median(m) <= yb_med + 0.3 * rowpx(yb_med): back = True; break
         if back: i += 1; continue
-        # 前縁がコーン線(y>340)まで来る移動は、9/17 では偽(雨の路面の光筋・再配置、lines=3)だけだったが、
-        # 塊が長い日(9/19)は本物も y>340 まで来る。そこでは線4本以上を要求して光筋(3本)だけ落とす。
-        if float(np.median([ya for (_, _, ya, _) in jumps])) > 340 and len(jumps) < 4: i += 1; continue
+        # (v3.2 で撤去) 「y_after>340 は線4本以上」は、塊が細い日(9/20 雨)の本物(線3本)を全部落としていた。
+        #   9/12・9/17・9/19 で撤去後の増分を画像で確認: 本物 12 / 偽 2(9/17 深夜の光筋)。
         # 二重除外は実時間で100秒(同一画像が続く30秒フレームなのでフレーム数では揺れる)
         if ev and (datetime.fromisoformat(recent[i]['ts']) - datetime.fromisoformat(ev[-1]['ts'])).total_seconds() < 100: i += 1; continue
         raw = float(np.median([r for (_, _, _, r) in jumps]))
