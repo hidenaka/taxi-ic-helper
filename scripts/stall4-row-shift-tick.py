@@ -254,6 +254,31 @@ def later_than(ts, ref, gap_sec=100):
     return (a - b).total_seconds() >= gap_sec
 
 
+
+
+def _last_event_ts(path):
+    """イベントファイル末尾の ts。書き込み時の重複防止(同じ列移動を2回数えない)に使う。"""
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, 2); size = fh.tell(); back = min(size, 4096); fh.seek(size - back)
+            lines = [l for l in fh.read().decode("utf-8", "ignore").splitlines() if l.strip()]
+        return json.loads(lines[-1])["ts"] if lines else None
+    except Exception:
+        return None
+
+
+def _dedupe_by_file(events, path, min_gap):
+    """直前に書き込み済みのイベントから min_gap 秒未満のものは落とす(窓をまたいだ二重計上の防止)。"""
+    ref = _last_event_ts(path); out = []
+    for e in events:
+        if ref:
+            try:
+                if (datetime.fromisoformat(e["ts"]) - datetime.fromisoformat(ref)).total_seconds() < min_gap: continue
+            except Exception: pass
+        out.append(e); ref = e["ts"]
+    return out
+
+
 def main():
     now = datetime.now(JST); state = load_state()
     frames = pending_frames(state.get("last"), now)
@@ -274,6 +299,7 @@ def main():
             state["last"] = f"{day}/{f[:6]}"
         recent = recent[-WINDOW:]
         new = [e for e in detect(recent) if (not last_ts or later_than(e["ts"], last_ts, 100))]
+        new = _dedupe_by_file(new, EVENTS, 100)
         if new:
             with open(EVENTS, "a") as fh:
                 for e in new: fh.write(json.dumps(e) + "\n")

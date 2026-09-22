@@ -189,6 +189,7 @@ def run_stall(k, c, now, emin_cache):
                             "gp_before": prev["gp"], "occ_before": prev["occ"], "after": []})
         prev = {"gp": gp.astype(float).round(1).tolist(), "occ": occ.tolist()}
         state["last"] = f"{day}/{f[:6]}"
+    new_events = _dedupe_by_file(new_events, events_path(k), 150)
     if new_events:
         with open(events_path(k), "a") as fh:
             for ev in new_events:
@@ -197,6 +198,31 @@ def run_stall(k, c, now, emin_cache):
     state.update({"prev": prev, "pending": pending, "frame_no": frame_no, "last_event_frame": last_event_frame,
                   "small": (prev_small.round(1).tolist() if prev_small is not None else None)})
     json.dump(state, open(state_path(k), "w"))
+
+
+
+
+def _last_event_ts(path):
+    """イベントファイル末尾の ts。書き込み時の重複防止(同じ列移動を2回数えない)に使う。"""
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, 2); size = fh.tell(); back = min(size, 4096); fh.seek(size - back)
+            lines = [l for l in fh.read().decode("utf-8", "ignore").splitlines() if l.strip()]
+        return json.loads(lines[-1])["ts"] if lines else None
+    except Exception:
+        return None
+
+
+def _dedupe_by_file(events, path, min_gap):
+    """直前に書き込み済みのイベントから min_gap 秒未満のものは落とす(窓をまたいだ二重計上の防止)。"""
+    ref = _last_event_ts(path); out = []
+    for e in events:
+        if ref:
+            try:
+                if (datetime.fromisoformat(e["ts"]) - datetime.fromisoformat(ref)).total_seconds() < min_gap: continue
+            except Exception: pass
+        out.append(e); ref = e["ts"]
+    return out
 
 
 def main():
