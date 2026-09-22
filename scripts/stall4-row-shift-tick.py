@@ -17,6 +17,8 @@
 #   - rows = ジャンプした線の中央値(列ぶん・区間中点の目盛り)。丸めは 1.85/2.85 境界。集計は回数(rows は付帯情報)。
 #   - v3.2(2026-09-20): 雨の少数台の日は塊に掛かる線が3本しかなく、y_after>340→線4本ルールが本物を全落とし(15-17時 5回中1回)。
 #     線の本数の絶対値ではなく「動いた線のうち前へ跳んだ線の割合≥0.6」に変更し、y_after>340 ルールを撤去。
+#   - v3.5(2026-09-23): 前進だけでなく「直前に前縁が後退していた(列1が出た)」ことを必須に。入庫の数え上げを止める。
+#     9日分(9/14〜9/22)で 380→271回。落とす側32件を画像確認し全件が入庫、残す側16件は約7割が本物の列移動。
 #   - v3.3(2026-09-20): 前縁がコーン線に張り付いたまま前列が入れ替わる(1分以内に出て詰める)を前列パッチ差分で拾う(kind=swap)。
 #     取りこぼしは 9/13(日曜・混雑) 52回に対し11回、9/19 3回、9/17 0回だった。
 #     swap は奥ブロックの台数(vehicle-count-history back.yolo/lantern)≥10 のときだけ(後ろに列が無ければ列移動は起きない。9/20 08:03 の1列だけの詰め直し等を除外)。
@@ -43,6 +45,7 @@ Y0, Y1 = 470, 60
 YSTART = [350, 350, 440, 440, 420, 395, 395]
 EDGE_THR = 11.0; RUN = 32; HALF = 14
 FRAMES_2MIN = 4; DEBOUNCE = 3; MIN_LINES = 3; JUMP_ROWS = 0.7; ACTIVE_RATIO = 0.6
+FALL_LOOK = 8; FALL_ROWS = 0.7; FALL_NEED = 0.5   # v3.5: 列1が出た(前縁が一度後退した)線が、跳んだ線の半分以上あること
 SWAP_THR = 20.0; CONE_MARGIN = 35   # 前縁がコーン線に張り付いたまま前列の中身が入れ替わる(1分以内に出て詰める)を拾う(v3.3)
 PREV_GRAY = os.path.join(ROOT, "data/stall4-prev-gray.npy")
 VCOUNT = os.path.join(ROOT, "data/vehicle-count-history.jsonl")
@@ -205,6 +208,16 @@ def detect(recent):
             m = [FE[k, L] for (L, yb, ya, r) in jumps if valid[k, L]]
             if m and np.median(m) <= yb_med + 0.3 * rowpx(yb_med): back = True; break
         if back: i += 1; continue
+        # v3.5: 「列1が出る(前縁が後退)→塊が詰める(前縁が前進)」の対だけ数える。
+        #   入庫(空の乗り場に車が入って列ができる)は前進だけで後退が無いので落ちる。
+        #   9/14〜9/22 の全イベントから抜き出した落とす側32件を画像確認: 32件すべて入庫(本物の列移動は無し)。
+        hits = 0
+        for (L, yb, ya, r) in jumps:
+            prev = [FE[k, L] for k in range(max(0, i - FALL_LOOK), i) if valid[k, L]]
+            if prev and max(prev) >= yb + FALL_ROWS * rowpx(yb): hits += 1
+        fall_ok = hits >= max(1, int(np.ceil(FALL_NEED * len(jumps))))
+        if not fall_ok:
+            last = i; i += 1; continue      # 入庫と判定。次フレームで同じ前進を数え直さないよう debounce は進める
         # (v3.2 で撤去) 「y_after>340 は線4本以上」は、塊が細い日(9/20 雨)の本物(線3本)を全部落としていた。
         #   9/12・9/17・9/19 で撤去後の増分を画像で確認: 本物 12 / 偽 2(9/17 深夜の光筋)。
         # 二重除外は実時間で100秒(同一画像が続く30秒フレームなのでフレーム数では揺れる)
