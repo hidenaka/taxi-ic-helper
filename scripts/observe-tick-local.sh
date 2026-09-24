@@ -72,6 +72,8 @@ if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/texture-occupancy-ti
 if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/noriba-fill-tick.py || true; fi
 # 号別の実台数カウント(新カメラ・昼=タイルYOLO/夜=行灯/薄暮=両方)。2026-08-21〜
 if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/vehicle-count-tick.py || true; fi
+# プールが空(10台以下)になった時間帯の記録。台数履歴から派生するだけなので軽い(2026-09-25)
+python3 scripts/pool-empty-scan.py || true
 
 # 現況バンドル (pool-status.json + サムネ) を生成 (fail-safe)
 node scripts/publish-pool-status.mjs || true
