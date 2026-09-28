@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-09-28T22:09:00+09:00",
+  "generatedAt": "2026-09-28T22:15:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 11457,
+  "trainedRows": 11458,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,27 +37,27 @@
     "stall4": 8
   },
   "current": {
-    "time": "22:09",
+    "time": "22:15",
     "stalls": {
       "stall1": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 1
       },
       "stall2": {
         "actual": 0,
         "departure": 0,
-        "forecast": 2.3
+        "forecast": 1.5
       },
       "stall3": {
-        "actual": 3,
+        "actual": 2,
         "departure": 0,
-        "forecast": 2.2
+        "forecast": 1.7
       },
       "stall4": {
         "actual": 0,
         "departure": 1,
-        "forecast": 0.2
+        "forecast": 0.5
       }
     }
   },
@@ -1733,6 +1733,27 @@
         "sampleRows": 2014,
         "rainRate": 0.118,
         "nightRate": 0.389,
+        "imageQcLowRate": 1
+      }
+    },
+    {
+      "time": "22:00",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 0,
+        "stall3": 2,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "night",
+        "reasons": [
+          "night",
+          "image_qc"
+        ],
+        "sampleRows": 2045,
+        "rainRate": 0.13,
+        "nightRate": 0.399,
         "imageQcLowRate": 1
       }
     }
@@ -3427,9 +3448,9 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 2036,
+        "sampleRows": 2045,
         "rainRate": 0.13,
-        "nightRate": 0.401,
+        "nightRate": 0.399,
         "imageQcLowRate": 1
       }
     },
@@ -3448,7 +3469,7 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 2009,
+        "sampleRows": 2010,
         "rainRate": 0.141,
         "nightRate": 0.403,
         "imageQcLowRate": 1
