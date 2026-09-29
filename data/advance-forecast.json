@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-09-29T23:13:00+09:00",
+  "generatedAt": "2026-09-29T23:19:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 11557,
+  "trainedRows": 11558,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,27 +37,27 @@
     "stall4": 8
   },
   "current": {
-    "time": "23:13",
+    "time": "23:19",
     "stalls": {
       "stall1": {
-        "actual": 0,
+        "actual": 1,
         "departure": 0,
-        "forecast": 1.2
+        "forecast": 0.6
       },
       "stall2": {
         "actual": 0,
         "departure": 0,
-        "forecast": 1.2
+        "forecast": 0.3
       },
       "stall3": {
         "actual": 0,
         "departure": 1,
-        "forecast": 2
+        "forecast": 3.5
       },
       "stall4": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.8
+        "forecast": 0.5
       }
     }
   },
@@ -1819,6 +1819,27 @@
         "nightRate": 0.39,
         "imageQcLowRate": 1
       }
+    },
+    {
+      "time": "23:00",
+      "stalls": {
+        "stall1": 1,
+        "stall2": 0,
+        "stall3": 0,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "night",
+        "reasons": [
+          "night",
+          "image_qc"
+        ],
+        "sampleRows": 2060,
+        "rainRate": 0.132,
+        "nightRate": 0.392,
+        "imageQcLowRate": 1
+      }
     }
   ],
   "slots": [
@@ -2573,7 +2594,7 @@
       "stalls": {
         "stall1": 0,
         "stall2": 0.2,
-        "stall3": 0.5,
+        "stall3": 0.6,
         "stall4": 0.1
       },
       "quality": {
@@ -2697,7 +2718,7 @@
     {
       "time": "11:15",
       "stalls": {
-        "stall1": 0.2,
+        "stall1": 0.3,
         "stall2": 0.7,
         "stall3": 0.8,
         "stall4": 0.1
@@ -2931,7 +2952,7 @@
     {
       "time": "14:30",
       "stalls": {
-        "stall1": 0.4,
+        "stall1": 0.5,
         "stall2": 0.5,
         "stall3": 0.8,
         "stall4": 0.1
@@ -3111,7 +3132,7 @@
     {
       "time": "17:00",
       "stalls": {
-        "stall1": 1,
+        "stall1": 1.1,
         "stall2": 1,
         "stall3": 1.2,
         "stall4": 1.6
@@ -3257,7 +3278,7 @@
       "stalls": {
         "stall1": 1.3,
         "stall2": 0.5,
-        "stall3": 1.1,
+        "stall3": 1.2,
         "stall4": 1.2
       },
       "quality": {
@@ -3397,7 +3418,7 @@
       "stalls": {
         "stall1": 0.2,
         "stall2": 1.1,
-        "stall3": 0.9,
+        "stall3": 1,
         "stall4": 1.3
       },
       "quality": {
@@ -3543,7 +3564,7 @@
       "stalls": {
         "stall1": 0.3,
         "stall2": 0.4,
-        "stall3": 2.5,
+        "stall3": 2.6,
         "stall4": 0.4
       },
       "quality": {
@@ -3564,7 +3585,7 @@
       "stalls": {
         "stall1": 0.8,
         "stall2": 0.3,
-        "stall3": 0.7,
+        "stall3": 1.6,
         "stall4": 1.1
       },
       "quality": {
@@ -3585,7 +3606,7 @@
       "stalls": {
         "stall1": 0.9,
         "stall2": 0.3,
-        "stall3": 1.3,
+        "stall3": 0.9,
         "stall4": 1.7
       },
       "quality": {
@@ -3595,16 +3616,16 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 2057,
+        "sampleRows": 2060,
         "rainRate": 0.132,
-        "nightRate": 0.393,
+        "nightRate": 0.392,
         "imageQcLowRate": 1
       }
     },
     {
       "time": "23:15",
       "stalls": {
-        "stall1": 0.6,
+        "stall1": 1,
         "stall2": 0.5,
         "stall3": 3.1,
         "stall4": 0.4
@@ -3616,9 +3637,9 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 2048,
+        "sampleRows": 2056,
         "rainRate": 0.142,
-        "nightRate": 0.397,
+        "nightRate": 0.395,
         "imageQcLowRate": 1
       }
     },
@@ -3627,7 +3648,7 @@
       "stalls": {
         "stall1": 0.8,
         "stall2": 0.5,
-        "stall3": 2,
+        "stall3": 0.9,
         "stall4": 0.8
       },
       "quality": {
