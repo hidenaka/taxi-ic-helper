@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-10-02T23:24:00+09:00",
+  "generatedAt": "2026-10-02T23:30:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 11846,
+  "trainedRows": 11847,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,27 +37,27 @@
     "stall4": 8
   },
   "current": {
-    "time": "23:24",
+    "time": "23:30",
     "stalls": {
       "stall1": {
         "actual": 0,
-        "departure": 1,
-        "forecast": 0.4
+        "departure": 0,
+        "forecast": 0.2
       },
       "stall2": {
         "actual": 1,
         "departure": 1,
-        "forecast": 0.5
+        "forecast": 0.1
       },
       "stall3": {
         "actual": 1,
         "departure": 0,
-        "forecast": 3.2
+        "forecast": 1.5
       },
       "stall4": {
-        "actual": 0,
+        "actual": 1,
         "departure": 0,
-        "forecast": 0.5
+        "forecast": 0.4
       }
     }
   },
@@ -1838,6 +1838,27 @@
         "sampleRows": 2142,
         "rainRate": 0.132,
         "nightRate": 0.375,
+        "imageQcLowRate": 1
+      }
+    },
+    {
+      "time": "23:15",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 1,
+        "stall3": 2,
+        "stall4": 1
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "night",
+        "reasons": [
+          "night",
+          "image_qc"
+        ],
+        "sampleRows": 2159,
+        "rainRate": 0.142,
+        "nightRate": 0.374,
         "imageQcLowRate": 1
       }
     }
@@ -3637,9 +3658,9 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 2150,
+        "sampleRows": 2159,
         "rainRate": 0.142,
-        "nightRate": 0.375,
+        "nightRate": 0.374,
         "imageQcLowRate": 1
       }
     },
@@ -3658,9 +3679,9 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 2120,
+        "sampleRows": 2121,
         "rainRate": 0.132,
-        "nightRate": 0.379,
+        "nightRate": 0.378,
         "imageQcLowRate": 1
       }
     },
