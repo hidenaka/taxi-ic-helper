@@ -48,4 +48,9 @@ else
   "$PY" scripts/police-traffic-fetch.py --root "$ROOT" --latest >> "$LOG" 2>&1
 fi
 "$PY" scripts/police-traffic-pack.py --root "$ROOT" >> "$LOG" 2>&1
+# 新しい月が詰め直されたときだけ「いつもの台数」を作り直す（12か月ぶん・数分かかる）
+PROFILE="$ROOT/profile/tokyo_profile.npz"
+if [ ! -f "$PROFILE" ] || [ -n "$(find "$ROOT/packed" -name "tokyo_*.npz" -newer "$PROFILE" 2>/dev/null | head -1)" ]; then
+  "$PY" scripts/police-traffic-profile.py --root "$ROOT" --months 12 >> "$LOG" 2>&1
+fi
 log "おわり"
