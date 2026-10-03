@@ -132,10 +132,14 @@ def main():
     # 確かめ用: 平日の1日の合計が多い地点（いつも混む交差点）
     with np.errstate(all='ignore'):
         daily = np.nansum(med[:, 0, :], axis=1)
+    # 地点の名前は月によって空のことがあるので、使った月を古い順に重ねる（新しい名前が勝つ）
     pts = {}
-    last_points = os.path.join(packed, files[-1].replace('tokyo_', 'points_').replace('.npz', '.json'))
-    if os.path.exists(last_points):
-        pts = json.load(open(last_points, encoding='utf-8'))
+    for f in files:
+        pp = os.path.join(packed, f.replace('tokyo_', 'points_').replace('.npz', '.json'))
+        if os.path.exists(pp):
+            for k, v in json.load(open(pp, encoding='utf-8')).items():
+                if v.get('name') or k not in pts:
+                    pts[k] = v
     top = []
     for i in np.argsort(-daily)[:15]:
         k = key_list[i]
