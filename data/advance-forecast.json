@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-10-08T23:25:00+09:00",
+  "generatedAt": "2026-10-08T23:31:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 12422,
+  "trainedRows": 12423,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,27 +37,27 @@
     "stall4": 8
   },
   "current": {
-    "time": "23:25",
+    "time": "23:31",
     "stalls": {
       "stall1": {
         "actual": 0,
         "departure": 0,
-        "forecast": 0.4
+        "forecast": 0.2
       },
       "stall2": {
         "actual": 3,
         "departure": 1,
-        "forecast": 0.5
+        "forecast": 0.1
       },
       "stall3": {
         "actual": 2,
         "departure": 1,
-        "forecast": 3.1
+        "forecast": 1.3
       },
       "stall4": {
-        "actual": 2,
+        "actual": 1,
         "departure": 0,
-        "forecast": 0.5
+        "forecast": 0.2
       }
     }
   },
@@ -1838,6 +1838,27 @@
         "sampleRows": 2307,
         "rainRate": 0.132,
         "nightRate": 0.345,
+        "imageQcLowRate": 1
+      }
+    },
+    {
+      "time": "23:15",
+      "stalls": {
+        "stall1": 0,
+        "stall2": 3,
+        "stall3": 2,
+        "stall4": 1
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "night",
+        "reasons": [
+          "night",
+          "image_qc"
+        ],
+        "sampleRows": 2324,
+        "rainRate": 0.142,
+        "nightRate": 0.344,
         "imageQcLowRate": 1
       }
     }
@@ -3637,9 +3658,9 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 2315,
+        "sampleRows": 2324,
         "rainRate": 0.142,
-        "nightRate": 0.345,
+        "nightRate": 0.344,
         "imageQcLowRate": 1
       }
     },
@@ -3658,9 +3679,9 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 2285,
+        "sampleRows": 2287,
         "rainRate": 0.132,
-        "nightRate": 0.348,
+        "nightRate": 0.347,
         "imageQcLowRate": 1
       }
     },
