@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-11T04:55:33+09:00",
+  "generatedAt": "2026-10-11T05:01:26+09:00",
   "total": {
-    "occ": 41,
-    "level": "空き"
+    "occ": 72,
+    "level": "普通"
   },
   "activity": {
     "recent1hDepartures": 0,
@@ -16,44 +16,44 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 0,
+      "occ": 3,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0,
+      "fillRate": 0.1071,
       "rankHint": null,
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 1,
+      "occ": 8,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.0115,
+      "fillRate": 0.0964,
       "rankHint": "most-low",
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall3": {
       "label": "第3乗り場",
       "terminal": "T2",
-      "occ": 0,
+      "occ": 14,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0,
+      "fillRate": 0.2,
       "rankHint": "most-active",
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 40,
+      "occ": 47,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.6154,
+      "fillRate": 0.7966,
       "rankHint": "most-low",
       "fillMethod": "count"
     }
@@ -64,44 +64,28 @@
       "next60": 0
     },
     "T2": {
-      "next30": 4,
-      "next60": 16
+      "next30": 0,
+      "next60": 7
     }
   },
   "terminalArrivalsList": {
     "T1": [],
     "T2": [
       {
-        "flightNumber": "NH105",
-        "airline": "ANA",
-        "fromName": "ロサンゼルス",
-        "seatCount": 215,
-        "lobbyExitMinutes": 26,
-        "lobbyExitTime": "05:22"
-      },
-      {
-        "flightNumber": "NH838",
-        "airline": "ANA",
-        "fromName": "デリー",
-        "seatCount": 215,
-        "lobbyExitMinutes": 48,
-        "lobbyExitTime": "05:44"
-      },
-      {
         "flightNumber": "NH814",
         "airline": "ANA",
         "fromName": "香港",
         "seatCount": 184,
-        "lobbyExitMinutes": 49,
+        "lobbyExitMinutes": 44,
         "lobbyExitTime": "05:45"
       },
       {
-        "flightNumber": "NH159",
+        "flightNumber": "NH105",
         "airline": "ANA",
-        "fromName": "ニューヨーク",
-        "seatCount": 264,
-        "lobbyExitMinutes": 53,
-        "lobbyExitTime": "05:49"
+        "fromName": "ロサンゼルス",
+        "seatCount": 215,
+        "lobbyExitMinutes": 49,
+        "lobbyExitTime": "05:50"
       }
     ]
   },
@@ -115,23 +99,15 @@
         "airline": "ANA",
         "fromName": "サンフランシスコ",
         "seatCount": 264,
-        "lobbyExitMinutes": 5,
-        "lobbyExitTime": "05:01"
-      },
-      {
-        "flightNumber": "NH105",
-        "airline": "ANA",
-        "fromName": "ロサンゼルス",
-        "seatCount": 215,
-        "lobbyExitMinutes": 26,
-        "lobbyExitTime": "05:22"
+        "lobbyExitMinutes": 14,
+        "lobbyExitTime": "05:15"
       },
       {
         "flightNumber": "JL078",
         "airline": "JAL",
         "fromName": "マニラ",
         "seatCount": 200,
-        "lobbyExitMinutes": 39,
+        "lobbyExitMinutes": 34,
         "lobbyExitTime": "05:35"
       },
       {
@@ -139,20 +115,28 @@
         "airline": "JAL",
         "fromName": "ニューヨーク",
         "seatCount": 339,
-        "lobbyExitMinutes": 44,
+        "lobbyExitMinutes": 39,
         "lobbyExitTime": "05:40"
       },
       {
-        "flightNumber": "NH838",
+        "flightNumber": "JL028",
+        "airline": "JAL",
+        "fromName": "香港",
+        "seatCount": 200,
+        "lobbyExitMinutes": 44,
+        "lobbyExitTime": "05:45"
+      },
+      {
+        "flightNumber": "NH814",
         "airline": "ANA",
-        "fromName": "デリー",
-        "seatCount": 215,
-        "lobbyExitMinutes": 48,
-        "lobbyExitTime": "05:44"
+        "fromName": "香港",
+        "seatCount": 184,
+        "lobbyExitMinutes": 44,
+        "lobbyExitTime": "05:45"
       }
     ]
   },
   "sourceStale": false,
-  "countSource": "lantern",
-  "cameraLiveAt": "2026-10-11T04:55:49+09:00"
+  "countSource": "yolo",
+  "cameraLiveAt": "2026-10-11T05:01:14+09:00"
 }
