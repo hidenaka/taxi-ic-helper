@@ -170,6 +170,39 @@ def load_json(p, default):
         return default
 
 
+TYPICAL = os.path.join(ROOT, "data/stand-out-typical.json")
+
+
+def borrowed_slots(stall, typical, evs, today):
+    """いつもの台数がまだ無い号(1〜3号)は、4号のいつもの形を借りる(本人指示 2026-10-14・暫定)。
+    量は、今日その号を数え始めてからの台数と、同じ時間に4号が出た台数の比で合わせる。"""
+    base = (typical.get("stall4") or {}).get("slots")
+    mine = [e for e in evs if e["stall"] == stall and e["ts"][:10] == today]
+    if not base or not mine:
+        return None
+    since = min(e["ts"] for e in mine)
+    a = sum(e["out"] for e in mine)
+    b = sum(e["out"] for e in evs if e["stall"] == "stall4" and e["ts"][:10] == today and e["ts"] >= since)
+    if b < 20:   # 4号の数が少なすぎると比がぶれる
+        return None
+    r = a / b
+    return [round(v * r, 1) for v in base]
+
+
+def forecast30(stall, now, bins30, typical):
+    recent = (bins30[-1] + bins30[-2]) / 2
+    slots = (typical.get(stall) or {}).get("slots")
+    out = []
+    for k in (0, 1):
+        t = now + timedelta(minutes=30 * k)
+        if slots:
+            v = 0.5 * recent + 0.5 * slots[(t.hour * 60 + t.minute) // 30]
+        else:
+            v = recent
+        out.append(int(round(v)))
+    return out
+
+
 def publish(now, state):
     since = now - timedelta(hours=26)
     evs = []
@@ -180,6 +213,11 @@ def publish(now, state):
                 except Exception: continue
                 if datetime.fromisoformat(e["ts"]) >= since: evs.append(e)
     today = now.strftime("%Y-%m-%d")
+    try:
+        with open(TYPICAL) as f:
+            typical = json.load(f)
+    except Exception:
+        typical = {}
     stalls = {}
     for s, cfg in STALLS.items():
         if not cfg["enabled"]:
@@ -200,11 +238,17 @@ def publish(now, state):
             a, b = now - timedelta(minutes=30 * k), now - timedelta(minutes=30 * (k - 1))
             bins30.append(sum(e["out"] for e in mine if a < datetime.fromisoformat(e["ts"]) <= b))
         today_evs = [e for e in mine if e["ts"][:10] == today]
+        typ = typical if s in typical else {**typical, **({s: {"slots": bs}} if (bs := borrowed_slots(s, typical, evs, today)) else {})}
         stalls[s] = {
             "lastHour": last_hour if fresh else None,
             "last30": bins30[-1] if fresh else None,
             "bins30": bins30 if fresh else None,
             "countingSince": min((e["ts"] for e in today_evs), default=None),
+            # これから出る台数の見込み(30分ごと2本: いま〜30分後・30分後〜60分後)。
+            # 仮の出し方(2026-10-14): 直近1時間の出方と、その時間帯のいつもの台数(過去の日の平均)を半分ずつ。
+            # いつもの台数がまだ無い号は、直近の出方だけ。10/17 の分析で作る予測に置き換える予定。
+            "forecast30": forecast30(s, now, bins30, typ) if fresh else None,
+            "forecastBase": "own" if s in typical else ("stall4" if s in typ else "recent"),
             "todayHourly": hourly,
             "inQueue": len(st.get("tracks", [])) if fresh else None,
             "lastFrameAt": last,
