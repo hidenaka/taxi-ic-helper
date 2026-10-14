@@ -194,17 +194,49 @@ def publish(now, state):
             t = datetime.fromisoformat(e["ts"])
             if t.strftime("%Y-%m-%d") == today: hourly[t.hour] += e["out"]
         last_hour = sum(e["out"] for e in mine if datetime.fromisoformat(e["ts"]) > now - timedelta(hours=1))
+        # 直近2時間を30分ごとに(古い→新しい)。最後が「直近30分」。
+        bins30 = []
+        for k in range(4, 0, -1):
+            a, b = now - timedelta(minutes=30 * k), now - timedelta(minutes=30 * (k - 1))
+            bins30.append(sum(e["out"] for e in mine if a < datetime.fromisoformat(e["ts"]) <= b))
+        today_evs = [e for e in mine if e["ts"][:10] == today]
         stalls[s] = {
             "lastHour": last_hour if fresh else None,
+            "last30": bins30[-1] if fresh else None,
+            "bins30": bins30 if fresh else None,
+            "countingSince": min((e["ts"] for e in today_evs), default=None),
             "todayHourly": hourly,
             "inQueue": len(st.get("tracks", [])) if fresh else None,
             "lastFrameAt": last,
             "status": "ok" if fresh else "stale",
         }
-    out = {"generatedAt": now.isoformat(timespec="seconds"), "unit": "台", "stalls": stalls}
+    ends = [(now - timedelta(minutes=30 * k)).strftime("%H:%M") for k in range(3, -1, -1)]
+    out = {"generatedAt": now.isoformat(timespec="seconds"), "unit": "台", "bins30End": ends, "stalls": stalls}
     tmp = OUT + ".tmp"
     with open(tmp, "w") as f: json.dump(out, f, ensure_ascii=False, indent=1)
     os.replace(tmp, OUT)
+
+
+# アプリに出す乗り場の写真。号ごとに、タクシーの列が写る範囲を縦長に切り出す(1024x574 の座標)。
+CAM_CROP = {"stall1": (320, 20, 675, 574), "stall2": (410, 60, 740, 574), "stall3": (700, 30, 1024, 574), "stall4": (150, 60, 480, 574)}
+
+
+def save_cams(now):
+    for s, cfg in STALLS.items():
+        fs = sorted(glob.glob(os.path.join(ARCHIVE, cfg["cam"], now.strftime("%Y-%m-%d"), "*.jpg")))
+        if not fs:
+            continue
+        try:
+            im = Image.open(fs[-1]).convert("RGB")
+            if im.size != (W, H):
+                im = im.resize((W, H))
+            im = im.crop(CAM_CROP[s])
+            im.thumbnail((240, 420))
+            dst = os.path.join(ROOT, f"data/stand-cam-{s[-1]}.jpg")
+            im.save(dst + ".tmp.jpg", quality=68)
+            os.replace(dst + ".tmp.jpg", dst)
+        except Exception as e:
+            print(f"[stand-out] cam {s} failed: {e}")
 
 
 def main():
@@ -247,6 +279,7 @@ def main():
     with open(tmp, "w") as f: json.dump(state, f)
     os.replace(tmp, STATE)
     publish(now, state)
+    save_cams(now)
     print(f"[stand-out] events +{len(new_events)} out={sum(e['out'] for e in new_events)}")
 
 
