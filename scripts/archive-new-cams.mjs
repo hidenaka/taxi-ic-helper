@@ -24,10 +24,14 @@ const CAMS = [
   { name: 'real03',  file: 'Real03.jpg',  page: '第3/第4待機所' },
   { name: 'real04',  file: 'Real04.jpg',  page: '第3/第4待機所' },
   { name: 'real109', file: 'Real109.jpg', page: '第3/第4待機所' },
-  { name: 'real104_line', file: 'Real104_line.jpg', page: '第4乗場' },
+  { name: 'real104_line', file: 'Real104_line.jpg', page: '第4乗場(=第4乗り場 hnd2.php#no4)' },
   { name: 'real105_line', file: 'Real105_line.jpg', page: '第4乗場' },
   { name: 'real106', file: 'Real106.jpg', page: '第5乗場' },
   { name: 'real107', file: 'Real107.jpg', page: '第5乗場' },
+  // 2026-10-14 追加: 第1〜第4乗り場(hnd1.php / hnd2.php)。列の後ろから撮っていて、手前の車＝列の最後尾。
+  { name: 'real119_line', file: 'Real119_line.jpg', page: '第1乗り場' },
+  { name: 'real121_line', file: 'Real121_line.jpg', page: '第2乗り場' },
+  { name: 'real123_line', file: 'Real123_line.jpg', page: '第3乗り場' },
 ];
 
 const jst = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString();
