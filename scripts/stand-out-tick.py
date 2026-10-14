@@ -189,16 +189,91 @@ def borrowed_slots(stall, typical, evs, today):
     return [round(v * r, 1) for v in base]
 
 
-def forecast30(stall, now, bins30, typical):
+SNAPS = os.path.join(ROOT, "data/arrivals-snapshots")
+ARRIVALS = os.path.join(ROOT, "data/arrivals.json")
+SEAT_TYP = os.path.join(ROOT, "data/stand-out-seat-typical.json")
+SEAT_SHIFT = 15   # ロビーに出てから乗り場を出るまでのずれ(分)。いまから30分の枠には、15分前〜15分後にロビーに出る便を数える
+
+
+def _hm(sv):
+    try:
+        h, m = str(sv).split(":")[:2]
+        return int(h) * 60 + int(m)
+    except Exception:
+        return None
+
+
+def _lobby(f):
+    return _hm(f.get("lobbyExitTime") or f.get("estimatedTime") or f.get("scheduledTime"))
+
+
+def seat_typical(today):
+    """号ごとの「いつもの座席数」(30分ごと48枠・過去14日の平均)。1日1回だけ作り直す。"""
+    try:
+        with open(SEAT_TYP) as f:
+            d = json.load(f)
+        if d.get("date") == today:
+            return d["lanes"]
+    except Exception:
+        pass
+    days = sorted(x for x in os.listdir(SNAPS) if x.startswith("arrivals-") and x < f"arrivals-{today}")[-14:]
+    acc = {str(n): [0.0] * 48 for n in (1, 2, 3, 4)}
+    nd = 0
+    for fn in days:
+        try:
+            with open(os.path.join(SNAPS, fn)) as f:
+                last = f.read().strip().splitlines()[-1]
+            fl = json.loads(last)["flights"]
+        except Exception:
+            continue
+        nd += 1
+        for x in fl:
+            ln, t = x.get("poolLane"), _lobby(x)
+            if ln not in (1, 2, 3, 4) or t is None or x.get("status") == "欠航":
+                continue
+            acc[str(ln)][t // 30 % 48] += x.get("seatCount") or 0
+    lanes = {k: [round(v / max(nd, 1)) for v in arr] for k, arr in acc.items()}
+    try:
+        with open(SEAT_TYP, "w") as f:
+            json.dump({"date": today, "days": nd, "lanes": lanes}, f)
+    except Exception:
+        pass
+    return lanes
+
+
+def seats_in(flights, lane, a, b):
+    tot = 0
+    for x in flights:
+        t = _lobby(x)
+        if x.get("poolLane") != lane or t is None or x.get("status") == "欠航":
+            continue
+        d = (t - a) % 1440
+        if d < (b - a):
+            tot += x.get("seatCount") or 0
+    return tot
+
+
+def forecast30(stall, now, bins30, typical, flights=None, seat_typ=None):
+    """これから出る台数の見込み(いま〜30分後・30分後〜60分後)。
+    ① 直近1時間の出方と、その時間帯のいつもの台数を半分ずつ。
+    ② その枠に着く便の座席数が、いつもの座席数より多い/少ないぶんだけ、①を増やす/減らす(半分だけ効かせる・0.5〜1.8倍)。
+    2026-10-14 本人指摘「30分後と60分後で本当に同じ台数か」→ ②を足した(①だけだと2本がほぼ同じになる)。"""
     recent = (bins30[-1] + bins30[-2]) / 2
     slots = (typical.get(stall) or {}).get("slots")
+    lane = int(stall[-1])
+    nowm = now.hour * 60 + now.minute
     out = []
     for k in (0, 1):
-        t = now + timedelta(minutes=30 * k)
-        if slots:
-            v = 0.5 * recent + 0.5 * slots[(t.hour * 60 + t.minute) // 30]
-        else:
-            v = recent
+        t = nowm + 30 * k
+        v = 0.5 * recent + 0.5 * slots[(t // 30) % 48] if slots else recent
+        if flights is not None and seat_typ:
+            a = (t - SEAT_SHIFT) % 1440
+            got = seats_in(flights, lane, a, a + 30)
+            ty = seat_typ.get(str(lane), [0] * 48)
+            usual = (ty[(a // 30) % 48] + ty[((a + 29) // 30) % 48]) / 2
+            if usual >= 150:
+                r = max(0.5, min(1.8, got / usual))
+                v *= 0.5 + 0.5 * r
         out.append(int(round(v)))
     return out
 
@@ -218,6 +293,13 @@ def publish(now, state):
             typical = json.load(f)
     except Exception:
         typical = {}
+    try:
+        with open(ARRIVALS) as f:
+            flights = json.load(f).get("flights") or []
+        seat_typ = seat_typical(today)
+    except Exception as e:
+        print(f"[stand-out] 到着便が読めないので座席数は使わない: {e}")
+        flights, seat_typ = None, None
     stalls = {}
     for s, cfg in STALLS.items():
         if not cfg["enabled"]:
@@ -247,7 +329,7 @@ def publish(now, state):
             # これから出る台数の見込み(30分ごと2本: いま〜30分後・30分後〜60分後)。
             # 仮の出し方(2026-10-14): 直近1時間の出方と、その時間帯のいつもの台数(過去の日の平均)を半分ずつ。
             # いつもの台数がまだ無い号は、直近の出方だけ。10/17 の分析で作る予測に置き換える予定。
-            "forecast30": forecast30(s, now, bins30, typ) if fresh else None,
+            "forecast30": forecast30(s, now, bins30, typ, flights, seat_typ) if fresh else None,
             "forecastBase": "own" if s in typical else ("stall4" if s in typ else "recent"),
             "todayHourly": hourly,
             "inQueue": len(st.get("tracks", [])) if fresh else None,
