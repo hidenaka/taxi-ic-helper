@@ -38,7 +38,7 @@ STALLS = {
     "stall4": {"cam": "real104_line", "enabled": True, "lane": [(150, 120), (265, 120), (430, 330), (770, 574), (330, 574), (175, 330)]},
 }
 CONF = 0.30; MIN_W = 25
-TOL = 30; LOOK = 0.30; MISS_MAX = 2
+TOL = 30; LOOK = 0.30; MISS_MAX = 2; SIZE_MAX = 1.4
 MAX_FRAMES_PER_TICK = 30     # 1tick(5分)で最大30分ぶん追いつく
 START_BACK_MIN = 60          # 初回は直近60分から
 STALE_MIN = 15               # 最後の画像がこれより古ければアプリに数を出さない
@@ -103,7 +103,13 @@ def align(tracks, cur):
     for i in range(1, n + 1):
         for j in range(1, m + 1):
             opts = [(best[i - 1][j], "skip_t"), (best[i][j - 1], "skip_c")]
-            if cur[j - 1]["k"] <= tracks[i - 1]["k"] + TOL:   # 後ろへは下がらない(少しの揺れは許す)
+            tr_, c_ = tracks[i - 1], cur[j - 1]
+            ok = c_["k"] <= tr_["k"] + TOL   # 後ろへは下がらない(少しの揺れは許す)
+            # 同じくらいの位置にいるのに箱の幅が 1.4 倍以上違う → 似た色の別の車が入れ替わった(2026-10-14 1号の夜で 12→13 台・目視 13〜14)
+            if ok and tr_.get("w") and c_["by"] > 250 and abs(c_["by"] - tr_["by"]) < 40 \
+                    and max(c_["w"], tr_["w"]) / max(1.0, min(c_["w"], tr_["w"])) > SIZE_MAX:
+                ok = False
+            if ok:
                 s = sim(tracks[i - 1], cur[j - 1])
                 if s >= LOOK:
                     opts.append((best[i - 1][j - 1] + s, "match"))
@@ -124,7 +130,7 @@ def step(tracks, cur):
     matched_t = {t for t in match if t is not None}
     for j, t in enumerate(match):
         if t is not None:
-            tracks[t].update(k=cur[j]["k"], by=cur[j]["by"], h=cur[j]["h"], miss=0)
+            tracks[t].update(k=cur[j]["k"], by=cur[j]["by"], h=cur[j]["h"], w=cur[j]["w"], miss=0)
     departed, keep = 0, []
     for t, tr in enumerate(tracks):
         if t in matched_t:
@@ -143,8 +149,8 @@ def step(tracks, cur):
             # 1枚見落としていた車がまた見えた
             hidden = [tr for tr in keep if tr["miss"] > 0 and abs(tr["k"] - c["k"]) < 60]
             if hidden:
-                hidden[0].update(k=c["k"], by=c["by"], h=c["h"], miss=0); continue
-            keep.append({"k": c["k"], "by": c["by"], "h": c["h"], "miss": 0})
+                hidden[0].update(k=c["k"], by=c["by"], h=c["h"], w=c["w"], miss=0); continue
+            keep.append({"k": c["k"], "by": c["by"], "h": c["h"], "w": c["w"], "miss": 0})
             entered += 1
     return sorted(keep, key=lambda t: t["k"]), entered, departed
 
@@ -529,7 +535,7 @@ def main():
             cur = lane_cars(dv.detect_image(sess, img, conf_threshold=0.25), img, cfg["lane"])
             fresh_start = not st["tracks"] and not st.get("last")
             tracks, entered, departed = step(st["tracks"], cur)
-            st["tracks"] = [{"k": t["k"], "by": t["by"], "miss": t["miss"], "h": [round(float(v), 4) for v in t["h"]]} for t in tracks]
+            st["tracks"] = [{"k": t["k"], "by": t["by"], "w": round(float(t.get("w") or 0), 1), "miss": t["miss"], "h": [round(float(v), 4) for v in t["h"]]} for t in tracks]
             st["last"] = ts.isoformat()
             if fresh_start:
                 continue   # 最初の1枚は「入った」と数えない
