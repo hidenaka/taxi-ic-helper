@@ -253,29 +253,123 @@ def seats_in(flights, lane, a, b):
     return tot
 
 
-def forecast30(stall, now, bins30, typical, flights=None, seat_typ=None):
-    """これから出る台数の見込み(いま〜30分後・30分後〜60分後)。
-    ① 直近1時間の出方と、その時間帯のいつもの台数を半分ずつ。
-    ② その枠に着く便の座席数が、いつもの座席数より多い/少ないぶんだけ、①を増やす/減らす(半分だけ効かせる・0.5〜1.8倍)。
-    2026-10-14 本人指摘「30分後と60分後で本当に同じ台数か」→ ②を足した(①だけだと2本がほぼ同じになる)。"""
+MODEL = os.path.join(ROOT, "data/stand-out-model.json")
+FC_PAIRS = os.path.join(ROOT, "data/stand-out-fc-pairs.jsonl")
+W0 = [0.5, 0.5, 0.5]   # 学ぶ前の重み: 直近の出方 / いつもの台数 / 座席数の多い少ない(= 2026-10-14 夕方の手置きの式と同じ)
+
+
+def load_model():
+    try:
+        with open(MODEL) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def forecast30(stall, now, bins30, typical, flights=None, seat_typ=None, model=None):
+    """これから出る台数の見込み(いま〜30分後・30分後〜60分後)と、その材料。
+    材料 x = [直近の出方(30分あたり), その時間帯のいつもの台数, (両者の平均)×(座席数の比−1)]。見込み = 重み・x (0 未満は 0)。
+    重みは学ぶ前は W0 (= 直近といつもを半分ずつ、座席数の多い少ないを半分だけ効かせる)。
+    1日1回、ためた答え合わせ (stand-out-fc-pairs.jsonl) から号ごと・30分後/60分後ごとに学び直す (learn_model)。
+    2026-10-14 本人指示「予測と実績を残せるから自動で学習していく仕組みを」。"""
     recent = (bins30[-1] + bins30[-2]) / 2
     slots = (typical.get(stall) or {}).get("slots")
     lane = int(stall[-1])
     nowm = now.hour * 60 + now.minute
-    out = []
+    preds, feats = [], []
     for k in (0, 1):
         t = nowm + 30 * k
-        v = 0.5 * recent + 0.5 * slots[(t // 30) % 48] if slots else recent
+        slot = slots[(t // 30) % 48] if slots else recent
+        rho = 1.0
         if flights is not None and seat_typ:
             a = (t - SEAT_SHIFT) % 1440
             got = seats_in(flights, lane, a, a + 30)
             ty = seat_typ.get(str(lane), [0] * 48)
             usual = (ty[(a // 30) % 48] + ty[((a + 29) // 30) % 48]) / 2
             if usual >= 150:
-                r = max(0.5, min(1.8, got / usual))
-                v *= 0.5 + 0.5 * r
-        out.append(int(round(v)))
-    return out
+                rho = max(0.5, min(1.8, got / usual))
+        x = [round(recent, 2), round(slot, 2), round((recent + slot) / 2 * (rho - 1), 3)]
+        w = ((model or {}).get(stall, {}).get(str(k), {}) or {}).get("w") or W0
+        preds.append(int(round(max(0.0, sum(a * b for a, b in zip(w, x))))))
+        feats.append(x)
+    return preds, feats
+
+
+def settle(state, evs_all, now):
+    """答え合わせ: 終わった枠の見込みに、実際に出た台数を付けて stand-out-fc-pairs.jsonl へ。"""
+    keep, done = [], []
+    for fc in state.get("fc_pending", []):
+        st = state.get(fc["stall"], {})
+        last = st.get("last")
+        if not last or last < fc["end"]:          # その枠の画像をまだ数え終えていない
+            if fc["end"] > (now - timedelta(hours=3)).isoformat():
+                keep.append(fc)
+            continue
+        act = sum(e["out"] for e in evs_all if e["stall"] == fc["stall"] and fc["start"] < e["ts"] <= fc["end"])
+        done.append({**fc, "actual": act})
+    if done:
+        with open(FC_PAIRS, "a") as f:
+            for d in done:
+                f.write(json.dumps(d, ensure_ascii=False) + "\n")
+    state["fc_pending"] = keep
+    return len(done)
+
+
+def learn_model(now, days=14, lam=30.0):
+    """1日1回: 直近 days 日の答え合わせから、号ごと・k ごとに重みを解き直す (W0 へ引き寄せるリッジ回帰)。
+    サンプルが 100 未満のうちは W0 のまま。外れ(平均の差)は学ぶ前の式と並べて残す。"""
+    import numpy as np
+    since = (now - timedelta(days=days)).isoformat()
+    rows = []
+    if os.path.exists(FC_PAIRS):
+        with open(FC_PAIRS) as f:
+            for line in f:
+                try: d = json.loads(line)
+                except Exception: continue
+                if d.get("made", "") >= since: rows.append(d)
+    model = {"learnedAt": now.isoformat(timespec="seconds"), "days": days}
+    for stall in STALLS:
+        for k in (0, 1):
+            rs = [r for r in rows if r["stall"] == stall and r["k"] == k]
+            ent = {"n": len(rs), "w": None}
+            if rs:
+                X = np.array([r["x"] for r in rs], float); y = np.array([r["actual"] for r in rs], float)
+                p0 = np.clip(X @ np.array(W0), 0, None)
+                ent["maeBefore"] = round(float(np.abs(p0 - y).mean()), 2)
+                if len(rs) >= 100:
+                    w0 = np.array(W0)
+                    w = np.linalg.solve(X.T @ X + lam * np.eye(3), X.T @ y + lam * w0)
+                    w = np.clip(w, [0, 0, 0], [1.5, 1.5, 1.5])
+                    ent["w"] = [round(float(v), 3) for v in w]
+                    ent["maeAfter"] = round(float(np.abs(np.clip(X @ w, 0, None) - y).mean()), 2)
+            model.setdefault(stall, {})[str(k)] = ent
+    tmp = MODEL + ".tmp"
+    with open(tmp, "w") as f: json.dump(model, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, MODEL)
+    return model
+
+
+def rebuild_typical(evs_all, typical, now, max_days=14):
+    """1日1回: 記録した台数から、号ごとの「いつもの台数」(30分ごと48枠)を作り直す。
+    丸1日数えた日(0:30 までに数え始めた日)だけを使い、いまの「いつもの台数」より多くの日数がそろったら差し替える。"""
+    byday = {}
+    for e in evs_all:
+        byday.setdefault((e["stall"], e["ts"][:10]), []).append(e)
+    today = now.strftime("%Y-%m-%d")
+    changed = False
+    for stall in STALLS:
+        full = sorted(d for (st, d), es in byday.items() if st == stall and d < today and min(x["ts"] for x in es)[11:16] <= "00:30")[-max_days:]
+        cur_days = len((typical.get(stall) or {}).get("days") or [])
+        if len(full) >= 3 and len(full) >= cur_days:
+            slots = [0.0] * 48
+            for d in full:
+                for e in byday[(stall, d)]:
+                    slots[(int(e["ts"][11:13]) * 60 + int(e["ts"][14:16])) // 30] += e["out"]
+            typical[stall] = {"slots": [round(v / len(full), 1) for v in slots], "days": full, "source": "events"}
+            changed = True
+    if changed:
+        with open(TYPICAL, "w") as f: json.dump(typical, f, ensure_ascii=False)
+    return typical
 
 
 def publish(now, state):
@@ -293,6 +387,21 @@ def publish(now, state):
             typical = json.load(f)
     except Exception:
         typical = {}
+    # 答え合わせ用に14日ぶんの記録も読む(見込みの学び直し・いつもの台数の作り直しに使う)
+    evs_all = []
+    since14 = (now - timedelta(days=15)).isoformat()
+    if os.path.exists(EVENTS):
+        with open(EVENTS) as f:
+            for line in f:
+                try: e = json.loads(line)
+                except Exception: continue
+                if e["ts"] >= since14: evs_all.append(e)
+    settle(state, evs_all, now)
+    if state.get("learnedOn") != today:
+        typical = rebuild_typical(evs_all, typical, now)
+        learn_model(now)
+        state["learnedOn"] = today
+    model = load_model()
     try:
         with open(ARRIVALS) as f:
             flights = json.load(f).get("flights") or []
@@ -321,6 +430,12 @@ def publish(now, state):
             bins30.append(sum(e["out"] for e in mine if a < datetime.fromisoformat(e["ts"]) <= b))
         today_evs = [e for e in mine if e["ts"][:10] == today]
         typ = typical if s in typical else {**typical, **({s: {"slots": bs}} if (bs := borrowed_slots(s, typical, evs, today)) else {})}
+        fc, feats = forecast30(s, now, bins30, typ, flights, seat_typ, model) if fresh else (None, None)
+        if fresh and fc is not None:
+            for k in (0, 1):
+                a, b = now + timedelta(minutes=30 * k), now + timedelta(minutes=30 * (k + 1))
+                state.setdefault("fc_pending", []).append({"made": now.isoformat(timespec="seconds"), "stall": s, "k": k,
+                    "start": a.isoformat(timespec="seconds"), "end": b.isoformat(timespec="seconds"), "pred": fc[k], "x": feats[k]})
         stalls[s] = {
             "lastHour": last_hour if fresh else None,
             "last30": bins30[-1] if fresh else None,
@@ -329,13 +444,27 @@ def publish(now, state):
             # これから出る台数の見込み(30分ごと2本: いま〜30分後・30分後〜60分後)。
             # 仮の出し方(2026-10-14): 直近1時間の出方と、その時間帯のいつもの台数(過去の日の平均)を半分ずつ。
             # いつもの台数がまだ無い号は、直近の出方だけ。10/17 の分析で作る予測に置き換える予定。
-            "forecast30": forecast30(s, now, bins30, typ, flights, seat_typ) if fresh else None,
+            "forecast30": fc if fresh else None,
+            "forecastWeights": ((model.get(s) or {}).get("0") or {}).get("w") or W0,
             "forecastBase": "own" if s in typical else ("stall4" if s in typ else "recent"),
             "todayHourly": hourly,
             "inQueue": len(st.get("tracks", [])) if fresh else None,
             "lastFrameAt": last,
             "status": "ok" if fresh else "stale",
         }
+    acc = {}
+    if os.path.exists(FC_PAIRS):
+        since7 = (now - timedelta(days=7)).isoformat()
+        with open(FC_PAIRS) as f:
+            for line in f:
+                try: d = json.loads(line)
+                except Exception: continue
+                if d.get("made", "") >= since7:
+                    a = acc.setdefault(d["stall"], {}).setdefault(str(d["k"]), [0, 0.0])
+                    a[0] += 1; a[1] += abs(d["pred"] - d["actual"])
+    for st_, ks in acc.items():
+        if st_ in stalls:
+            stalls[st_]["forecastEval"] = {k: {"n": n, "mae": round(t / n, 2)} for k, (n, t) in ks.items()}
     ends = [(now - timedelta(minutes=30 * k)).strftime("%H:%M") for k in range(3, -1, -1)]
     out = {"generatedAt": now.isoformat(timespec="seconds"), "unit": "台", "bins30End": ends, "stalls": stalls}
     tmp = OUT + ".tmp"
@@ -412,7 +541,10 @@ def main():
     tmp = STATE + ".tmp"
     with open(tmp, "w") as f: json.dump(state, f)
     os.replace(tmp, STATE)
-    publish(now, state)
+    publish(now, state)   # 見込みの記録・答え合わせ・学び直しの日付を state に足す → もう一度書く
+    tmp = STATE + ".tmp"
+    with open(tmp, "w") as f: json.dump(state, f)
+    os.replace(tmp, STATE)
     save_cams(now)
     print(f"[stand-out] events +{len(new_events)} out={sum(e['out'] for e in new_events)}")
 
