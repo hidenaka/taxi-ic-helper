@@ -240,6 +240,14 @@ def save_cams(now):
 
 
 def main():
+    # 同時に2つ走ると、同じ画像を2回数えて記録が二重になる(2026-10-14 実際に起きた)。鍵が取れなければ何もしない。
+    import fcntl
+    lock = open(os.path.join(ROOT, "data/.stand-out.lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print("[stand-out] 別の回が動いているので今回は休む")
+        return
     import detect_vehicles as dv
     import onnxruntime as ort
     now = datetime.now(JST)
