@@ -177,6 +177,9 @@ def load_json(p, default):
 
 
 TYPICAL = os.path.join(ROOT, "data/stand-out-typical.json")
+# 「いつもの日」の1時間ごとの台数(アプリの今日1日のグラフに線で重ねる)。1日1回作り直す。
+DAYPROF = os.path.join(ROOT, "data/stand-out-dayprofile.json")
+DAYPROF_DAYS, DAYPROF_MIN = 42, 7
 
 
 def borrowed_slots(stall, typical, evs, today):
@@ -378,6 +381,31 @@ def rebuild_typical(evs_all, typical, now, max_days=14):
     return typical
 
 
+def rebuild_dayprofile(now):
+    """号ごとに、丸1日数えた日(0:30までに数え始め23時台まで数えた日)の直近42日で、1時間ごとの平均台数を作る。
+    7日たまるまでは出さない。2026-10-17 の分析で、平日と土日・到着便の座席数で分けても外れは小さくならなかったので、全部の日の平均にする。"""
+    today = now.strftime("%Y-%m-%d")
+    lo = (now - timedelta(days=DAYPROF_DAYS + 1)).strftime("%Y-%m-%d")
+    byday = {}
+    with open(EVENTS) as f:
+        for line in f:
+            try: e = json.loads(line)
+            except Exception: continue
+            d = e["ts"][:10]
+            if lo <= d < today:
+                v = byday.setdefault((e["stall"], d), {"h": [0] * 24, "first": e["ts"], "last": e["ts"]})
+                v["h"][int(e["ts"][11:13])] += e["out"]
+                v["first"] = min(v["first"], e["ts"]); v["last"] = max(v["last"], e["ts"])
+    prof = {"builtOn": today}
+    for stall in STALLS:
+        days = sorted(d for (st, d), v in byday.items() if st == stall and v["first"][11:16] <= "00:30" and v["last"][11:13] == "23")[-DAYPROF_DAYS:]
+        if len(days) >= DAYPROF_MIN:
+            prof[stall] = {"hourly": [round(sum(byday[(stall, d)]["h"][h] for d in days) / len(days), 1) for h in range(24)],
+                           "days": len(days), "from": days[0], "to": days[-1]}
+    with open(DAYPROF, "w") as f: json.dump(prof, f, ensure_ascii=False)
+    return prof
+
+
 def publish(now, state):
     since = now - timedelta(hours=26)
     evs = []
@@ -408,6 +436,12 @@ def publish(now, state):
         learn_model(now)
         state["learnedOn"] = today
     model = load_model()
+    try:
+        with open(DAYPROF) as f: dayprof = json.load(f)
+    except Exception:
+        dayprof = {}
+    if dayprof.get("builtOn") != today:
+        dayprof = rebuild_dayprofile(now)
     try:
         with open(ARRIVALS) as f:
             flights = json.load(f).get("flights") or []
@@ -454,6 +488,9 @@ def publish(now, state):
             "forecastWeights": ((model.get(s) or {}).get("0") or {}).get("w") or W0,
             "forecastBase": "own" if s in typical else ("stall4" if s in typ else "recent"),
             "todayHourly": hourly,
+            # いつもの日の1時間ごとの台数と、その平均に使った日数(7日たまるまでは null)
+            "typicalHourly": (dayprof.get(s) or {}).get("hourly"),
+            "typicalDays": (dayprof.get(s) or {}).get("days"),
             "inQueue": len(st.get("tracks", [])) if fresh else None,
             "lastFrameAt": last,
             "status": "ok" if fresh else "stale",
