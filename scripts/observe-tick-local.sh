@@ -140,7 +140,7 @@ fi
 # 生履歴 (taxi-pool / slot-occupancy / t3-pool / vehicle-* / movement-shift / t3-front-flow の各 history.jsonl)
 # は Mac mini ローカルのみで保持し push しない (アプリ非配信・8.5G 画像アーカイブから再生成可・GitHub 100MB 制限回避)。
 _tick_commit_and_push() {
-  git add data/lane-patterns.json data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/advance-forecast.json data/pool-notice.json data/stand-out.json data/stand-cam-1.jpg data/stand-cam-2.jpg data/stand-cam-3.jpg data/stand-cam-4.jpg 2>/dev/null || true
+  git add data/lane-patterns.json data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/advance-forecast.json data/pool-notice.json data/stand-out.json data/stand-cam-1.jpg data/stand-cam-2.jpg data/stand-cam-3.jpg data/stand-cam-4.jpg data/stand-cam-1-wait.jpg data/stand-cam-1-full.jpg data/stand-cam-2-wait.jpg data/stand-cam-2-full.jpg data/stand-cam-3-wait.jpg data/stand-cam-3-full.jpg data/stand-cam-4-wait.jpg data/stand-cam-4-full.jpg 2>/dev/null || true
   git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
 
 # 同期 + push (残骸掃除 → fetch → rebase → push を最大 5 回リトライ。

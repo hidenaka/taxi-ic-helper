@@ -517,6 +517,10 @@ def publish(now, state):
 
 # アプリに出す乗り場の写真。号ごとに、タクシーの列が写る範囲を縦長に切り出す(1024x574 の座標)。
 CAM_CROP = {"stall1": (320, 20, 675, 574), "stall2": (410, 60, 740, 574), "stall3": (700, 30, 1024, 574), "stall4": (150, 60, 480, 574)}
+# 2026-10-27 本人「車ではなく左側の待ちの乗客が見えるように・押したら元の画像全体を」。
+# 左側の歩道(待っている乗客)と列の先頭を縦長に切り出す(-wait.jpg)。全体は -full.jpg。
+# 本番が -wait.jpg に切り替わったら、上の CAM_CROP(列の車中心)と stand-cam-N.jpg は外してよい。
+CAM_CROP_WAIT = {"stall1": (80, 0, 440, 574), "stall2": (110, 30, 470, 574), "stall3": (380, 0, 760, 574), "stall4": (0, 40, 340, 574)}
 
 
 def save_cams(now):
@@ -528,11 +532,16 @@ def save_cams(now):
             im = Image.open(fs[-1]).convert("RGB")
             if im.size != (W, H):
                 im = im.resize((W, H))
-            im = im.crop(CAM_CROP[s])
-            im.thumbnail((240, 420))
-            dst = os.path.join(ROOT, f"data/stand-cam-{s[-1]}.jpg")
-            im.save(dst + ".tmp.jpg", quality=68)
-            os.replace(dst + ".tmp.jpg", dst)
+            n = s[-1]
+            outs = [(f"stand-cam-{n}-full.jpg", im, 62)]
+            for name, box in ((f"stand-cam-{n}.jpg", CAM_CROP[s]), (f"stand-cam-{n}-wait.jpg", CAM_CROP_WAIT[s])):
+                t = im.crop(box)
+                t.thumbnail((240, 420))
+                outs.append((name, t, 68))
+            for name, img, q in outs:
+                dst = os.path.join(ROOT, "data", name)
+                img.save(dst + ".tmp.jpg", quality=q)
+                os.replace(dst + ".tmp.jpg", dst)
         except Exception as e:
             print(f"[stand-out] cam {s} failed: {e}")
 
