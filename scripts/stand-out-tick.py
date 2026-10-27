@@ -524,6 +524,8 @@ CAM_CROP_WAIT = {"stall1": (80, 0, 440, 574), "stall2": (110, 30, 470, 574), "st
 
 
 def save_cams(now):
+    # 写真ごとの撮影時刻(元画像のファイル名 YYYY-MM-DD/HHMMSS.jpg)。アプリが写真の上に出す。
+    times = {}
     for s, cfg in STALLS.items():
         fs = sorted(glob.glob(os.path.join(ARCHIVE, cfg["cam"], now.strftime("%Y-%m-%d"), "*.jpg")))
         if not fs:
@@ -544,6 +546,13 @@ def save_cams(now):
                 os.replace(dst + ".tmp.jpg", dst)
         except Exception as e:
             print(f"[stand-out] cam {s} failed: {e}")
+            continue
+        day, hms = fs[-1].split(os.sep)[-2], os.path.basename(fs[-1])[:6]
+        times[n] = f"{day}T{hms[:2]}:{hms[2:4]}:{hms[4:6]}+09:00"
+    if times:
+        dst = os.path.join(ROOT, "data/stand-cam.json")
+        with open(dst + ".tmp", "w") as f: json.dump({"shotAt": times}, f)
+        os.replace(dst + ".tmp", dst)
 
 
 def main():
