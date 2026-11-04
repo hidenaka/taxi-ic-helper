@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "generatedAt": "2026-11-04T23:41:00+09:00",
+  "generatedAt": "2026-11-04T23:47:00+09:00",
   "note": "15分あたりの列移動回数(相対指標)。計測の都合で実際より少なめに出る。出庫台数=列移動回数×横台数(rowWidth)。",
-  "trainedRows": 15013,
+  "trainedRows": 15014,
   "flightApplied": true,
   "learnedLag": {
     "stall1": {
@@ -37,12 +37,12 @@
     "stall4": 8
   },
   "current": {
-    "time": "23:41",
+    "time": "23:47",
     "stalls": {
       "stall1": {
-        "actual": 0,
+        "actual": 1,
         "departure": 0,
-        "forecast": 0.2
+        "forecast": 0.3
       },
       "stall2": {
         "actual": 0,
@@ -51,8 +51,8 @@
       },
       "stall3": {
         "actual": 1,
-        "departure": 1,
-        "forecast": 1.1
+        "departure": 0,
+        "forecast": 0.7
       },
       "stall4": {
         "actual": 0,
@@ -1861,6 +1861,27 @@
         "nightRate": 0.253,
         "imageQcLowRate": 1
       }
+    },
+    {
+      "time": "23:30",
+      "stalls": {
+        "stall1": 1,
+        "stall2": 0,
+        "stall3": 1,
+        "stall4": 0
+      },
+      "quality": {
+        "confidence": "reference",
+        "condition": "night",
+        "reasons": [
+          "night",
+          "image_qc"
+        ],
+        "sampleRows": 3050,
+        "rainRate": 0.132,
+        "nightRate": 0.252,
+        "imageQcLowRate": 1
+      }
     }
   ],
   "slots": [
@@ -2400,7 +2421,7 @@
         "stall1": 0,
         "stall2": 0,
         "stall3": 0,
-        "stall4": 0
+        "stall4": 0.1
       },
       "quality": {
         "confidence": "normal",
@@ -3679,9 +3700,9 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 3043,
+        "sampleRows": 3050,
         "rainRate": 0.132,
-        "nightRate": 0.253,
+        "nightRate": 0.252,
         "imageQcLowRate": 1
       }
     },
@@ -3700,7 +3721,7 @@
           "night",
           "image_qc"
         ],
-        "sampleRows": 3007,
+        "sampleRows": 3011,
         "rainRate": 0.145,
         "nightRate": 0.253,
         "imageQcLowRate": 1
