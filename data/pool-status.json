@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-11T05:18:02+09:00",
+  "generatedAt": "2026-11-11T05:24:10+09:00",
   "total": {
-    "occ": 37,
-    "level": "空き"
+    "occ": 72,
+    "level": "普通"
   },
   "activity": {
     "recent1hDepartures": 0,
@@ -16,44 +16,44 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 0,
+      "occ": 7,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0,
+      "fillRate": 0.25,
       "rankHint": "most-active",
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 2,
+      "occ": 7,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.023,
+      "fillRate": 0.0843,
       "rankHint": null,
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall3": {
       "label": "第3乗り場",
       "terminal": "T2",
-      "occ": 0,
+      "occ": 14,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0,
+      "fillRate": 0.2,
       "rankHint": "most-low",
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 35,
+      "occ": 44,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.5385,
+      "fillRate": 0.7458,
       "rankHint": null,
       "fillMethod": "count"
     }
@@ -64,8 +64,8 @@
       "next60": 0
     },
     "T2": {
-      "next30": 0,
-      "next60": 12
+      "next30": 3,
+      "next60": 16
     }
   },
   "terminalArrivalsList": {
@@ -76,7 +76,7 @@
         "airline": "ANA",
         "fromName": "香港",
         "seatCount": 184,
-        "lobbyExitMinutes": 32,
+        "lobbyExitMinutes": 26,
         "lobbyExitTime": "05:50"
       },
       {
@@ -84,7 +84,7 @@
         "airline": "ANA",
         "fromName": "シドニー",
         "seatCount": 215,
-        "lobbyExitMinutes": 52,
+        "lobbyExitMinutes": 46,
         "lobbyExitTime": "06:10"
       },
       {
@@ -92,8 +92,16 @@
         "airline": "ANA",
         "fromName": "ニューヨーク",
         "seatCount": 264,
-        "lobbyExitMinutes": 57,
+        "lobbyExitMinutes": 51,
         "lobbyExitTime": "06:15"
+      },
+      {
+        "flightNumber": "NH105",
+        "airline": "ANA",
+        "fromName": "ロサンゼルス",
+        "seatCount": 215,
+        "lobbyExitMinutes": 56,
+        "lobbyExitTime": "06:20"
       }
     ]
   },
@@ -103,19 +111,11 @@
     "3": [],
     "4": [
       {
-        "flightNumber": "JL078",
-        "airline": "JAL",
-        "fromName": "マニラ",
-        "seatCount": 200,
-        "lobbyExitMinutes": 2,
-        "lobbyExitTime": "05:20"
-      },
-      {
         "flightNumber": "NH107",
         "airline": "ANA",
         "fromName": "サンフランシスコ",
         "seatCount": 264,
-        "lobbyExitMinutes": 22,
+        "lobbyExitMinutes": 16,
         "lobbyExitTime": "05:40"
       },
       {
@@ -123,7 +123,7 @@
         "airline": "ANA",
         "fromName": "香港",
         "seatCount": 184,
-        "lobbyExitMinutes": 32,
+        "lobbyExitMinutes": 26,
         "lobbyExitTime": "05:50"
       },
       {
@@ -131,7 +131,7 @@
         "airline": "JAL",
         "fromName": "ニューヨーク",
         "seatCount": 339,
-        "lobbyExitMinutes": 42,
+        "lobbyExitMinutes": 36,
         "lobbyExitTime": "06:00"
       },
       {
@@ -139,12 +139,20 @@
         "airline": "ANA",
         "fromName": "シドニー",
         "seatCount": 215,
-        "lobbyExitMinutes": 52,
+        "lobbyExitMinutes": 46,
         "lobbyExitTime": "06:10"
+      },
+      {
+        "flightNumber": "NH159",
+        "airline": "ANA",
+        "fromName": "ニューヨーク",
+        "seatCount": 264,
+        "lobbyExitMinutes": 51,
+        "lobbyExitTime": "06:15"
       }
     ]
   },
   "sourceStale": false,
-  "countSource": "lantern",
-  "cameraLiveAt": "2026-11-11T05:18:13+09:00"
+  "countSource": "yolo",
+  "cameraLiveAt": "2026-11-11T05:24:17+09:00"
 }
