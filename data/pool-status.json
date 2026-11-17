@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-18T05:55:13+09:00",
+  "generatedAt": "2026-11-18T06:01:25+09:00",
   "total": {
-    "occ": 34,
-    "level": "空き"
+    "occ": 73,
+    "level": "普通"
   },
   "activity": {
-    "recent1hDepartures": 2,
+    "recent1hDepartures": 3,
     "typical1h": null,
     "ratio": null,
     "level": "low",
@@ -16,44 +16,44 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 0,
+      "occ": 13,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0,
+      "fillRate": 0.4643,
       "rankHint": null,
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 1,
+      "occ": 8,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.0115,
+      "fillRate": 0.0964,
       "rankHint": "most-low",
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall3": {
       "label": "第3乗り場",
       "terminal": "T2",
-      "occ": 0,
+      "occ": 11,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0,
+      "fillRate": 0.1571,
       "rankHint": null,
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 33,
-      "recent1hDep": 2,
+      "occ": 41,
+      "recent1hDep": 3,
       "waitMin": null,
       "trend": "up",
-      "fillRate": 0.5077,
+      "fillRate": 0.6949,
       "rankHint": "most-active",
       "fillMethod": "count"
     }
@@ -76,7 +76,7 @@
         "airline": "ANA",
         "fromName": "シドニー",
         "seatCount": 215,
-        "lobbyExitMinutes": 15,
+        "lobbyExitMinutes": 9,
         "lobbyExitTime": "06:10"
       },
       {
@@ -84,7 +84,7 @@
         "airline": "ANA",
         "fromName": "ニューヨーク",
         "seatCount": 264,
-        "lobbyExitMinutes": 20,
+        "lobbyExitMinutes": 14,
         "lobbyExitTime": "06:15"
       },
       {
@@ -92,7 +92,7 @@
         "airline": "ANA",
         "fromName": "ロサンゼルス",
         "seatCount": 215,
-        "lobbyExitMinutes": 25,
+        "lobbyExitMinutes": 19,
         "lobbyExitTime": "06:20"
       },
       {
@@ -100,7 +100,7 @@
         "airline": "ANA",
         "fromName": "デリー",
         "seatCount": 215,
-        "lobbyExitMinutes": 50,
+        "lobbyExitMinutes": 44,
         "lobbyExitTime": "06:45"
       },
       {
@@ -108,7 +108,7 @@
         "airline": "ANA",
         "fromName": "シンガポール",
         "seatCount": 215,
-        "lobbyExitMinutes": 50,
+        "lobbyExitMinutes": 44,
         "lobbyExitTime": "06:45"
       }
     ]
@@ -119,19 +119,11 @@
     "3": [],
     "4": [
       {
-        "flightNumber": "JL003",
-        "airline": "JAL",
-        "fromName": "ニューヨーク",
-        "seatCount": 339,
-        "lobbyExitMinutes": 5,
-        "lobbyExitTime": "06:00"
-      },
-      {
         "flightNumber": "NH880",
         "airline": "ANA",
         "fromName": "シドニー",
         "seatCount": 215,
-        "lobbyExitMinutes": 15,
+        "lobbyExitMinutes": 9,
         "lobbyExitTime": "06:10"
       },
       {
@@ -139,7 +131,7 @@
         "airline": "ANA",
         "fromName": "ニューヨーク",
         "seatCount": 264,
-        "lobbyExitMinutes": 20,
+        "lobbyExitMinutes": 14,
         "lobbyExitTime": "06:15"
       },
       {
@@ -147,7 +139,7 @@
         "airline": "ANA",
         "fromName": "ロサンゼルス",
         "seatCount": 215,
-        "lobbyExitMinutes": 25,
+        "lobbyExitMinutes": 19,
         "lobbyExitTime": "06:20"
       },
       {
@@ -155,12 +147,20 @@
         "airline": "JAL",
         "fromName": "バンコク",
         "seatCount": 244,
-        "lobbyExitMinutes": 29,
-        "lobbyExitTime": "06:24"
+        "lobbyExitMinutes": 34,
+        "lobbyExitTime": "06:35"
+      },
+      {
+        "flightNumber": "JL036",
+        "airline": "JAL",
+        "fromName": "シンガポール",
+        "seatCount": 244,
+        "lobbyExitMinutes": 44,
+        "lobbyExitTime": "06:45"
       }
     ]
   },
   "sourceStale": false,
-  "countSource": "lantern",
-  "cameraLiveAt": "2026-11-18T05:55:04+09:00"
+  "countSource": "yolo",
+  "cameraLiveAt": "2026-11-18T06:01:43+09:00"
 }
