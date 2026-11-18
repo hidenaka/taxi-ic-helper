@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-19T04:53:27+09:00",
+  "generatedAt": "2026-11-19T04:59:39+09:00",
   "total": {
-    "occ": 75,
-    "level": "普通"
+    "occ": 50,
+    "level": "空き"
   },
   "activity": {
     "recent1hDepartures": 0,
@@ -16,44 +16,44 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 5,
+      "occ": 1,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.1786,
+      "fillRate": 0.0313,
       "rankHint": "most-active",
-      "fillMethod": "count-fallback"
+      "fillMethod": "lantern"
     },
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 12,
+      "occ": 4,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.1446,
+      "fillRate": 0.046,
       "rankHint": "most-low",
-      "fillMethod": "count-fallback"
+      "fillMethod": "lantern"
     },
     "stall3": {
       "label": "第3乗り場",
       "terminal": "T2",
-      "occ": 12,
+      "occ": 1,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.1714,
+      "fillRate": 0.0135,
       "rankHint": null,
-      "fillMethod": "count-fallback"
+      "fillMethod": "lantern"
     },
     "stall4": {
       "label": "第4乗り場",
       "terminal": "T2",
-      "occ": 46,
+      "occ": 44,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.7797,
+      "fillRate": 0.6769,
       "rankHint": null,
       "fillMethod": "count"
     }
@@ -65,7 +65,7 @@
     },
     "T2": {
       "next30": 3,
-      "next60": 6
+      "next60": 10
     }
   },
   "terminalArrivalsList": {
@@ -76,7 +76,7 @@
         "airline": "ANA",
         "fromName": "深圳",
         "seatCount": 184,
-        "lobbyExitMinutes": 12,
+        "lobbyExitMinutes": 5,
         "lobbyExitTime": "05:05"
       },
       {
@@ -84,8 +84,16 @@
         "airline": "ANA",
         "fromName": "香港",
         "seatCount": 184,
-        "lobbyExitMinutes": 57,
+        "lobbyExitMinutes": 50,
         "lobbyExitTime": "05:50"
+      },
+      {
+        "flightNumber": "NH880",
+        "airline": "ANA",
+        "fromName": "シドニー",
+        "seatCount": 215,
+        "lobbyExitMinutes": 54,
+        "lobbyExitTime": "05:54"
       }
     ]
   },
@@ -99,7 +107,7 @@
         "airline": "JAL",
         "fromName": "マニラ",
         "seatCount": 200,
-        "lobbyExitMinutes": 27,
+        "lobbyExitMinutes": 20,
         "lobbyExitTime": "05:20"
       },
       {
@@ -107,7 +115,7 @@
         "airline": "ANA",
         "fromName": "サンフランシスコ",
         "seatCount": 264,
-        "lobbyExitMinutes": 38,
+        "lobbyExitMinutes": 31,
         "lobbyExitTime": "05:31"
       },
       {
@@ -115,12 +123,20 @@
         "airline": "ANA",
         "fromName": "香港",
         "seatCount": 184,
-        "lobbyExitMinutes": 57,
+        "lobbyExitMinutes": 50,
         "lobbyExitTime": "05:50"
+      },
+      {
+        "flightNumber": "NH880",
+        "airline": "ANA",
+        "fromName": "シドニー",
+        "seatCount": 215,
+        "lobbyExitMinutes": 54,
+        "lobbyExitTime": "05:54"
       }
     ]
   },
   "sourceStale": false,
-  "countSource": "yolo",
-  "cameraLiveAt": "2026-11-19T04:53:48+09:00"
+  "countSource": "lantern",
+  "cameraLiveAt": "2026-11-19T04:59:50+09:00"
 }
