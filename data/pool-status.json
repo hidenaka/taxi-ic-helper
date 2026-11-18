@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-19T04:47:13+09:00",
+  "generatedAt": "2026-11-19T04:53:27+09:00",
   "total": {
-    "occ": 52,
-    "level": "空き"
+    "occ": 75,
+    "level": "普通"
   },
   "activity": {
     "recent1hDepartures": 0,
@@ -16,35 +16,35 @@
     "stall1": {
       "label": "第1乗り場",
       "terminal": "T1",
-      "occ": 1,
+      "occ": 5,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.0313,
+      "fillRate": 0.1786,
       "rankHint": "most-active",
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall2": {
       "label": "第2乗り場",
       "terminal": "T1",
-      "occ": 4,
+      "occ": 12,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.046,
+      "fillRate": 0.1446,
       "rankHint": "most-low",
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall3": {
       "label": "第3乗り場",
       "terminal": "T2",
-      "occ": 1,
+      "occ": 12,
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.0135,
+      "fillRate": 0.1714,
       "rankHint": null,
-      "fillMethod": "lantern"
+      "fillMethod": "count-fallback"
     },
     "stall4": {
       "label": "第4乗り場",
@@ -53,7 +53,7 @@
       "recent1hDep": 0,
       "waitMin": null,
       "trend": "flat",
-      "fillRate": 0.7077,
+      "fillRate": 0.7797,
       "rankHint": null,
       "fillMethod": "count"
     }
@@ -65,7 +65,7 @@
     },
     "T2": {
       "next30": 3,
-      "next60": 3
+      "next60": 6
     }
   },
   "terminalArrivalsList": {
@@ -76,8 +76,16 @@
         "airline": "ANA",
         "fromName": "深圳",
         "seatCount": 184,
-        "lobbyExitMinutes": 18,
+        "lobbyExitMinutes": 12,
         "lobbyExitTime": "05:05"
+      },
+      {
+        "flightNumber": "NH814",
+        "airline": "ANA",
+        "fromName": "香港",
+        "seatCount": 184,
+        "lobbyExitMinutes": 57,
+        "lobbyExitTime": "05:50"
       }
     ]
   },
@@ -91,7 +99,7 @@
         "airline": "JAL",
         "fromName": "マニラ",
         "seatCount": 200,
-        "lobbyExitMinutes": 33,
+        "lobbyExitMinutes": 27,
         "lobbyExitTime": "05:20"
       },
       {
@@ -99,12 +107,20 @@
         "airline": "ANA",
         "fromName": "サンフランシスコ",
         "seatCount": 264,
-        "lobbyExitMinutes": 44,
+        "lobbyExitMinutes": 38,
         "lobbyExitTime": "05:31"
+      },
+      {
+        "flightNumber": "NH814",
+        "airline": "ANA",
+        "fromName": "香港",
+        "seatCount": 184,
+        "lobbyExitMinutes": 57,
+        "lobbyExitTime": "05:50"
       }
     ]
   },
   "sourceStale": false,
-  "countSource": "lantern",
-  "cameraLiveAt": "2026-11-19T04:47:10+09:00"
+  "countSource": "yolo",
+  "cameraLiveAt": "2026-11-19T04:53:48+09:00"
 }
