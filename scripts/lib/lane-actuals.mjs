@@ -25,7 +25,7 @@ const CARRIER_TO_IATA = {
 /** 掲示の便名 ("ANA84 札幌便") → IATA便名 ("NH84")。便番号が無ければ null。 */
 export function noticeNameToFlightNumber(name) {
   const m = String(name ?? '').match(
-    /(JAL|日本航空|ANA|全日空|SKY|スカイマーク|ADO|エアドゥ|エア・ドゥ|SFJ|スターフライヤー|ソラシド|SNA)\s*(\d{1,4})/,
+    /(JAL|日本航空|ANA|全日空|SKY|スカイマーク|ADO|エアドゥ|エア・ドゥ|SFJ|スターフライヤー|ソラシド|SNA)(?:エア)?\s*(\d{1,4})/,
   );
   if (!m) return null;
   const iata = CARRIER_TO_IATA[m[1]];
@@ -62,6 +62,12 @@ export function timeBand(etaText) {
   return 'mid01+';                          // 1時以降
 }
 
+function nightDate(ts) {
+  const t = Date.parse(String(ts ?? ''));
+  if (!Number.isFinite(t)) return String(ts ?? '').slice(0, 10);
+  return new Date(t + (9 - 6) * 3600e3).toISOString().slice(0, 10);
+}
+
 /**
  * 現地掲示の1レコード(pool-notice 履歴の1行)から実績行を作る。
  * 便番号と号が両方あるものだけを返す(号だけ・便名だけの掲示は学習に使えない)。
@@ -71,7 +77,9 @@ export function timeBand(etaText) {
 export function extractLaneActuals(noticeRow, parsed = null) {
   const flights = parsed?.flights ?? noticeRow?.lateFlights?.flights ?? [];
   if (!Array.isArray(flights)) return [];
-  const date = String(noticeRow?.ts ?? '').slice(0, 10);
+  // 掲示は 21時〜翌2時ごろに出る。0時を過ぎた分も同じ夜として数える(6時間戻した日付)。
+  // 暦の日付で数えると、1晩の便が「2回」に化けて傾向が強く見えていた(2026-11-25 修正)。
+  const date = nightDate(noticeRow?.ts);
   if (!date) return [];
   const out = [];
   for (const f of flights) {

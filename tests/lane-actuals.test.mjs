@@ -44,7 +44,7 @@ test('extractLaneActuals: 便番号と号が揃った掲示だけを実績にす
   const rows = extractLaneActuals(row, parsed);
   assert.equal(rows.length, 1);
   assert.deepEqual(rows[0], {
-    date: '2026-08-07', flightNumber: 'NH84', stall: 4, eta: '0:48', pax: 71,
+    date: '2026-08-06', flightNumber: 'NH84', stall: 4, eta: '0:48', pax: 71,
     band: 'mid00', source: 'notice',
   });
 });

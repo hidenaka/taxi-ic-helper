@@ -272,3 +272,22 @@ test('最終便情報(号インライン+AM/PM): 号・時刻・人数が揃う(
 test('normalizeNoticeText: 全角と桁区切りの正規化', () => {
   assert.equal(normalizeNoticeText('２３：４５　約１,４００名'), '23:45 約1400名');
 });
+
+// 2026-08〜10 に読めなかった書き方 (第N乗り場 だけの見出し / 到着出口N号予定 / N号到着予定 / ソラシドエア)
+test("parseFlightNotice: 2026-08〜10 の読めなかった書き方から号を取れる", async () => {
+  const { extractLaneActuals } = await import("../scripts/lib/lane-actuals.mjs");
+  const fx = JSON.parse(readFileSync(new URL("./fixtures/notice-formats-2026-08-10.json", import.meta.url), "utf8"));
+  const expect = {
+    "08-27": { JL528: 1, BC522: 2, NH78: 3, "6J38": 4 },
+    "08-28": { JL528: 2, NH84: 4 },
+    "09-02": { "7G92": 1 },
+    "09-14": { HD38: 3, NH84: 3, HD36: 4 },
+    "09-21": { NH1308: 4 },
+    "10-12": { JL528: 2, NH84: 4 },
+  };
+  for (const [night, want] of Object.entries(expect)) {
+    const r = { ts: fx[night].ts, flightNoticeText: fx[night].text };
+    const got = Object.fromEntries(extractLaneActuals(r, parseFlightNotice(r.flightNoticeText)).map((a) => [a.flightNumber, a.stall]));
+    assert.deepEqual(got, want, night);
+  }
+});

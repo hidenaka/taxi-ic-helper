@@ -82,6 +82,9 @@ export function parseStallHeader(line) {
   if (AIRLINE_RE.test(t)) return null;   // 便名付きは便行
   let m = t.match(/^[・〇○◯]?\s*【?\s*第?([1-4])\s*号\s*(?:乗り?場)?\s*(?:側)?\s*】?\s*[・]?\s*$/);
   if (m) return parseInt(m[1], 10);
+  // "第3乗り場" / "第2乗り場予定" 単独 (号なしの書き方・2026-08-27, 10-12 初出)
+  m = t.match(/^[・〇○◯]?\s*第\s*([1-4])\s*乗り?場\s*(?:予定|側)?\s*$/);
+  if (m) return parseInt(m[1], 10);
   // "4号側" 単独 (【遅延便情報】ブロック内の見出し)
   m = t.match(/^([1-4])号側$/);
   if (m) return parseInt(m[1], 10);
@@ -102,7 +105,10 @@ export function parseTerminalHeader(line) {
 // "両便共に第4乗り場に到着予定です" / "第4乗り場に到着予定です" / "2便共に第3乗り場へ…"
 export function parseExitAssign(line) {
   const t = line.trim();
-  let m = t.match(/到着出口\s*:?\s*第?([1-4])\s*号/);
+  // "到着出口2号予定" だけの行は、後に続く便の見出し (2026-08-28 初出)
+  let m = t.match(/^到着出口\s*:?\s*第?([1-4])\s*号\s*予定$/);
+  if (m) return { stall: parseInt(m[1], 10), scope: 'next' };
+  m = t.match(/到着出口\s*:?\s*第?([1-4])\s*号/);
   if (m) return { stall: parseInt(m[1], 10), scope: 'prev' };
   m = t.match(/出口\s*→\s*第?([1-4])\s*号/);
   if (m) return { stall: parseInt(m[1], 10), scope: 'prev' };
@@ -112,7 +118,10 @@ export function parseExitAssign(line) {
   if (m) return { stall: parseInt(m[1], 10), scope: 'prev' };
   m = t.match(/(両便|\d+\s*便)\s*共に\s*第?([1-4])\s*(?:号|乗り場)/);
   if (m) return { stall: parseInt(m[2], 10), scope: 'all' };
-  m = t.match(/第?([1-4])\s*乗り場に到着予定/);
+  m = t.match(/第?([1-4])\s*乗り場に到着(?:予定|します)/);
+  if (m) return { stall: parseInt(m[1], 10), scope: 'prev' };
+  // "4号到着予定" (2026-09-21 初出)
+  m = t.match(/^([1-4])\s*号\s*到着予定/);
   if (m) return { stall: parseInt(m[1], 10), scope: 'prev' };
   return null;
 }
@@ -277,6 +286,7 @@ export function parseFlightNotice(rawText) {
 
     // 出口指定 → 遡って割り当て
     const exit = parseExitAssign(line);
+    if (exit && exit.scope === 'next') { flushBlock(); ctx = { stall: exit.stall, terminal: ctx.terminal }; continue; }
     if (exit) {
       const hadPending = Boolean(block)
         || out.flights.some((f) => f.stall == null)
