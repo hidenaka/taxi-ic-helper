@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta http-equiv="Pragma" content="no-cache" />
+		<meta http-equiv="Cache-Control" content="no-store, no-cache" />
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta http-equiv="Refresh" content="30">
+		<title>羽田空港タクシー待機所状況</title>
+		<link type='text/css' rel='stylesheet' href='style.css'>
+		<link rel="stylesheet" href="css/header.css">
+		<link rel="stylesheet" href="css/base.css">
+		<link rel="stylesheet" href="css/footer.css">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	</head>
+	<body id="no3">
+		<header class="site-header">
+	<div class="header-container">
+		<h1><a href="index.php">羽田空港TPシステム</a></h1>
+			<nav class="main-navigation">
+				<ul class="nav-list">
+					<li><button class="nav-link-btn" onclick="window.location.reload();" return false;>再読み込み</button></li>
+					<li>
+						<div class="modal_box">
+							<dialog id="favDialog1">
+								<form method="dialog">
+									<div class="waiting_area_button">
+										<button class="no1" onclick="location.href='index.php'">第１待機所</button>
+										<button class="no3" onclick="location.href='no23.php'">第３待機所</button>
+										<button class="no3" onclick="location.href='no23.php#no4'">第４待機所</button>
+									</div>
+									<button class="close_bt">閉じる</button>
+								</form>
+							</dialog>
+							<button class="nav-link-btn" onclick="favDialog1.showModal()">待機所選択</button>
+						</div>
+					</li>
+					<li>
+						<div class="modal_box">
+							<dialog id="favDialog2">
+								<form method="dialog">
+									<div class="taxi_stand_button">
+										<button class="no1" onclick="location.href='hnd1.php'">第１乗り場</button>
+										<button class="no1" onclick="location.href='hnd1.php#no2'">第２乗り場</button>
+										<button class="no2" onclick="location.href='hnd2.php'">第３乗り場</button>
+										<button class="no2" onclick="location.href='hnd2.php#no4'">第４乗り場</button>
+										<button class="no3" onclick="location.href='No5TaxiStand.php'">第５乗り場</button>
+									</div>
+									<button class="close_bt">閉じる</button>
+								</form>
+							</dialog>
+							<button class="nav-link-btn" onclick="favDialog2.showModal()">乗り場選択</button>
+						</div>
+					</li>
+				</ul>
+			</nav>
+	</div>
+</header>
+		
+		<h2>第３待機所の状況（前方）</h2>
+			<p class="text_center">※第3タクシー待機所に直接の入構は出来ませんので、<br />
+必ず第4タクシー待機所を経由してください。<br />
+また、第4タクシー待機所への入路については、<br />
+環八を大鳥居方向から左折です。<br />
+<br />
+【神奈川乗り場休止に伴う運用について】<br />
+運用方法は下記URLをご参照ください。<br />
+令和8年2月1日から令和9年1月31日<br />
+https://www.tokyo-tc.or.jp/driver/uploads/2026_0201_haneda.pdf<br />
+</p>
+		<div align='center'>
+			<img src="Real108.jpg?20261124214538">
+			<br>
+			2026/11/24 21:45:10		</div>
+		<br>
+		<h2>第３待機所の状況（中間）</h2>
+		<div align='center'>
+			<img src="Real109.jpg?20261124214538">
+		</div>
+		<div align='center'>
+			2026/11/24 21:45:15		</div>
+		<br>
+		<h2>第３待機所の状況（後方）</h2>
+		<div align='center'>
+			<img src="Real03.jpg?20261124214538">
+		</div>
+		<div align='center'>
+			2026/11/24 21:45:20		</div>
+		<br>
+		<div align='center'>
+			<br>
+			<h2 id="no4">第４待機所の状況</h2>
+			<p class="text_center">第3待機所に直接の入構はできません。<br />
+必ず第4待機所を経由してください。<br />
+第4待機所への入路は、環八を大鳥居方向から左折です。<br />
+待機所満車の場合は路上待機禁止です。<br />
+待機所運用については、指導員の指示に従ってください。<br />
+<br />
+【第4待機所待機レーン運用について】<br />
+https://www.tokyo-tc.or.jp/news/uploads/2024_0416_haneda.pdf</p>
+		</div>
+		<div align='center'>
+			<img src="Real04.jpg?20261124214538">
+			<br>
+			2026/11/24 21:45:10		</div><br>
+		<footer id="footer">
+	<p><small>Copyright &copy; 公益財団法人 東京タクシーセンター. All Rights Reserved.</small></p>
+</footer>	</body>
+</html>
+

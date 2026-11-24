@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta http-equiv="Pragma" content="no-cache" />
+		<meta http-equiv="Cache-Control" content="no-store, no-cache" />
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta http-equiv="Refresh" content="30">
+		<link rel="stylesheet" href="css/header.css">
+		<link rel="stylesheet" href="css/base.css">
+		<link rel="stylesheet" href="css/footer.css">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>羽田空港タクシー待機所状況</title>
+	</head>
+	<body id="no1">
+		<header class="site-header">
+	<div class="header-container">
+		<h1><a href="index.php">羽田空港TPシステム</a></h1>
+			<nav class="main-navigation">
+				<ul class="nav-list">
+					<li><button class="nav-link-btn" onclick="window.location.reload();" return false;>再読み込み</button></li>
+					<li>
+						<div class="modal_box">
+							<dialog id="favDialog1">
+								<form method="dialog">
+									<div class="waiting_area_button">
+										<button class="no1" onclick="location.href='index.php'">第１待機所</button>
+										<button class="no3" onclick="location.href='no23.php'">第３待機所</button>
+										<button class="no3" onclick="location.href='no23.php#no4'">第４待機所</button>
+									</div>
+									<button class="close_bt">閉じる</button>
+								</form>
+							</dialog>
+							<button class="nav-link-btn" onclick="favDialog1.showModal()">待機所選択</button>
+						</div>
+					</li>
+					<li>
+						<div class="modal_box">
+							<dialog id="favDialog2">
+								<form method="dialog">
+									<div class="taxi_stand_button">
+										<button class="no1" onclick="location.href='hnd1.php'">第１乗り場</button>
+										<button class="no1" onclick="location.href='hnd1.php#no2'">第２乗り場</button>
+										<button class="no2" onclick="location.href='hnd2.php'">第３乗り場</button>
+										<button class="no2" onclick="location.href='hnd2.php#no4'">第４乗り場</button>
+										<button class="no3" onclick="location.href='No5TaxiStand.php'">第５乗り場</button>
+									</div>
+									<button class="close_bt">閉じる</button>
+								</form>
+							</dialog>
+							<button class="nav-link-btn" onclick="favDialog2.showModal()">乗り場選択</button>
+						</div>
+					</li>
+				</ul>
+			</nav>
+	</div>
+</header>
+
+
+		<div align='center'>
+			<h2>第１待機所の状況（南側）</h2>
+			<p id="text_center">末尾規制【偶数】<br />
+<br />
+おもてなしレーンに入構する際は入構表示板を掲出してください。<br />
+<br />
+乗り場運営は、指導員の指示に従ってください。<br />
+<br />
+【第3乗り場中継待機所新設について】<br />
+https://www.tokyo-tc.or.jp/news/driver/000830/<br />
+<br />
+【令和8年度 羽田空港繁忙期における運営方法について】<br />
+https://www.tokyo-tc.or.jp/news/uploads/haneda2026.pdf<br />
+<br />
+【第3乗り場への入路変更 R7年5月12日～】<br />
+https://www.tokyo-tc.or.jp/news/uploads/2025_0512_haneda_route3.pdf<br />
+<br />
+【第1待機所運用変更R7年3月3日～】<br />
+https://www.tokyo-tc.or.jp/news/uploads/20250303_haneda.pdf</p>
+			<img src="Real001.jpg?20261124214538">
+			<br>
+			2026/11/24 21:45:23		</div><br>
+		<div align='center'>
+			<h2>第１待機所の状況（東側）</h2>
+			<img src="Real002.jpg?20261124214538">
+			<br>
+			2026/11/24 21:45:21		</div><br>
+		<footer id="footer">
+	<p><small>Copyright &copy; 公益財団法人 東京タクシーセンター. All Rights Reserved.</small></p>
+</footer>	</body>
+</html>
+
+

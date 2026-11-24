@@ -45,3 +45,12 @@ test('buildPoolNotice: 通常運用の現テキストを束ねる', () => {
   assert.equal(n.flightNoticeText, '');
   assert.match(n.liveText, /末尾規制【奇数】/);
 });
+
+test('extractTdText: 2026-11 の新しい形(<p text_center>)も読める', () => {
+  const n1 = readFileSync(new URL('./fixtures/ttc-index-2026-11.html', import.meta.url), 'utf8');
+  const n23 = readFileSync(new URL('./fixtures/ttc-no23-2026-11.html', import.meta.url), 'utf8');
+  const t1 = extractTdText(n1);
+  assert.match(t1, /^末尾規制【偶数】/);
+  assert.equal(parseTailRegulation(t1), '偶数');
+  assert.match(extractTdText(n23), /第3タクシー待機所に直接の入構は出来ません/);
+});

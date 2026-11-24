@@ -4,7 +4,9 @@
 // 最初の <td>…</td> をタグ除去・改行保持でプレーン化。
 export function extractTdText(html) {
   if (typeof html !== 'string') return '';
-  const m = html.match(/<td>([\s\S]*?)<\/td>/i);
+  // 2026-10-14 ごろサイトが <td> から <p id|class="text_center"> に変わった。両方を読む。
+  const m = html.match(/<td>([\s\S]*?)<\/td>/i)
+    || html.match(/<p\s+(?:id|class)=["\x27]text_center["\x27][^>]*>([\s\S]*?)<\/p>/i);
   if (!m) return '';
   return m[1]
     .replace(/<br\s*\/?>/gi, '\n')
