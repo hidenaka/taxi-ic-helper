@@ -1,6 +1,7 @@
 // ttc.taxi-inf.jp の index.php(第1待機所) / no23.php(第3・第4待機所) の掲示テキストを取得し、
 // data/pool-notice.json を書く。取得失敗時は前回JSONを保持(空上書きしない)。Mac miniで実行。
-import { writeFileSync, appendFileSync } from 'node:fs';
+import { writeFileSync, appendFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { extractTdText, buildPoolNotice } from './lib/pool-notice.mjs';
 import { parseFlightNotice, summarizeFlightNotice } from './lib/notice-flights.mjs';
@@ -30,6 +31,29 @@ if (!ok1 && !ok34) {
   console.error('[pool-notice] both sources failed, keep previous JSON');
   process.exit(0);
 }
+
+// 元のページもそのまま残す(2026-11-24)。読み取りの規則が壊れると、上の履歴には空の文章しか
+// 残らず、あとから読み直せなかった(10/14〜11/24 の6週間ぶんを失った)。時刻と画像の番号だけ
+// 毎回変わるので、それを除いた中身が前回と違うときだけ1行足す。
+const RAW_DIR = join(ROOT, 'data/pool-notice-raw');
+const RAW_LAST = join(RAW_DIR, '.last-hash.json');
+function saveRawIfChanged(pages) {
+  try {
+    mkdirSync(RAW_DIR, { recursive: true });
+    const last = existsSync(RAW_LAST) ? JSON.parse(readFileSync(RAW_LAST, 'utf8')) : {};
+    const day = updatedAt.slice(0, 10);
+    for (const [name, html] of Object.entries(pages)) {
+      if (!html) continue;
+      const stable = html.replace(/\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}|\?\d{14}/g, '');
+      const hash = createHash('sha1').update(stable).digest('hex');
+      if (last[name] === hash) continue;
+      appendFileSync(join(RAW_DIR, `${day}.jsonl`), JSON.stringify({ ts: updatedAt, page: name, html }) + '\n', 'utf8');
+      last[name] = hash;
+    }
+    writeFileSync(RAW_LAST, JSON.stringify(last), 'utf8');
+  } catch (e) { console.error(`[pool-notice] raw save failed: ${e.message}`); }
+}
+saveRawIfChanged({ 'index.php': no1Html, 'no23.php': no34Html });
 
 const notice = buildPoolNotice({
   no1Text: extractTdText(no1Html),
