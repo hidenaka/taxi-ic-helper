@@ -406,6 +406,42 @@ def rebuild_dayprofile(now):
     return prof
 
 
+# 遅れ便が多い夜は、0時〜2時ごろに乗り場から出る台数が増える(2026-11-25 分析: 国内線で1時間以上
+# 遅れた座席1000席あたり、号ごとに 23時+0.12・0時+0.47・1時+0.37・2時+0.25 台。17〜22時はほぼ変わらない)。
+# 遅れの大きさは夜のうちに覚えておき(日付が変わると到着便の一覧が入れ替わるため)、その夜の最大を使う。
+DELAY_K = {23: 0.12, 0: 0.47, 1: 0.37, 2: 0.25}
+DELAY_MIN_SEATS = 4000   # これより少ない夜は、ふだんのばらつきに埋もれるので足さない
+
+
+def night_delay_seats(flights):
+    seats = 0
+    for f in flights or []:
+        if f.get("isInternational"): continue
+        s, e = _hm(f.get("scheduledTime")), _hm(f.get("actualTime") or f.get("estimatedTime"))
+        if s is None or e is None: continue
+        if e < s - 300: e += 1440
+        if e - s >= 60: seats += f.get("seatCount") or 0
+    return seats
+
+
+def delay_boost(now, state, flights):
+    night = (now - timedelta(hours=4)).strftime("%Y-%m-%d")
+    dn = state.get("delayNight") or {}
+    if dn.get("night") != night: dn = {"night": night, "seats": 0}
+    if flights is not None and (now.hour >= 17 or now.hour < 3):
+        dn["seats"] = max(dn["seats"], night_delay_seats(flights))
+    state["delayNight"] = dn
+    seats = dn["seats"]
+    if seats < DELAY_MIN_SEATS: return None
+    today = now.strftime("%Y-%m-%d")
+    hourly = [0.0] * 24
+    for h, k in DELAY_K.items():
+        if (h == 23 and night == today) or (h < 3 and night != today):
+            hourly[h] = round(k * seats / 1000, 1)
+    if not any(hourly): return None
+    return {"seats": seats, "hourly": hourly}
+
+
 def publish(now, state):
     since = now - timedelta(hours=26)
     evs = []
@@ -449,6 +485,7 @@ def publish(now, state):
     except Exception as e:
         print(f"[stand-out] 到着便が読めないので座席数は使わない: {e}")
         flights, seat_typ = None, None
+    boost = delay_boost(now, state, flights)
     stalls = {}
     for s, cfg in STALLS.items():
         if not cfg["enabled"]:
@@ -491,6 +528,8 @@ def publish(now, state):
             # いつもの日の1時間ごとの台数と、その平均に使った日数(7日たまるまでは null)
             "typicalHourly": (dayprof.get(s) or {}).get("hourly"),
             "typicalDays": (dayprof.get(s) or {}).get("days"),
+            # 遅れ便が多い夜の上乗せ(いつもの日の線に足す)。足さない夜は null
+            "delayBoost": boost if (dayprof.get(s) or {}).get("hourly") else None,
             "inQueue": len(st.get("tracks", [])) if fresh else None,
             "lastFrameAt": last,
             "status": "ok" if fresh else "stale",
