@@ -94,6 +94,8 @@ if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/stall3-block-move-ti
 if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/stall1-cell-tick.py || true; fi
 # 乗り場から出た台数(第1〜第4乗り場カメラで1台ずつ数える・2026-10-14〜。今は4号だけ、1〜3号は準備中)。
 if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/stand-out-tick.py || true; fi
+# 日ごとのグラフのページ用に、丸1日数えた日の台数をまとめる(1日1回だけ作り直す・2026-11-26〜)。
+if [ -x .venv/bin/python3 ]; then .venv/bin/python3 scripts/build-stand-days.py || true; fi
 
 # 前進カウント(実測+予測)を data/advance-forecast.json に生成 (fail-safe)。
 # 学習履歴(advance-count-history.jsonl)が無ければ publish 側で skip。
@@ -140,7 +142,7 @@ fi
 # 生履歴 (taxi-pool / slot-occupancy / t3-pool / vehicle-* / movement-shift / t3-front-flow の各 history.jsonl)
 # は Mac mini ローカルのみで保持し push しない (アプリ非配信・8.5G 画像アーカイブから再生成可・GitHub 100MB 制限回避)。
 _tick_commit_and_push() {
-  git add data/lane-patterns.json data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/advance-forecast.json data/pool-notice.json data/stand-out.json data/stand-cam-1.jpg data/stand-cam-2.jpg data/stand-cam-3.jpg data/stand-cam-4.jpg data/stand-cam-1-wait.jpg data/stand-cam-1-full.jpg data/stand-cam-2-wait.jpg data/stand-cam-2-full.jpg data/stand-cam-3-wait.jpg data/stand-cam-3-full.jpg data/stand-cam-4-wait.jpg data/stand-cam-4-full.jpg data/stand-cam.json 2>/dev/null || true
+  git add data/lane-patterns.json data/stall-forecast.json data/stall-pattern-match.json data/forecast-accuracy.json data/stall-ensemble.json data/stall-actuals.json data/coefficient-corrections.json data/throughput-calibration.json data/t3-pool-fill.json data/pool-status.json data/pool-cam-real01.jpg data/pool-cam-real02.jpg data/advance-forecast.json data/pool-notice.json data/stand-out.json data/stand-days.json data/stand-cam-1.jpg data/stand-cam-2.jpg data/stand-cam-3.jpg data/stand-cam-4.jpg data/stand-cam-1-wait.jpg data/stand-cam-1-full.jpg data/stand-cam-2-wait.jpg data/stand-cam-2-full.jpg data/stand-cam-3-wait.jpg data/stand-cam-3-full.jpg data/stand-cam-4-wait.jpg data/stand-cam-4-full.jpg data/stand-cam.json 2>/dev/null || true
   git commit -m "chore(observe): tick $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')" || true
 
 # 同期 + push (残骸掃除 → fetch → rebase → push を最大 5 回リトライ。
