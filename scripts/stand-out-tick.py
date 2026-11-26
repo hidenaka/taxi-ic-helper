@@ -180,6 +180,7 @@ TYPICAL = os.path.join(ROOT, "data/stand-out-typical.json")
 # 「いつもの日」の1時間ごとの台数(アプリの今日1日のグラフに線で重ねる)。1日1回作り直す。
 DAYPROF = os.path.join(ROOT, "data/stand-out-dayprofile.json")
 DAYPROF_DAYS, DAYPROF_MIN = 42, 7
+SAT_STALLS, SAT_MIN = ("stall3",), 3   # 土曜だけ土曜の平均にする号
 
 
 def borrowed_slots(stall, typical, evs, today):
@@ -383,7 +384,9 @@ def rebuild_typical(evs_all, typical, now, max_days=14):
 
 def rebuild_dayprofile(now):
     """号ごとに、丸1日数えた日(0:30までに数え始め23時台まで数えた日)の直近42日で、1時間ごとの平均台数を作る。
-    7日たまるまでは出さない。2026-10-17 の分析で、平日と土日・到着便の座席数で分けても外れは小さくならなかったので、全部の日の平均にする。"""
+    7日たまるまでは出さない。2026-10-17 の分析で、平日と土日・到着便の座席数で分けても外れは小さくならなかったので、全部の日の平均にする。
+    ただし3号の土曜だけは、直近42日の土曜(3日以上あるとき)の平均にする(2026-11-26 分析: 3号の土曜は1日あたり約40台多く、
+    1日の外れが 25.6→18.6 台に減った。ほかの号と曜日は差が見えなかった)。"""
     today = now.strftime("%Y-%m-%d")
     lo = (now - timedelta(days=DAYPROF_DAYS + 1)).strftime("%Y-%m-%d")
     byday = {}
@@ -400,8 +403,12 @@ def rebuild_dayprofile(now):
     for stall in STALLS:
         days = sorted(d for (st, d), v in byday.items() if st == stall and v["first"][11:16] <= "00:30" and v["last"][11:13] == "23")[-DAYPROF_DAYS:]
         if len(days) >= DAYPROF_MIN:
+            kind = "all"
+            if stall in SAT_STALLS and now.weekday() == 5:
+                sats = [d for d in days if datetime.strptime(d, "%Y-%m-%d").weekday() == 5]
+                if len(sats) >= SAT_MIN: days, kind = sats, "sat"
             prof[stall] = {"hourly": [round(sum(byday[(stall, d)]["h"][h] for d in days) / len(days), 1) for h in range(24)],
-                           "days": len(days), "from": days[0], "to": days[-1]}
+                           "days": len(days), "from": days[0], "to": days[-1], "kind": kind}
     with open(DAYPROF, "w") as f: json.dump(prof, f, ensure_ascii=False)
     return prof
 
@@ -528,6 +535,7 @@ def publish(now, state):
             # いつもの日の1時間ごとの台数と、その平均に使った日数(7日たまるまでは null)
             "typicalHourly": (dayprof.get(s) or {}).get("hourly"),
             "typicalDays": (dayprof.get(s) or {}).get("days"),
+            "typicalKind": (dayprof.get(s) or {}).get("kind"),
             # 遅れ便が多い夜の上乗せ(いつもの日の線に足す)。足さない夜は null
             "delayBoost": boost if (dayprof.get(s) or {}).get("hourly") else None,
             "inQueue": len(st.get("tracks", [])) if fresh else None,
